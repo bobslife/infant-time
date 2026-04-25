@@ -33,6 +33,7 @@ import {
 
 export interface EventSummary {
   lastFeedAt: string | null;
+  lastFeedAmountMl: number | null;
   lastPoopAt: string | null;
   todayFeedCount: number;
   todayFeedTotalMl: number;
@@ -43,11 +44,51 @@ export interface EventSummary {
   latestFeedGapMinutes: number | null;
 }
 
+export interface DailyEventSummary {
+  feedCount: number;
+  feedTotalMl: number;
+  sleepCount: number;
+  sleepMinutes: number;
+  peeCount: number;
+  poopCount: number;
+}
+
 function sortDescending(events: BabyEvent[]) {
   return [...events].sort(
     (left, right) =>
       new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
   );
+}
+
+export function buildDailySummary(events: BabyEvent[], date: string): DailyEventSummary {
+  const targetStart = new Date(`${date}T00:00:00`);
+  const targetEnd = new Date(targetStart);
+  targetEnd.setDate(targetEnd.getDate() + 1);
+
+  const dayEvents = events.filter((event) => {
+    const occurred = new Date(event.occurredAt).getTime();
+    return occurred >= targetStart.getTime() && occurred < targetEnd.getTime();
+  });
+
+  const feedEvents = dayEvents.filter((event) => event.eventType === "feed");
+  const sleepEvents = dayEvents.filter((event) => event.eventType === "sleep");
+
+  return {
+    feedCount: feedEvents.length,
+    feedTotalMl: feedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    sleepCount: sleepEvents.length,
+    sleepMinutes: sleepEvents.reduce((total, event) => {
+      if (!event.endedAt) {
+        return total;
+      }
+
+      const start = new Date(event.occurredAt).getTime();
+      const end = new Date(event.endedAt).getTime();
+      return total + Math.max(0, Math.round((end - start) / 60000));
+    }, 0),
+    peeCount: dayEvents.filter((event) => event.eventType === "pee").length,
+    poopCount: dayEvents.filter((event) => event.eventType === "poop").length,
+  };
 }
 
 function buildSummary(events: BabyEvent[]): EventSummary {
@@ -83,6 +124,7 @@ function buildSummary(events: BabyEvent[]): EventSummary {
 
   return {
     lastFeedAt,
+    lastFeedAmountMl: feedEvents[0]?.amountMl ?? null,
     lastPoopAt,
     todayFeedCount: todayFeedEvents.length,
     todayFeedTotalMl: todayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),

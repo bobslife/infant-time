@@ -49,17 +49,17 @@ export function formatRelativeSince(value: string | null, now = new Date()): str
   }
 
   if (totalMinutes < 60) {
-    return `지금으로부터 ${totalMinutes}분 전`;
+    return `${totalMinutes}분 전`;
   }
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
   if (minutes === 0) {
-    return `지금으로부터 ${hours}시간 전`;
+    return `${hours}시간 전`;
   }
 
-  return `지금으로부터 ${hours}시간 ${minutes}분 전`;
+  return `${hours}시간 ${minutes}분 전`;
 }
 
 export function isOverFourHours(lastIso: string | null, now = new Date()): boolean {

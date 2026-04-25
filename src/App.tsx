@@ -4,15 +4,16 @@ import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
 import { LoginScreen } from "./components/LoginScreen";
 import { ProfileScreen } from "./components/ProfileScreen";
-import { SummaryCards } from "./components/SummaryCards";
-import { useEvents } from "./features/events/useEvents";
+import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
+import { buildDailySummary, useEvents } from "./features/events/useEvents";
 import { BabyEvent } from "./types";
 
-type AppTab = "home" | "input" | "profile";
+type AppTab = "home" | "input" | "analysis" | "profile";
 
 const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "home", icon: "/icons/home.svg", label: "홈" },
   { id: "input", icon: "/icons/action.svg", label: "활동" },
+  { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
 ];
 
@@ -36,6 +37,7 @@ export function App() {
   } = useEvents();
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
+  const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
     if (editingEvent) {
@@ -99,6 +101,13 @@ export function App() {
         ) : null}
         {activeTab === "input" ? (
           <EventInputScreen baby={baby} editingEvent={editingEvent} onSubmit={handleAddEvent} />
+        ) : null}
+        {activeTab === "analysis" ? (
+          <AnalysisCards
+            selectedDate={analysisDate}
+            summary={buildDailySummary(events, analysisDate)}
+            onDateChange={setAnalysisDate}
+          />
         ) : null}
         {activeTab === "profile" ? (
           <ProfileScreen baby={baby} user={user} onSignOut={signOut} />
