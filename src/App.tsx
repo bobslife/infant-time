@@ -6,7 +6,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
-import { BabyEvent } from "./types";
+import { BabyEvent, EventType } from "./types";
 
 type AppTab = "home" | "input" | "analysis" | "profile";
 
@@ -20,6 +20,7 @@ const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
 export function App() {
   const {
     user,
+    babies,
     baby,
     events,
     isLoading,
@@ -31,12 +32,15 @@ export function App() {
     useLocalPreview,
     signOut,
     createBaby,
+    joinBaby,
+    selectBaby,
     addEvent,
     updateEvent,
     deleteEvent,
   } = useEvents();
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
+  const [inputEventType, setInputEventType] = useState<EventType>("feed");
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
@@ -54,9 +58,19 @@ export function App() {
     setActiveTab("input");
   }
 
+  function handleQuickAdd(eventType: EventType) {
+    setEditingEvent(null);
+    setInputEventType(eventType);
+    setActiveTab("input");
+  }
+
   function handleTabChange(tab: AppTab) {
     if (tab !== "input") {
       setEditingEvent(null);
+    }
+
+    if (tab === "input") {
+      setInputEventType("feed");
     }
 
     setActiveTab(tab);
@@ -64,11 +78,8 @@ export function App() {
 
   if (isLoading) {
     return (
-      <main className="auth-shell">
-        <section className="auth-panel">
-          <p className="eyebrow">Infant Time</p>
-          <h1>불러오는 중입니다</h1>
-        </section>
+      <main className="loading-shell" aria-label="Infant Time">
+        <img className="loading-logo" src="/infant-time-log.png" alt="Infant Time" />
       </main>
     );
   }
@@ -86,7 +97,7 @@ export function App() {
   }
 
   if (!baby) {
-    return <BabySetup errorMessage={errorMessage} onSubmit={createBaby} />;
+    return <BabySetup errorMessage={errorMessage} onSubmit={createBaby} onJoin={joinBaby} />;
   }
 
   return (
@@ -95,12 +106,17 @@ export function App() {
         {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
         {activeTab === "home" ? (
           <section className="screen-stack">
-            <SummaryCards baby={baby} summary={summary} />
+            <SummaryCards baby={baby} summary={summary} onQuickAdd={handleQuickAdd} />
             <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
           </section>
         ) : null}
         {activeTab === "input" ? (
-          <EventInputScreen baby={baby} editingEvent={editingEvent} onSubmit={handleAddEvent} />
+          <EventInputScreen
+            baby={baby}
+            editingEvent={editingEvent}
+            initialEventType={inputEventType}
+            onSubmit={handleAddEvent}
+          />
         ) : null}
         {activeTab === "analysis" ? (
           <AnalysisCards
@@ -110,13 +126,21 @@ export function App() {
           />
         ) : null}
         {activeTab === "profile" ? (
-          <ProfileScreen baby={baby} user={user} onSignOut={signOut} />
+          <ProfileScreen
+            babies={babies}
+            baby={baby}
+            user={user}
+            onCreateBaby={createBaby}
+            onJoinBaby={joinBaby}
+            onSelectBaby={selectBaby}
+            onSignOut={signOut}
+          />
         ) : null}
       </div>
       <nav className="bottom-tabs" aria-label="주요 메뉴">
         {tabs.map((tab) => (
           <button
-            className={activeTab === tab.id ? "active" : ""}
+            className={`tab-${tab.id}${activeTab === tab.id ? " active" : ""}`}
             key={tab.id}
             type="button"
             onClick={() => handleTabChange(tab.id)}

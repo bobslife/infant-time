@@ -4,12 +4,14 @@ import {
   BabyProfile,
   CreateBabyInput,
   CreateEventInput,
+  JoinBabyInput,
   UpdateEventInput,
 } from "../../types";
 import { mockEvents } from "./mockEvents";
 
 const EVENTS_STORAGE_KEY = "infant-time-events";
-const BABY_STORAGE_KEY = "infant-time-baby";
+const BABIES_STORAGE_KEY = "infant-time-babies";
+const SELECTED_BABY_STORAGE_KEY = "infant-time-selected-baby";
 const LOCAL_USER_ID = "local-user";
 
 export const localUser: AppUser = {
@@ -24,16 +26,6 @@ function sortDescending(events: BabyEvent[]): BabyEvent[] {
     (left, right) =>
       new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
   );
-}
-
-function defaultBaby(): BabyProfile {
-  return {
-    id: "local-baby",
-    ownerId: LOCAL_USER_ID,
-    name: "아기",
-    birthDate: new Date().toISOString().slice(0, 10),
-    createdAt: new Date().toISOString(),
-  };
 }
 
 function readEvents(): BabyEvent[] {
@@ -52,16 +44,47 @@ function writeEvents(events: BabyEvent[]) {
   window.localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(sortDescending(events)));
 }
 
-export async function getLocalBaby(): Promise<BabyProfile | null> {
-  const saved = window.localStorage.getItem(BABY_STORAGE_KEY);
+function readBabies(): BabyProfile[] {
+  const saved = window.localStorage.getItem(BABIES_STORAGE_KEY);
 
   if (!saved) {
-    const baby = defaultBaby();
-    window.localStorage.setItem(BABY_STORAGE_KEY, JSON.stringify(baby));
-    return baby;
+    return [];
   }
 
-  return JSON.parse(saved) as BabyProfile;
+  return JSON.parse(saved) as BabyProfile[];
+}
+
+function writeBabies(babies: BabyProfile[]) {
+  window.localStorage.setItem(BABIES_STORAGE_KEY, JSON.stringify(babies));
+}
+
+function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const existingCodes = new Set(readBabies().map((baby) => baby.inviteCode));
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = Array.from({ length: 8 }, () =>
+      alphabet[Math.floor(Math.random() * alphabet.length)],
+    ).join("");
+
+    if (!existingCodes.has(code)) {
+      return code;
+    }
+  }
+
+  return crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+}
+
+export async function listLocalBabies(): Promise<BabyProfile[]> {
+  return readBabies();
+}
+
+export async function getSelectedLocalBabyId(): Promise<string | null> {
+  return window.localStorage.getItem(SELECTED_BABY_STORAGE_KEY);
+}
+
+export async function setSelectedLocalBabyId(babyId: string): Promise<void> {
+  window.localStorage.setItem(SELECTED_BABY_STORAGE_KEY, babyId);
 }
 
 export async function createLocalBaby(input: CreateBabyInput): Promise<BabyProfile> {
@@ -70,11 +93,24 @@ export async function createLocalBaby(input: CreateBabyInput): Promise<BabyProfi
     ownerId: LOCAL_USER_ID,
     name: input.name,
     birthDate: input.birthDate,
+    inviteCode: generateInviteCode(),
     createdAt: new Date().toISOString(),
   };
 
-  window.localStorage.setItem(BABY_STORAGE_KEY, JSON.stringify(baby));
-  writeEvents([]);
+  writeBabies([...readBabies(), baby]);
+  await setSelectedLocalBabyId(baby.id);
+  return baby;
+}
+
+export async function joinLocalBaby(input: JoinBabyInput): Promise<BabyProfile> {
+  const inviteCode = input.inviteCode.trim().toUpperCase();
+  const baby = readBabies().find((item) => item.inviteCode === inviteCode);
+
+  if (!baby) {
+    throw new Error("해당 아기 코드를 찾지 못했습니다.");
+  }
+
+  await setSelectedLocalBabyId(baby.id);
   return baby;
 }
 

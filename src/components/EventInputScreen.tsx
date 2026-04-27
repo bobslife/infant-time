@@ -12,6 +12,7 @@ import { toLocalDateTimeInputValue } from "../lib/time";
 interface EventInputScreenProps {
   baby: BabyProfile;
   editingEvent?: BabyEvent | null;
+  initialEventType?: EventType;
   onSubmit: (input: CreateEventInput) => Promise<void>;
 }
 
@@ -40,8 +41,13 @@ function toInputDateTime(value: string | null | undefined): string {
   return value ? toLocalDateTimeInputValue(new Date(value)) : toLocalDateTimeInputValue();
 }
 
-export function EventInputScreen({ baby, editingEvent, onSubmit }: EventInputScreenProps) {
-  const [eventType, setEventType] = useState<EventType>("feed");
+export function EventInputScreen({
+  baby,
+  editingEvent,
+  initialEventType = "feed",
+  onSubmit,
+}: EventInputScreenProps) {
+  const [eventType, setEventType] = useState<EventType>(initialEventType);
   const [occurredAt, setOccurredAt] = useState(toLocalDateTimeInputValue());
   const [endedAt, setEndedAt] = useState(toLocalDateTimeInputValue());
   const [amountMl, setAmountMl] = useState(100);
@@ -53,7 +59,7 @@ export function EventInputScreen({ baby, editingEvent, onSubmit }: EventInputScr
   useEffect(() => {
     if (!editingEvent) {
       const now = toLocalDateTimeInputValue();
-      setEventType("feed");
+      setEventType(initialEventType);
       setOccurredAt(now);
       setEndedAt(now);
       setAmountMl(100);
@@ -70,7 +76,7 @@ export function EventInputScreen({ baby, editingEvent, onSubmit }: EventInputScr
     setPoopAmount(editingEvent.poopAmount ?? "normal");
     setPoopColor(editingEvent.poopColor ?? "ocher");
     setNote(editingEvent.note ?? "");
-  }, [editingEvent]);
+  }, [editingEvent, initialEventType]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

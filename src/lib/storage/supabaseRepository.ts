@@ -5,6 +5,7 @@ import {
   BabyProfile,
   CreateBabyInput,
   CreateEventInput,
+  JoinBabyInput,
   UpdateEventInput,
 } from "../../types";
 
@@ -13,6 +14,7 @@ interface BabyRow {
   owner_id: string;
   name: string;
   birth_date: string;
+  invite_code: string;
   created_at: string;
 }
 
@@ -28,6 +30,10 @@ interface EventRow {
   poop_color: BabyEvent["poopColor"];
   note: string | null;
   created_at: string;
+}
+
+interface BabyMemberRow {
+  baby_id: string;
 }
 
 export function mapSupabaseUser(user: User): AppUser {
@@ -52,8 +58,16 @@ function mapBaby(row: BabyRow): BabyProfile {
     ownerId: row.owner_id,
     name: row.name,
     birthDate: row.birth_date,
+    inviteCode: row.invite_code,
     createdAt: row.created_at,
   };
+}
+
+function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 8 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join(
+    "",
+  );
 }
 
 function mapEvent(row: EventRow): BabyEvent {
@@ -84,23 +98,52 @@ export async function ensureProfile(client: SupabaseClient, user: AppUser) {
   }
 }
 
-export async function getSupabaseBaby(
+export async function listSupabaseBabies(
   client: SupabaseClient,
   userId: string,
-): Promise<BabyProfile | null> {
-  const { data, error } = await client
+): Promise<BabyProfile[]> {
+  const { data: owned, error: ownedError } = await client
     .from("babies")
-    .select("id, owner_id, name, birth_date, created_at")
+    .select("id, owner_id, name, birth_date, invite_code, created_at")
     .eq("owner_id", userId)
     .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle<BabyRow>();
+    .returns<BabyRow[]>();
 
-  if (error) {
-    throw error;
+  if (ownedError) {
+    throw ownedError;
   }
 
-  return data ? mapBaby(data) : null;
+  const { data: memberships, error: membershipError } = await client
+    .from("baby_members")
+    .select("baby_id")
+    .eq("user_id", userId)
+    .returns<BabyMemberRow[]>();
+
+  if (membershipError) {
+    throw membershipError;
+  }
+
+  const ownedIds = new Set(owned.map((row) => row.id));
+  const memberBabyIds = memberships
+    .map((membership) => membership.baby_id)
+    .filter((babyId) => !ownedIds.has(babyId));
+
+  if (memberBabyIds.length === 0) {
+    return owned.map(mapBaby);
+  }
+
+  const { data: joined, error: joinedError } = await client
+    .from("babies")
+    .select("id, owner_id, name, birth_date, invite_code, created_at")
+    .in("id", memberBabyIds)
+    .order("created_at", { ascending: true })
+    .returns<BabyRow[]>();
+
+  if (joinedError) {
+    throw joinedError;
+  }
+
+  return [...owned, ...joined].map(mapBaby);
 }
 
 export async function createSupabaseBaby(
@@ -114,9 +157,27 @@ export async function createSupabaseBaby(
       owner_id: userId,
       name: input.name,
       birth_date: input.birthDate,
+      invite_code: generateInviteCode(),
     })
-    .select("id, owner_id, name, birth_date, created_at")
+    .select("id, owner_id, name, birth_date, invite_code, created_at")
     .single<BabyRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapBaby(data);
+}
+
+export async function joinSupabaseBaby(
+  client: SupabaseClient,
+  userId: string,
+  input: JoinBabyInput,
+): Promise<BabyProfile> {
+  const { data, error } = await client.rpc("join_baby_by_invite_code", {
+    target_invite_code: input.inviteCode.trim().toUpperCase(),
+    target_user_id: userId,
+  }).single<BabyRow>();
 
   if (error) {
     throw error;

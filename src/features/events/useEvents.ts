@@ -4,9 +4,12 @@ import {
   createLocalBaby,
   createLocalEvent,
   deleteLocalEvent,
-  getLocalBaby,
+  getSelectedLocalBabyId,
+  joinLocalBaby,
+  listLocalBabies,
   listLocalEvents,
   localUser,
+  setSelectedLocalBabyId,
   updateLocalEvent,
 } from "../../lib/storage/localRepository";
 import {
@@ -14,7 +17,8 @@ import {
   createSupabaseEvent,
   deleteSupabaseEvent,
   ensureProfile,
-  getSupabaseBaby,
+  joinSupabaseBaby,
+  listSupabaseBabies,
   listSupabaseEvents,
   mapSupabaseUser,
   updateSupabaseEvent,
@@ -26,6 +30,7 @@ import {
   BabyProfile,
   CreateBabyInput,
   CreateEventInput,
+  JoinBabyInput,
   SignInInput,
   SignUpInput,
   UpdateEventInput,
@@ -139,10 +144,29 @@ function buildSummary(events: BabyEvent[]): EventSummary {
 export function useEvents() {
   const client = useMemo(() => getSupabaseClient(), []);
   const [user, setUser] = useState<AppUser | null>(client ? null : localUser);
+  const [babies, setBabies] = useState<BabyProfile[]>([]);
   const [baby, setBaby] = useState<BabyProfile | null>(null);
   const [events, setEvents] = useState<BabyEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const selectedBabyStorageKey = useCallback(
+    (userId: string) => `infant-time-selected-baby-${userId}`,
+    [],
+  );
+
+  const loadEventsForBaby = useCallback(
+    async (nextUser: AppUser, nextBaby: BabyProfile) => {
+      const nextEvents =
+        client && !nextUser.isLocal
+          ? await listSupabaseEvents(client, nextBaby.id)
+          : await listLocalEvents(nextBaby.id);
+
+      setBaby(nextBaby);
+      setEvents(nextEvents);
+    },
+    [client],
+  );
 
   const loadForUser = useCallback(
     async (nextUser: AppUser) => {
@@ -152,22 +176,39 @@ export function useEvents() {
       try {
         if (client && !nextUser.isLocal) {
           await ensureProfile(client, nextUser);
-          const nextBaby = await getSupabaseBaby(client, nextUser.id);
-          setBaby(nextBaby);
-          setEvents(nextBaby ? await listSupabaseEvents(client, nextBaby.id) : []);
+          const nextBabies = await listSupabaseBabies(client, nextUser.id);
+          const savedBabyId = window.localStorage.getItem(selectedBabyStorageKey(nextUser.id));
+          const nextBaby =
+            nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
+
+          setBabies(nextBabies);
+          if (nextBaby) {
+            await loadEventsForBaby(nextUser, nextBaby);
+          } else {
+            setBaby(null);
+            setEvents([]);
+          }
           return;
         }
 
-        const nextBaby = await getLocalBaby();
-        setBaby(nextBaby);
-        setEvents(nextBaby ? await listLocalEvents(nextBaby.id) : []);
+        const nextBabies = await listLocalBabies();
+        const savedBabyId = await getSelectedLocalBabyId();
+        const nextBaby = nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
+
+        setBabies(nextBabies);
+        if (nextBaby) {
+          await loadEventsForBaby(nextUser, nextBaby);
+        } else {
+          setBaby(null);
+          setEvents([]);
+        }
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
       } finally {
         setIsLoading(false);
       }
     },
-    [client],
+    [client, loadEventsForBaby, selectedBabyStorageKey],
   );
 
   useEffect(() => {
@@ -199,6 +240,7 @@ export function useEvents() {
 
       if (!sessionUser) {
         setUser(null);
+        setBabies([]);
         setBaby(null);
         setEvents([]);
         setIsLoading(false);
@@ -307,6 +349,7 @@ export function useEvents() {
     }
 
     setUser(client ? null : localUser);
+    setBabies([]);
     setBaby(null);
     setEvents([]);
 
@@ -328,10 +371,68 @@ export function useEvents() {
           ? await createSupabaseBaby(client, user.id, input)
           : await createLocalBaby(input);
 
+      setBabies((current) => [...current, created]);
       setBaby(created);
       setEvents([]);
+      if (client && !user.isLocal) {
+        window.localStorage.setItem(selectedBabyStorageKey(user.id), created.id);
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "아기 정보를 저장하지 못했습니다.");
+    }
+  }
+
+  async function joinBaby(input: JoinBabyInput) {
+    if (!user) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      const joined =
+        client && !user.isLocal
+          ? await joinSupabaseBaby(client, user.id, input)
+          : await joinLocalBaby(input);
+
+      setBabies((current) => {
+        if (current.some((item) => item.id === joined.id)) {
+          return current;
+        }
+
+        return [...current, joined];
+      });
+      if (client && !user.isLocal) {
+        window.localStorage.setItem(selectedBabyStorageKey(user.id), joined.id);
+      }
+      await loadEventsForBaby(user, joined);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "아기 코드를 등록하지 못했습니다.");
+    }
+  }
+
+  async function selectBaby(babyId: string) {
+    if (!user) {
+      return;
+    }
+
+    const selected = babies.find((item) => item.id === babyId);
+    if (!selected) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      if (client && !user.isLocal) {
+        window.localStorage.setItem(selectedBabyStorageKey(user.id), selected.id);
+      } else {
+        await setSelectedLocalBabyId(selected.id);
+      }
+
+      await loadEventsForBaby(user, selected);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "아기 데이터를 불러오지 못했습니다.");
     }
   }
 
@@ -397,6 +498,7 @@ export function useEvents() {
 
   return {
     user,
+    babies,
     baby,
     events,
     isLoading,
@@ -408,6 +510,8 @@ export function useEvents() {
     useLocalPreview,
     signOut,
     createBaby,
+    joinBaby,
+    selectBaby,
     addEvent,
     updateEvent,
     deleteEvent,

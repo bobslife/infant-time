@@ -6,14 +6,15 @@ import {
   formatTime,
   isOverFourHours,
 } from "../lib/time";
-import { BabyProfile } from "../types";
+import { BabyProfile, EventType } from "../types";
 
 interface SummaryCardsProps {
   baby: BabyProfile;
   summary: EventSummary;
+  onQuickAdd: (eventType: EventType) => void;
 }
 
-export function SummaryCards({ baby, summary }: SummaryCardsProps) {
+export function SummaryCards({ baby, summary, onQuickAdd }: SummaryCardsProps) {
   const warning = isOverFourHours(summary.lastFeedAt);
 
   return (
@@ -30,19 +31,19 @@ export function SummaryCards({ baby, summary }: SummaryCardsProps) {
           <p className="hero-copy">오늘의 돌봄 기록을 한 화면에서 확인할 수 있습니다.</p>
         )}
         <div className="hero-grid">
-          <article className="metric-card">
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
             <span>마지막 수유</span>
             <strong>{summary.lastFeedAt ? formatTime(summary.lastFeedAt) : "없음"}</strong>
             <small>
               {formatRelativeSince(summary.lastFeedAt)}
               {summary.lastFeedAmountMl !== null ? ` · ${summary.lastFeedAmountMl} ml` : ""}
             </small>
-          </article>
-          <article className="metric-card">
+          </button>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("poop")}>
             <span>마지막 대변</span>
             <strong>{summary.lastPoopAt ? formatTime(summary.lastPoopAt) : "없음"}</strong>
             <small>{formatRelativeSince(summary.lastPoopAt)}</small>
-          </article>
+          </button>
         </div>
       </section>
     </>

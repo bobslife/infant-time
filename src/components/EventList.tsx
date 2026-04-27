@@ -1,6 +1,6 @@
 import { PointerEvent, useState } from "react";
 import { BabyEvent } from "../types";
-import { formatDateTime, formatDurationMinutes } from "../lib/time";
+import { formatDurationMinutes, formatTime } from "../lib/time";
 
 interface EventListProps {
   events: BabyEvent[];
@@ -64,9 +64,56 @@ function eventDetail(event: BabyEvent): string {
   return "소변 기록";
 }
 
+function eventDateKey(event: BabyEvent): string {
+  const occurred = new Date(event.occurredAt);
+  const year = occurred.getFullYear();
+  const month = `${occurred.getMonth() + 1}`.padStart(2, "0");
+  const date = `${occurred.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${date}`;
+}
+
+function formatDateHeader(dateKey: string): string {
+  const [year, month, date] = dateKey.split("-").map(Number);
+  const target = new Date(year, month - 1, date);
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${`${today.getMonth() + 1}`.padStart(2, "0")}-${`${today.getDate()}`.padStart(2, "0")}`;
+
+  const formatted = new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(target);
+
+  return dateKey === todayKey ? `오늘 · ${formatted}` : formatted;
+}
+
+function groupEventsByDate(events: BabyEvent[]) {
+  const groups = new Map<string, BabyEvent[]>();
+
+  events.forEach((event) => {
+    const key = eventDateKey(event);
+    groups.set(key, [...(groups.get(key) ?? []), event]);
+  });
+
+  return Array.from(groups.entries()).map(([dateKey, groupEvents]) => {
+    const feedTotalMl = groupEvents
+      .filter((event) => event.eventType === "feed")
+      .reduce((total, event) => total + (event.amountMl ?? 0), 0);
+    const poopCount = groupEvents.filter((event) => event.eventType === "poop").length;
+
+    return {
+      dateKey,
+      events: groupEvents,
+      feedTotalMl,
+      poopCount,
+    };
+  });
+}
+
 export function EventList({ events, onDelete, onEdit }: EventListProps) {
   const [dragStart, setDragStart] = useState<{ id: string; x: number } | null>(null);
   const [openedId, setOpenedId] = useState<string | null>(null);
+  const groupedEvents = groupEventsByDate(events);
 
   function handlePointerDown(event: PointerEvent<HTMLElement>, babyEvent: BabyEvent) {
     setDragStart({ id: babyEvent.id, x: event.clientX });
@@ -109,32 +156,44 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
         </div>
       </div>
       <div className="event-list">
-        {events.map((event) => (
-          <div className="event-swipe" key={event.id}>
-            <button
-              className="event-delete-button"
-              type="button"
-              onClick={() => void handleDelete(event.id)}
-            >
-              삭제
-            </button>
-            <article
-              className={`event-row ${openedId === event.id ? "delete-open" : ""}`}
-              onPointerDown={(pointerEvent) => handlePointerDown(pointerEvent, event)}
-              onPointerUp={(pointerEvent) => handlePointerUp(pointerEvent, event)}
-            >
-              <div className={`event-chip ${event.eventType}`}>
-                <img alt={eventLabels[event.eventType]} src={eventIcons[event.eventType]} />
-              </div>
-              <div className="event-copy">
-                <strong>{formatDateTime(event.occurredAt)}</strong>
-                <span>{eventDetail(event)}</span>
-              </div>
-            </article>
-          </div>
+        {groupedEvents.map((group) => (
+          <section className="event-date-group" key={group.dateKey}>
+            <div className="event-date-heading">
+              <strong>{formatDateHeader(group.dateKey)}</strong>
+              <span>
+                총 수유량 {group.feedTotalMl}ml · 대변 {group.poopCount}회
+              </span>
+            </div>
+            <div className="event-date-list">
+              {group.events.map((event) => (
+                <div className="event-swipe" key={event.id}>
+                  <button
+                    className="event-delete-button"
+                    type="button"
+                    onClick={() => void handleDelete(event.id)}
+                  >
+                    삭제
+                  </button>
+                  <article
+                    className={`event-row ${openedId === event.id ? "delete-open" : ""}`}
+                    onPointerDown={(pointerEvent) => handlePointerDown(pointerEvent, event)}
+                    onPointerUp={(pointerEvent) => handlePointerUp(pointerEvent, event)}
+                  >
+                    <div className={`event-chip ${event.eventType}`}>
+                      <img alt={eventLabels[event.eventType]} src={eventIcons[event.eventType]} />
+                    </div>
+                    <div className="event-copy">
+                      <strong>{formatTime(event.occurredAt)}</strong>
+                      <span>{eventDetail(event)}</span>
+                    </div>
+                  </article>
+                </div>
+              ))}
+            </div>
+          </section>
         ))}
         {events.length === 0 ? <p className="empty-copy">아직 기록이 없습니다.</p> : null}
-      </div>
+              </div>
     </section>
   );
 }

@@ -9,6 +9,7 @@ export interface BabyProfile {
   ownerId: string;
   name: string;
   birthDate: string;
+  inviteCode: string;
   createdAt: string;
 }
 
@@ -29,6 +30,10 @@ export interface BabyEvent {
 export interface CreateBabyInput {
   name: string;
   birthDate: string;
+}
+
+export interface JoinBabyInput {
+  inviteCode: string;
 }
 
 export interface CreateEventInput {
