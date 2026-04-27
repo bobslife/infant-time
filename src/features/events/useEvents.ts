@@ -471,7 +471,7 @@ export function useEvents() {
     try {
       const updated =
         client && !user.isLocal
-          ? await updateSupabaseEvent(client, user.id, input)
+          ? await updateSupabaseEvent(client, input)
           : await updateLocalEvent(input);
 
       setEvents((current) =>
@@ -491,7 +491,7 @@ export function useEvents() {
 
     try {
       if (client && !user.isLocal) {
-        await deleteSupabaseEvent(client, user.id, eventId);
+        await deleteSupabaseEvent(client, eventId);
       } else {
         await deleteLocalEvent(eventId);
       }

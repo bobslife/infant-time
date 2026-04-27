@@ -174,12 +174,12 @@ with check (
 );
 
 drop policy if exists "events_update_own" on events;
-create policy "events_update_own"
+drop policy if exists "events_update_accessible_baby" on events;
+create policy "events_update_accessible_baby"
 on events for update
 to authenticated
 using (
-  user_id = auth.uid()
-  and exists (
+  exists (
     select 1
     from babies
     where babies.id = events.baby_id
@@ -195,8 +195,7 @@ using (
   )
 )
 with check (
-  user_id = auth.uid()
-  and exists (
+  exists (
     select 1
     from babies
     where babies.id = events.baby_id
@@ -213,12 +212,12 @@ with check (
 );
 
 drop policy if exists "events_delete_own" on events;
-create policy "events_delete_own"
+drop policy if exists "events_delete_accessible_baby" on events;
+create policy "events_delete_accessible_baby"
 on events for delete
 to authenticated
 using (
-  user_id = auth.uid()
-  and exists (
+  exists (
     select 1
     from babies
     where babies.id = events.baby_id

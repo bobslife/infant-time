@@ -238,7 +238,6 @@ export async function createSupabaseEvent(
 
 export async function updateSupabaseEvent(
   client: SupabaseClient,
-  userId: string,
   input: UpdateEventInput,
 ): Promise<BabyEvent> {
   const { data, error } = await client
@@ -253,7 +252,6 @@ export async function updateSupabaseEvent(
       note: input.note || null,
     })
     .eq("id", input.id)
-    .eq("user_id", userId)
     .select(
       "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, poop_amount, poop_color, note, created_at",
     )
@@ -268,10 +266,9 @@ export async function updateSupabaseEvent(
 
 export async function deleteSupabaseEvent(
   client: SupabaseClient,
-  userId: string,
   eventId: string,
 ): Promise<void> {
-  const { error } = await client.from("events").delete().eq("id", eventId).eq("user_id", userId);
+  const { error } = await client.from("events").delete().eq("id", eventId);
 
   if (error) {
     throw error;
