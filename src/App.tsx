@@ -74,10 +74,11 @@ export function App() {
     if (editingEvent) {
       await updateEvent({ ...input, id: editingEvent.id });
       setEditingEvent(null);
-    } else {
-      await addEvent(input);
+      setActiveTab("home");
+      return;
     }
-    setActiveTab("home");
+
+    await addEvent(input);
   }
 
   function handleEditEvent(event: BabyEvent) {
@@ -141,18 +142,29 @@ export function App() {
               onQuickAdd={handleQuickAdd}
             />
             <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
+            <div className="floating-cta" aria-label="빠른 기록">
+              <button type="button" className="floating-cta-secondary" onClick={() => handleQuickAdd("poop")}>
+                대변
+              </button>
+              <button type="button" className="floating-cta-primary" onClick={() => handleQuickAdd("feed")}>
+                수유 기록하기
+              </button>
+            </div>
           </section>
         ) : null}
         {activeTab === "input" ? (
           <EventInputScreen
             baby={baby}
             editingEvent={editingEvent}
+            events={events}
             initialEventType={inputEventType}
             onSubmit={handleAddEvent}
+            onUpdateEvent={updateEvent}
           />
         ) : null}
         {activeTab === "analysis" ? (
           <AnalysisCards
+            events={events}
             selectedDate={analysisDate}
             summary={buildDailySummary(events, analysisDate)}
             onDateChange={setAnalysisDate}

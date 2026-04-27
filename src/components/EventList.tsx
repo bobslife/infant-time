@@ -38,7 +38,7 @@ const poopColorLabels = {
 
 function eventDetail(event: BabyEvent): string {
   if (event.eventType === "feed") {
-    return `수유 ${event.amountMl ?? 0}ml`;
+    return `${event.amountMl ?? 0}ml`;
   }
 
   if (event.eventType === "sleep") {
@@ -52,16 +52,16 @@ function eventDetail(event: BabyEvent): string {
         (new Date(event.endedAt).getTime() - new Date(event.occurredAt).getTime()) / 60000,
       ),
     );
-    return `수면 ${formatDurationMinutes(minutes)}`;
+    return formatDurationMinutes(minutes);
   }
 
   if (event.eventType === "poop") {
     const amount = event.poopAmount ? poopAmountLabels[event.poopAmount] : "양 미입력";
     const color = event.poopColor ? poopColorLabels[event.poopColor] : "색상 미입력";
-    return `대변 ${amount} · ${color}`;
+    return `${color} · ${amount}`;
   }
 
-  return "소변 기록";
+  return "기록";
 }
 
 function eventDateKey(event: BabyEvent): string {
@@ -149,13 +149,13 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
   }
 
   return (
-    <section className="panel">
+    <section className="panel recent-panel">
       <div className="section-heading">
         <div>
           <h2>최근 기록</h2>
         </div>
       </div>
-      <div className="event-list">
+      <div className="event-list timeline-list">
         {groupedEvents.map((group) => (
           <section className="event-date-group" key={group.dateKey}>
             <div className="event-date-heading">
@@ -179,11 +179,12 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     onPointerDown={(pointerEvent) => handlePointerDown(pointerEvent, event)}
                     onPointerUp={(pointerEvent) => handlePointerUp(pointerEvent, event)}
                   >
+                    <time>{formatTime(event.occurredAt)}</time>
                     <div className={`event-chip ${event.eventType}`}>
                       <img alt={eventLabels[event.eventType]} src={eventIcons[event.eventType]} />
                     </div>
                     <div className="event-copy">
-                      <strong>{formatTime(event.occurredAt)}</strong>
+                      <strong>{eventLabels[event.eventType]}</strong>
                       <span>{eventDetail(event)}</span>
                     </div>
                   </article>
@@ -193,7 +194,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
           </section>
         ))}
         {events.length === 0 ? <p className="empty-copy">아직 기록이 없습니다.</p> : null}
-              </div>
+      </div>
     </section>
   );
 }

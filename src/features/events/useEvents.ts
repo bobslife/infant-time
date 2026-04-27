@@ -31,6 +31,8 @@ import {
   CreateBabyInput,
   CreateEventInput,
   JoinBabyInput,
+  PoopAmount,
+  PoopColor,
   SignInInput,
   SignUpInput,
   UpdateEventInput,
@@ -40,6 +42,8 @@ export interface EventSummary {
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
   lastPoopAt: string | null;
+  lastPoopAmount: PoopAmount | null;
+  lastPoopColor: PoopColor | null;
   todayFeedCount: number;
   todayFeedTotalMl: number;
   todaySleepCount: number;
@@ -131,6 +135,8 @@ function buildSummary(events: BabyEvent[]): EventSummary {
     lastFeedAt,
     lastFeedAmountMl: feedEvents[0]?.amountMl ?? null,
     lastPoopAt,
+    lastPoopAmount: poopEvents[0]?.poopAmount ?? null,
+    lastPoopColor: poopEvents[0]?.poopColor ?? null,
     todayFeedCount: todayFeedEvents.length,
     todayFeedTotalMl: todayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
     todaySleepCount: sleepEvents.length,
