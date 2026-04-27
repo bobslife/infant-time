@@ -44,6 +44,18 @@ function toInputDateTime(value: string | null | undefined): string {
   return value ? toLocalDateTimeInputValue(new Date(value)) : toLocalDateTimeInputValue();
 }
 
+function toInputDate(value: string): string {
+  return value.slice(0, 10);
+}
+
+function toInputTime(value: string): string {
+  return value.slice(11, 16);
+}
+
+function combineDateAndTime(date: string, time: string): string {
+  return `${date}T${time}`;
+}
+
 function getSleepDuration(startIso: string, now: Date): string {
   const minutes = Math.max(0, Math.floor((now.getTime() - new Date(startIso).getTime()) / 60000));
   return formatDurationMinutes(minutes);
@@ -59,6 +71,8 @@ export function EventInputScreen({
 }: EventInputScreenProps) {
   const [eventType, setEventType] = useState<EventType>(initialEventType);
   const [occurredAt, setOccurredAt] = useState(toLocalDateTimeInputValue());
+  const [quickDate, setQuickDate] = useState(toInputDate(toLocalDateTimeInputValue()));
+  const [quickTime, setQuickTime] = useState(toInputTime(toLocalDateTimeInputValue()));
   const [endedAt, setEndedAt] = useState(toLocalDateTimeInputValue());
   const [amountMl, setAmountMl] = useState(100);
   const [poopAmount, setPoopAmount] = useState<PoopAmount>("normal");
@@ -95,6 +109,8 @@ export function EventInputScreen({
       const current = toLocalDateTimeInputValue();
       setEventType(initialEventType);
       setOccurredAt(current);
+      setQuickDate(toInputDate(current));
+      setQuickTime(toInputTime(current));
       setEndedAt(current);
       setAmountMl(100);
       setPoopAmount("normal");
@@ -105,7 +121,10 @@ export function EventInputScreen({
     }
 
     setEventType(editingEvent.eventType);
-    setOccurredAt(toInputDateTime(editingEvent.occurredAt));
+    const nextOccurredAt = toInputDateTime(editingEvent.occurredAt);
+    setOccurredAt(nextOccurredAt);
+    setQuickDate(toInputDate(nextOccurredAt));
+    setQuickTime(toInputTime(nextOccurredAt));
     setEndedAt(toInputDateTime(editingEvent.endedAt));
     setAmountMl(editingEvent.amountMl ?? 100);
     setPoopAmount(editingEvent.poopAmount ?? "normal");
@@ -118,6 +137,29 @@ export function EventInputScreen({
     setToastMessage(message);
   }
 
+  function handleQuickDateChange(value: string) {
+    setQuickDate(value);
+    setOccurredAt(combineDateAndTime(value, quickTime));
+  }
+
+  function handleQuickTimeChange(value: string) {
+    setQuickTime(value);
+    setOccurredAt(combineDateAndTime(quickDate, value));
+  }
+
+  function buildCurrentInput(): CreateEventInput {
+    return {
+      babyId: baby.id,
+      eventType,
+      occurredAt,
+      endedAt: eventType === "sleep" && editingEvent?.endedAt ? endedAt : null,
+      amountMl: eventType === "feed" ? amountMl : null,
+      poopAmount: eventType === "poop" ? poopAmount : null,
+      poopColor: eventType === "poop" ? poopColor : null,
+      note: note.trim() || undefined,
+    };
+  }
+
   async function submitQuick(input: CreateEventInput, message: string) {
     setIsSubmitting(true);
 
@@ -125,6 +167,8 @@ export function EventInputScreen({
       await onSubmit(input);
       const current = toLocalDateTimeInputValue();
       setOccurredAt(current);
+      setQuickDate(toInputDate(current));
+      setQuickTime(toInputTime(current));
       setEndedAt(current);
       setNote("");
       showSavedToast(message);
@@ -138,16 +182,7 @@ export function EventInputScreen({
     setIsSubmitting(true);
 
     try {
-      await onSubmit({
-        babyId: baby.id,
-        eventType,
-        occurredAt,
-        endedAt: eventType === "sleep" ? endedAt : null,
-        amountMl: eventType === "feed" ? amountMl : null,
-        poopAmount: eventType === "poop" ? poopAmount : null,
-        poopColor: eventType === "poop" ? poopColor : null,
-        note: note.trim() || undefined,
-      });
+      await onSubmit(buildCurrentInput());
 
       showSavedToast(editingEvent ? "수정했어요" : "저장했어요");
     } finally {
@@ -156,11 +191,16 @@ export function EventInputScreen({
   }
 
   async function handleQuickFeed() {
+    if (editingEvent) {
+      await submitQuick(buildCurrentInput(), "수유 기록 수정");
+      return;
+    }
+
     await submitQuick(
       {
         babyId: baby.id,
         eventType: "feed",
-        occurredAt: toLocalDateTimeInputValue(),
+        occurredAt,
         endedAt: null,
         amountMl,
         poopAmount: null,
@@ -172,6 +212,11 @@ export function EventInputScreen({
   }
 
   async function handleSleepAction() {
+    if (editingEvent) {
+      await submitQuick(buildCurrentInput(), "수면 기록 수정");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -194,7 +239,7 @@ export function EventInputScreen({
       await onSubmit({
         babyId: baby.id,
         eventType: "sleep",
-        occurredAt: toLocalDateTimeInputValue(),
+        occurredAt,
         endedAt: null,
         amountMl: null,
         poopAmount: null,
@@ -208,11 +253,16 @@ export function EventInputScreen({
   }
 
   async function handleQuickPee() {
+    if (editingEvent) {
+      await submitQuick(buildCurrentInput(), "소변 기록 수정");
+      return;
+    }
+
     await submitQuick(
       {
         babyId: baby.id,
         eventType: "pee",
-        occurredAt: toLocalDateTimeInputValue(),
+        occurredAt,
         endedAt: null,
         amountMl: null,
         poopAmount: null,
@@ -224,11 +274,16 @@ export function EventInputScreen({
   }
 
   async function handleQuickPoop() {
+    if (editingEvent) {
+      await submitQuick(buildCurrentInput(), "대변 기록 수정");
+      return;
+    }
+
     await submitQuick(
       {
         babyId: baby.id,
         eventType: "poop",
-        occurredAt: toLocalDateTimeInputValue(),
+        occurredAt,
         endedAt: null,
         amountMl: null,
         poopAmount,
@@ -331,57 +386,56 @@ export function EventInputScreen({
           </div>
         ) : null}
 
+        <div className="quick-time-card" aria-label="기록 시간">
+          <label>
+            <span>날짜</span>
+            <input
+              type="date"
+              value={quickDate}
+              onChange={(event) => handleQuickDateChange(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>시간</span>
+            <input
+              type="time"
+              value={quickTime}
+              onChange={(event) => handleQuickTimeChange(event.target.value)}
+            />
+          </label>
+        </div>
+
         <div className="quick-button-row">
           {eventType === "feed" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickFeed()}>
-              수유 기록하기
+              {editingEvent ? "수유 수정하기" : "수유 기록하기"}
             </button>
           ) : null}
           {eventType === "sleep" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {ongoingSleep ? "지금 깨어남" : "지금 재우기"}
+              {editingEvent ? "수면 수정하기" : ongoingSleep ? "지금 깨어남" : "지금 재우기"}
             </button>
           ) : null}
           {eventType === "pee" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickPee()}>
-              소변 바로 기록
+              {editingEvent ? "소변 수정하기" : "소변 바로 기록"}
             </button>
           ) : null}
           {eventType === "poop" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickPoop()}>
-              대변 바로 기록
+              {editingEvent ? "대변 수정하기" : "대변 바로 기록"}
             </button>
           ) : null}
         </div>
 
         <button className="detail-toggle" type="button" onClick={() => setShowDetails((current) => !current)}>
-          {showDetails ? "상세 입력 닫기" : "시간/메모 수정"}
+          {showDetails ? "메모 닫기" : "메모 수정"}
         </button>
       </section>
 
       {showDetails ? (
         <section className="panel">
           <form className="entry-form" onSubmit={handleSubmit}>
-            <label className="field">
-              <span>{eventType === "sleep" ? "수면 시작" : "기록 시각"}</span>
-              <input
-                type="datetime-local"
-                value={occurredAt}
-                onChange={(event) => setOccurredAt(event.target.value)}
-              />
-            </label>
-
-            {eventType === "sleep" ? (
-              <label className="field">
-                <span>수면 종료</span>
-                <input
-                  type="datetime-local"
-                  value={endedAt}
-                  onChange={(event) => setEndedAt(event.target.value)}
-                />
-              </label>
-            ) : null}
-
             <label className="field">
               <span>메모</span>
               <input
@@ -392,7 +446,7 @@ export function EventInputScreen({
             </label>
 
             <button className="primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "저장 중..." : editingEvent ? "수정" : "상세 기록 저장"}
+              {isSubmitting ? "저장 중..." : editingEvent ? "수정" : "메모 저장"}
             </button>
           </form>
         </section>
