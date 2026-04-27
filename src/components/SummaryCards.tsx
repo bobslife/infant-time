@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { DailyEventSummary, EventSummary } from "../features/events/useEvents";
 import {
   formatAge,
@@ -10,12 +11,45 @@ import { BabyProfile, EventType } from "../types";
 
 interface SummaryCardsProps {
   baby: BabyProfile;
+  feedIntervalMinutes: number;
   summary: EventSummary;
+  onFeedIntervalChange: (minutes: number) => void;
   onQuickAdd: (eventType: EventType) => void;
 }
 
-export function SummaryCards({ baby, summary, onQuickAdd }: SummaryCardsProps) {
+function formatUntilNextFeed(lastFeedAt: string | null, intervalMinutes: number, now: Date): string {
+  if (!lastFeedAt) {
+    return "최근 수유 기록 없음";
+  }
+
+  const nextFeedAt = new Date(new Date(lastFeedAt).getTime() + intervalMinutes * 60000);
+  const diffMinutes = Math.ceil((nextFeedAt.getTime() - now.getTime()) / 60000);
+
+  if (diffMinutes === 0) {
+    return "수유 시간입니다";
+  }
+
+  if (diffMinutes <= 0) {
+    return `${formatDurationMinutes(Math.abs(diffMinutes))} 지남`;
+  }
+
+  return `${formatDurationMinutes(diffMinutes)} 남음`;
+}
+
+export function SummaryCards({
+  baby,
+  feedIntervalMinutes,
+  summary,
+  onFeedIntervalChange,
+  onQuickAdd,
+}: SummaryCardsProps) {
+  const [now, setNow] = useState(new Date());
   const warning = isOverFourHours(summary.lastFeedAt);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <>
@@ -33,17 +67,38 @@ export function SummaryCards({ baby, summary, onQuickAdd }: SummaryCardsProps) {
         <div className="hero-grid">
           <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
             <span>마지막 수유</span>
-            <strong>{summary.lastFeedAt ? formatTime(summary.lastFeedAt) : "없음"}</strong>
-            <small>
-              {formatRelativeSince(summary.lastFeedAt)}
-              {summary.lastFeedAmountMl !== null ? ` · ${summary.lastFeedAmountMl} ml` : ""}
-            </small>
+            <div className="metric-value">
+              <strong>{summary.lastFeedAt ? formatTime(summary.lastFeedAt) : "없음"}</strong>
+              <small>
+                {formatRelativeSince(summary.lastFeedAt, now)}
+                {summary.lastFeedAmountMl !== null ? ` · ${summary.lastFeedAmountMl} ml` : ""}
+              </small>
+            </div>
           </button>
           <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("poop")}>
             <span>마지막 대변</span>
-            <strong>{summary.lastPoopAt ? formatTime(summary.lastPoopAt) : "없음"}</strong>
-            <small>{formatRelativeSince(summary.lastPoopAt)}</small>
+            <div className="metric-value">
+              <strong>{summary.lastPoopAt ? formatTime(summary.lastPoopAt) : "없음"}</strong>
+              <small>{formatRelativeSince(summary.lastPoopAt, now)}</small>
+            </div>
           </button>
+        </div>
+        <div className="feed-interval-card">
+          <label>
+            <span>수유 텀</span>
+            <select
+              value={feedIntervalMinutes}
+              onChange={(event) => onFeedIntervalChange(Number(event.target.value))}
+            >
+              <option value={120}>2시간</option>
+              <option value={150}>2시간 30분</option>
+              <option value={180}>3시간</option>
+              <option value={210}>3시간 30분</option>
+              <option value={240}>4시간</option>
+              <option value={300}>5시간</option>
+            </select>
+          </label>
+          <strong>{formatUntilNextFeed(summary.lastFeedAt, feedIntervalMinutes, now)}</strong>
         </div>
       </section>
     </>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
@@ -16,6 +16,12 @@ const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
 ];
+
+const DEFAULT_FEED_INTERVAL_MINUTES = 180;
+
+function getFeedIntervalStorageKey(babyId: string) {
+  return `infant-time-feed-interval-${babyId}`;
+}
 
 export function App() {
   const {
@@ -42,6 +48,27 @@ export function App() {
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
+  const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
+
+  useEffect(() => {
+    if (!baby) {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(getFeedIntervalStorageKey(baby.id));
+    const parsed = saved ? Number(saved) : DEFAULT_FEED_INTERVAL_MINUTES;
+    setFeedIntervalMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FEED_INTERVAL_MINUTES);
+  }, [baby]);
+
+  function handleFeedIntervalChange(nextMinutes: number) {
+    if (!baby) {
+      return;
+    }
+
+    const safeMinutes = Math.max(30, Math.min(720, nextMinutes));
+    setFeedIntervalMinutes(safeMinutes);
+    window.localStorage.setItem(getFeedIntervalStorageKey(baby.id), String(safeMinutes));
+  }
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
     if (editingEvent) {
@@ -106,7 +133,13 @@ export function App() {
         {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
         {activeTab === "home" ? (
           <section className="screen-stack">
-            <SummaryCards baby={baby} summary={summary} onQuickAdd={handleQuickAdd} />
+            <SummaryCards
+              baby={baby}
+              feedIntervalMinutes={feedIntervalMinutes}
+              summary={summary}
+              onFeedIntervalChange={handleFeedIntervalChange}
+              onQuickAdd={handleQuickAdd}
+            />
             <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
           </section>
         ) : null}

@@ -120,6 +120,7 @@ button {
 
 .page-frame {
   width: min(100%, 760px);
+  min-width: 0;
   margin: 0 auto;
 }
 
@@ -197,6 +198,14 @@ button {
   text-align: left;
 }
 
+.hero-grid .metric-button {
+  display: grid;
+  grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 74px;
+}
+
 .metric-button:active {
   transform: translateY(1px);
 }
@@ -220,11 +229,59 @@ button {
   font-size: 1.28rem;
 }
 
+.metric-value {
+  min-width: 0;
+  text-align: right;
+}
+
+.metric-value strong {
+  margin-top: 0;
+}
+
 .metric-card small {
   display: block;
   margin-top: 6px;
   color: var(--color-text-muted);
   font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.feed-interval-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.feed-interval-card label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.feed-interval-card select {
+  min-width: 108px;
+  min-height: 38px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.feed-interval-card strong {
+  color: var(--color-blue-strong);
+  font-size: 0.98rem;
+  white-space: nowrap;
 }
 
 .compact small {
@@ -236,6 +293,7 @@ button {
 
 .panel {
   padding: 18px;
+  min-width: 0;
 }
 
 .compact {
@@ -256,10 +314,16 @@ button {
 
 .analysis-header {
   display: grid;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .analysis-header input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
   min-height: 44px;
   border: 1px solid var(--color-line);
   border-radius: 8px;
@@ -815,17 +879,26 @@ button {
   }
 
   .hero-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero h1 {
     font-size: 2.2rem;
   }
+
+  .feed-interval-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .feed-interval-card strong {
+    justify-self: end;
+  }
 }
 
 @media (min-width: 641px) {
   .hero-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .summary-grid {
