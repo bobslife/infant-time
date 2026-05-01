@@ -587,6 +587,7 @@ button {
 .feed-timeline-chart {
   position: relative;
   min-height: 142px;
+  min-width: 0;
   border-radius: 8px;
   padding: 18px 10px 28px;
   background:
@@ -594,6 +595,24 @@ button {
     linear-gradient(to bottom, rgba(25, 31, 40, 0.05) 1px, transparent 1px),
     #f8fafc;
   background-size: 33.333% 100%, 100% 34px;
+}
+
+.chart-with-y-axis {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chart-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 0 28px;
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: right;
 }
 
 .feed-marker {
@@ -621,6 +640,7 @@ button {
 
 .line-chart {
   min-height: 150px;
+  min-width: 0;
   border-radius: 8px;
   padding: 10px;
   background: #f8fafc;
@@ -656,6 +676,7 @@ button {
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
   min-height: 170px;
+  min-width: 0;
   align-items: end;
   padding-top: 6px;
 }
@@ -1058,19 +1079,32 @@ button {
   gap: 6px;
 }
 
-.quick-status span {
+.sleep-status-card {
+  display: grid;
+  gap: 8px;
+  border-radius: 24px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(25, 31, 40, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.quick-status span,
+.sleep-status-card span {
   color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
-.quick-status strong {
+.quick-status strong,
+.sleep-status-card strong {
   color: #111827;
   font-size: 2.25rem;
   line-height: 1.05;
 }
 
-.quick-status small {
+.quick-status small,
+.sleep-status-card small {
   color: var(--color-text-soft);
   font-size: 0.94rem;
   font-weight: 800;
@@ -1111,7 +1145,16 @@ button {
 
 .quick-time-card {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+
+.sleep-time-editor {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
@@ -1124,13 +1167,22 @@ button {
   min-width: 0;
 }
 
-.quick-time-card span {
+.sleep-time-editor label {
+  display: grid;
+  flex: 0 0 calc(50% - 5px);
+  gap: 6px;
+  min-width: 0;
+}
+
+.quick-time-card span,
+.sleep-time-editor span {
   color: var(--color-text-muted);
   font-size: 0.76rem;
   font-weight: 900;
 }
 
-.quick-time-card input {
+.quick-time-card input,
+.sleep-time-editor input {
   width: 100%;
   min-width: 0;
   min-height: 48px;

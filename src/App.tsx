@@ -78,6 +78,24 @@ export function App() {
       return;
     }
 
+    if (input.eventType === "feed") {
+      const ongoingSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt);
+
+      if (ongoingSleep && new Date(input.occurredAt).getTime() >= new Date(ongoingSleep.occurredAt).getTime()) {
+        await updateEvent({
+          id: ongoingSleep.id,
+          babyId: ongoingSleep.babyId,
+          eventType: "sleep",
+          occurredAt: ongoingSleep.occurredAt,
+          endedAt: input.occurredAt,
+          amountMl: null,
+          poopAmount: null,
+          poopColor: null,
+          note: ongoingSleep.note,
+        });
+      }
+    }
+
     await addEvent(input);
   }
 

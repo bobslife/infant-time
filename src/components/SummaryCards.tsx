@@ -323,17 +323,44 @@ function getInsight(summary: DailyEventSummary, averageInterval: number | null, 
   };
 }
 
-function TrendBars({ data }: { data: DayTrend[] }) {
-  const maxFeed = Math.max(1, ...data.map((item) => item.feedTotalMl));
-  const maxSleep = Math.max(1, ...data.map((item) => item.sleepMinutes));
+function formatAxisMinutes(minutes: number): string {
+  if (minutes >= 60) {
+    const hours = minutes / 60;
+    return `${Number.isInteger(hours) ? hours : hours.toFixed(1)}시간`;
+  }
+
+  return `${minutes}분`;
+}
+
+function ChartAxisLabels({ labels }: { labels: string[] }) {
+  return (
+    <div className="chart-y-axis" aria-hidden="true">
+      {labels.map((label) => (
+        <span key={label}>{label}</span>
+      ))}
+    </div>
+  );
+}
+
+function TrendBars({
+  data,
+  valueKey,
+  maxValue,
+  tone,
+}: {
+  data: DayTrend[];
+  valueKey: "feedTotalMl" | "sleepMinutes";
+  maxValue: number;
+  tone: "feed" | "sleep";
+}) {
+  const safeMax = Math.max(1, maxValue);
 
   return (
     <div className="trend-bars">
       {data.map((item) => (
         <div className="trend-day" key={item.dateKey}>
           <div className="trend-stack">
-            <i className="feed" style={{ height: `${Math.max(4, (item.feedTotalMl / maxFeed) * 100)}%` }} />
-            <i className="sleep" style={{ height: `${Math.max(4, (item.sleepMinutes / maxSleep) * 100)}%` }} />
+            <i className={tone} style={{ height: `${Math.max(4, (item[valueKey] / safeMax) * 100)}%` }} />
           </div>
           <span>{item.label}</span>
         </div>
@@ -349,26 +376,29 @@ function FeedTimelineChart({ feeds }: { feeds: BabyEvent[] }) {
   const maxAmount = Math.max(120, ...sortedFeeds.map((event) => event.amountMl ?? 0));
 
   return (
-    <div className="feed-timeline-chart">
-      {sortedFeeds.length === 0 ? <p className="empty-copy">수유 기록이 없습니다.</p> : null}
-      {sortedFeeds.map((event) => {
-        const occurred = new Date(event.occurredAt);
-        const left = ((occurred.getHours() * 60 + occurred.getMinutes()) / 1440) * 100;
-        const height = Math.max(18, ((event.amountMl ?? 0) / maxAmount) * 78);
+    <div className="chart-with-y-axis">
+      <ChartAxisLabels labels={[`${maxAmount}ml`, `${Math.round(maxAmount / 2)}ml`, "0ml"]} />
+      <div className="feed-timeline-chart">
+        {sortedFeeds.length === 0 ? <p className="empty-copy">수유 기록이 없습니다.</p> : null}
+        {sortedFeeds.map((event) => {
+          const occurred = new Date(event.occurredAt);
+          const left = ((occurred.getHours() * 60 + occurred.getMinutes()) / 1440) * 100;
+          const height = Math.max(18, ((event.amountMl ?? 0) / maxAmount) * 78);
 
-        return (
-          <span
-            className="feed-marker"
-            key={event.id}
-            style={{ left: `${left}%`, height: `${height}%` }}
-            title={`${formatTime(event.occurredAt)} ${event.amountMl ?? 0}ml`}
-          />
-        );
-      })}
-      <div className="chart-axis">
-        <span>0시</span>
-        <span>12시</span>
-        <span>24시</span>
+          return (
+            <span
+              className="feed-marker"
+              key={event.id}
+              style={{ left: `${left}%`, height: `${height}%` }}
+              title={`${formatTime(event.occurredAt)} ${event.amountMl ?? 0}ml`}
+            />
+          );
+        })}
+        <div className="chart-axis">
+          <span>0시</span>
+          <span>12시</span>
+          <span>24시</span>
+        </div>
       </div>
     </div>
   );
@@ -383,17 +413,20 @@ function IntervalLineChart({ intervals }: { intervals: number[] }) {
   });
 
   return (
-    <div className="line-chart">
-      {intervals.length === 0 ? <p className="empty-copy">간격 계산에는 수유 기록 2개 이상이 필요합니다.</p> : null}
-      <svg aria-label="수유 간격 변화 차트" viewBox="0 0 100 92" preserveAspectRatio="none">
-        <line x1="8" x2="92" y1="84" y2="84" />
-        <line x1="8" x2="8" y1="12" y2="84" />
-        {points.length > 0 ? <polyline points={points.join(" ")} /> : null}
-        {points.map((point) => {
-          const [cx, cy] = point.split(",");
-          return <circle cx={cx} cy={cy} key={point} r="1.8" />;
-        })}
-      </svg>
+    <div className="chart-with-y-axis">
+      <ChartAxisLabels labels={[formatAxisMinutes(maxInterval), formatAxisMinutes(Math.round(maxInterval / 2)), "0분"]} />
+      <div className="line-chart">
+        {intervals.length === 0 ? <p className="empty-copy">간격 계산에는 수유 기록 2개 이상이 필요합니다.</p> : null}
+        <svg aria-label="수유 간격 변화 차트" viewBox="0 0 100 92" preserveAspectRatio="none">
+          <line x1="8" x2="92" y1="84" y2="84" />
+          <line x1="8" x2="8" y1="12" y2="84" />
+          {points.length > 0 ? <polyline points={points.join(" ")} /> : null}
+          {points.map((point) => {
+            const [cx, cy] = point.split(",");
+            return <circle cx={cx} cy={cy} key={point} r="1.8" />;
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
@@ -457,6 +490,8 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const sevenDaySleepAverage = Math.round(
     trendData.reduce((total, item) => total + item.sleepMinutes, 0) / trendData.length,
   );
+  const maxSevenDayFeed = Math.max(120, ...trendData.map((item) => item.feedTotalMl));
+  const maxSevenDaySleep = Math.max(60, ...trendData.map((item) => item.sleepMinutes));
   const insight = getInsight(summary, averageInterval, sevenDaySleepAverage);
   const feedDiff = summary.feedTotalMl - yesterdaySummary.feedTotalMl;
   const sleepDiff = summary.sleepMinutes - yesterdaySummary.sleepMinutes;
@@ -529,14 +564,30 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         <div className="chart-heading">
           <div>
             <p className="eyebrow">최근 7일</p>
-            <h3>수유량 / 수면 시간</h3>
+            <h3>수유량</h3>
           </div>
-          <div className="chart-legend">
-            <span className="feed">수유</span>
-            <span className="sleep">수면</span>
-          </div>
+          <strong>ml</strong>
         </div>
-        <TrendBars data={trendData} />
+        <div className="chart-with-y-axis">
+          <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
+          <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" />
+        </div>
+      </section>
+
+      <section className="panel chart-panel">
+        <div className="chart-heading">
+          <div>
+            <p className="eyebrow">최근 7일</p>
+            <h3>수면 시간</h3>
+          </div>
+          <strong>시간</strong>
+        </div>
+        <div className="chart-with-y-axis">
+          <ChartAxisLabels
+            labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]}
+          />
+          <TrendBars data={trendData} valueKey="sleepMinutes" maxValue={maxSevenDaySleep} tone="sleep" />
+        </div>
       </section>
 
       <section className="panel chart-panel">

@@ -8,7 +8,7 @@ import {
   PoopColor,
   UpdateEventInput,
 } from "../types";
-import { formatDurationMinutes, toLocalDateTimeInputValue } from "../lib/time";
+import { formatDurationMinutes, formatTime, toLocalDateTimeInputValue } from "../lib/time";
 
 interface EventInputScreenProps {
   baby: BabyProfile;
@@ -61,6 +61,10 @@ function getSleepDuration(startIso: string, now: Date): string {
   return formatDurationMinutes(minutes);
 }
 
+function isEndedBeforeStarted(start: string, end: string): boolean {
+  return new Date(end).getTime() < new Date(start).getTime();
+}
+
 export function EventInputScreen({
   baby,
   editingEvent,
@@ -73,7 +77,9 @@ export function EventInputScreen({
   const [occurredAt, setOccurredAt] = useState(toLocalDateTimeInputValue());
   const [quickDate, setQuickDate] = useState(toInputDate(toLocalDateTimeInputValue()));
   const [quickTime, setQuickTime] = useState(toInputTime(toLocalDateTimeInputValue()));
-  const [endedAt, setEndedAt] = useState(toLocalDateTimeInputValue());
+  const [endedAt, setEndedAt] = useState("");
+  const [endedDate, setEndedDate] = useState("");
+  const [endedTime, setEndedTime] = useState("");
   const [amountMl, setAmountMl] = useState(100);
   const [poopAmount, setPoopAmount] = useState<PoopAmount>("normal");
   const [poopColor, setPoopColor] = useState<PoopColor>("ocher");
@@ -111,7 +117,9 @@ export function EventInputScreen({
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
-      setEndedAt(current);
+      setEndedAt("");
+      setEndedDate("");
+      setEndedTime("");
       setAmountMl(100);
       setPoopAmount("normal");
       setPoopColor("ocher");
@@ -125,12 +133,15 @@ export function EventInputScreen({
     setOccurredAt(nextOccurredAt);
     setQuickDate(toInputDate(nextOccurredAt));
     setQuickTime(toInputTime(nextOccurredAt));
-    setEndedAt(toInputDateTime(editingEvent.endedAt));
+    const nextEndedAt = editingEvent.endedAt ? toInputDateTime(editingEvent.endedAt) : "";
+    setEndedAt(nextEndedAt);
+    setEndedDate(nextEndedAt ? toInputDate(nextEndedAt) : "");
+    setEndedTime(nextEndedAt ? toInputTime(nextEndedAt) : "");
     setAmountMl(editingEvent.amountMl ?? 100);
     setPoopAmount(editingEvent.poopAmount ?? "normal");
     setPoopColor(editingEvent.poopColor ?? "ocher");
     setNote(editingEvent.note ?? "");
-    setShowDetails(true);
+    setShowDetails(editingEvent.eventType !== "sleep");
   }, [editingEvent, initialEventType]);
 
   function showSavedToast(message: string) {
@@ -147,12 +158,30 @@ export function EventInputScreen({
     setOccurredAt(combineDateAndTime(quickDate, value));
   }
 
+  function handleEndedDateChange(value: string) {
+    setEndedDate(value);
+    setEndedAt(value && endedTime ? combineDateAndTime(value, endedTime) : "");
+  }
+
+  function handleEndedTimeChange(value: string) {
+    const nextDate = endedDate || quickDate;
+    setEndedDate(nextDate);
+    setEndedTime(value);
+    setEndedAt(nextDate && value ? combineDateAndTime(nextDate, value) : "");
+  }
+
+  function setEndedAtFromDateTime(value: string) {
+    setEndedAt(value);
+    setEndedDate(value ? toInputDate(value) : "");
+    setEndedTime(value ? toInputTime(value) : "");
+  }
+
   function buildCurrentInput(): CreateEventInput {
     return {
       babyId: baby.id,
       eventType,
       occurredAt,
-      endedAt: eventType === "sleep" && editingEvent?.endedAt ? endedAt : null,
+      endedAt: eventType === "sleep" && endedAt ? endedAt : null,
       amountMl: eventType === "feed" ? amountMl : null,
       poopAmount: eventType === "poop" ? poopAmount : null,
       poopColor: eventType === "poop" ? poopColor : null,
@@ -161,15 +190,24 @@ export function EventInputScreen({
   }
 
   async function submitQuick(input: CreateEventInput, message: string) {
+    if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
+      showSavedToast("종료 시간이 시작 시간보다 빨라요");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await onSubmit(input);
+      if (editingEvent) {
+        await onUpdateEvent({ ...input, id: editingEvent.id });
+      } else {
+        await onSubmit(input);
+      }
       const current = toLocalDateTimeInputValue();
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
-      setEndedAt(current);
+      setEndedAtFromDateTime("");
       setNote("");
       showSavedToast(message);
     } finally {
@@ -182,7 +220,18 @@ export function EventInputScreen({
     setIsSubmitting(true);
 
     try {
-      await onSubmit(buildCurrentInput());
+      const input = buildCurrentInput();
+
+      if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
+        showSavedToast("종료 시간이 시작 시간보다 빨라요");
+        return;
+      }
+
+      if (editingEvent) {
+        await onUpdateEvent({ ...input, id: editingEvent.id });
+      } else {
+        await onSubmit(input);
+      }
 
       showSavedToast(editingEvent ? "수정했어요" : "저장했어요");
     } finally {
@@ -294,6 +343,26 @@ export function EventInputScreen({
     );
   }
 
+  const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
+  const isEditingSleep = editingEvent?.eventType === "sleep";
+  const sleepStatusTitle =
+    eventType === "sleep" && ongoingSleep && !editingEvent
+      ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
+      : isEditingSleep
+        ? endedAt
+          ? "수면 기록"
+          : `${getSleepDuration(occurredAt, now)}째 수면 중`
+        : "깨어 있음";
+  const sleepStatusDescription =
+    eventType === "sleep" && ongoingSleep && !editingEvent
+      ? `${formatTime(sleepStatusStart)} 시작`
+      : isEditingSleep
+        ? endedAt
+          ? `${formatTime(occurredAt)} 시작 · ${formatTime(endedAt)} 종료`
+          : `${formatTime(occurredAt)} 시작`
+        : "재우기 시작하면 시간이 자동 기록돼요.";
+  const detailToggleLabel = eventType === "sleep" ? (showDetails ? "수정 닫기" : "시간/메모 수정") : showDetails ? "메모 닫기" : "메모 수정";
+
   return (
     <section className="screen-stack action-screen">
       <section className="panel action-type-panel">
@@ -316,7 +385,7 @@ export function EventInputScreen({
       </section>
 
       <section className={`panel quick-action-card ${eventType}`}>
-        <div className="quick-status">
+        <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
           <span>현재 상태</span>
           {eventType === "feed" ? (
             <>
@@ -326,8 +395,8 @@ export function EventInputScreen({
           ) : null}
           {eventType === "sleep" ? (
             <>
-              <strong>{ongoingSleep ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중` : "깨어 있음"}</strong>
-              <small>{ongoingSleep ? "깨어났다면 종료 버튼을 누르세요." : "재우기 시작하면 시간이 자동 기록돼요."}</small>
+              <strong>{sleepStatusTitle}</strong>
+              <small>{sleepStatusDescription}</small>
             </>
           ) : null}
           {eventType === "pee" ? (
@@ -386,24 +455,26 @@ export function EventInputScreen({
           </div>
         ) : null}
 
-        <div className="quick-time-card" aria-label="기록 시간">
-          <label>
-            <span>날짜</span>
-            <input
-              type="date"
-              value={quickDate}
-              onChange={(event) => handleQuickDateChange(event.target.value)}
-            />
-          </label>
-          <label>
-            <span>시간</span>
-            <input
-              type="time"
-              value={quickTime}
-              onChange={(event) => handleQuickTimeChange(event.target.value)}
-            />
-          </label>
-        </div>
+        {eventType !== "sleep" ? (
+          <div className="quick-time-card" aria-label="기록 시간">
+            <label>
+              <span>날짜</span>
+              <input
+                type="date"
+                value={quickDate}
+                onChange={(event) => handleQuickDateChange(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>시간</span>
+              <input
+                type="time"
+                value={quickTime}
+                onChange={(event) => handleQuickTimeChange(event.target.value)}
+              />
+            </label>
+          </div>
+        ) : null}
 
         <div className="quick-button-row">
           {eventType === "feed" ? (
@@ -413,7 +484,7 @@ export function EventInputScreen({
           ) : null}
           {eventType === "sleep" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {editingEvent ? "수면 수정하기" : ongoingSleep ? "지금 깨어남" : "지금 재우기"}
+              {editingEvent ? "수면 수정하기" : ongoingSleep ? "깨어남" : "지금 재우기"}
             </button>
           ) : null}
           {eventType === "pee" ? (
@@ -429,13 +500,50 @@ export function EventInputScreen({
         </div>
 
         <button className="detail-toggle" type="button" onClick={() => setShowDetails((current) => !current)}>
-          {showDetails ? "메모 닫기" : "메모 수정"}
+          {detailToggleLabel}
         </button>
       </section>
 
       {showDetails ? (
         <section className="panel">
           <form className="entry-form" onSubmit={handleSubmit}>
+            {eventType === "sleep" ? (
+              <div className="sleep-time-editor" aria-label="수면 시간 수정">
+                <label>
+                  <span>시작 날짜</span>
+                  <input
+                    type="date"
+                    value={quickDate}
+                    onChange={(event) => handleQuickDateChange(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>시작 시간</span>
+                  <input
+                    type="time"
+                    value={quickTime}
+                    onChange={(event) => handleQuickTimeChange(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>종료 날짜</span>
+                  <input
+                    type="date"
+                    value={endedDate}
+                    onChange={(event) => handleEndedDateChange(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>종료 시간</span>
+                  <input
+                    type="time"
+                    value={endedTime}
+                    onChange={(event) => handleEndedTimeChange(event.target.value)}
+                  />
+                </label>
+              </div>
+            ) : null}
+
             <label className="field">
               <span>메모</span>
               <input
