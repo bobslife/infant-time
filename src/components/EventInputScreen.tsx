@@ -262,6 +262,13 @@ export function EventInputScreen({
 
   async function handleSleepAction() {
     if (editingEvent) {
+      if (editingEvent.eventType === "sleep" && !endedAt) {
+        const current = toLocalDateTimeInputValue();
+        await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
+        setEndedAtFromDateTime(current);
+        return;
+      }
+
       await submitQuick(buildCurrentInput(), "수면 기록 수정");
       return;
     }
@@ -345,6 +352,7 @@ export function EventInputScreen({
 
   const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
   const isEditingSleep = editingEvent?.eventType === "sleep";
+  const canWakeSleep = eventType === "sleep" && ((isEditingSleep && !endedAt) || (!editingEvent && ongoingSleep));
   const sleepStatusTitle =
     eventType === "sleep" && ongoingSleep && !editingEvent
       ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
@@ -484,7 +492,7 @@ export function EventInputScreen({
           ) : null}
           {eventType === "sleep" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {editingEvent ? "수면 수정하기" : ongoingSleep ? "깨어남" : "지금 재우기"}
+              {canWakeSleep ? "깨어남" : editingEvent ? "수면 수정하기" : "지금 재우기"}
             </button>
           ) : null}
           {eventType === "pee" ? (
