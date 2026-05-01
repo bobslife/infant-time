@@ -8,6 +8,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["infant-time-logo.png", "icons/*.svg"],
+      manifestFilename: "manifest.json",
       manifest: {
         name: "Infant Time",
         short_name: "Infant Time",

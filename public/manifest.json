@@ -1,0 +1,30 @@
+{
+  "name": "Infant Time",
+  "short_name": "Infant Time",
+  "description": "아기 수유, 수면, 소변, 대변 기록 앱",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#dcecff",
+  "icons": [
+    {
+      "src": "/infant-time-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/infant-time-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

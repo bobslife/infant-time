@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Infant Time">
+  <rect width="512" height="512" rx="112" fill="#dcecff"/>
+  <circle cx="256" cy="222" r="116" fill="#ffffff"/>
+  <path fill="#3182f6" d="M178 246c14 46 45 72 78 72s64-26 78-72c-25 16-50 24-78 24s-53-8-78-24Z"/>
+  <circle cx="214" cy="210" r="14" fill="#191f28"/>
+  <circle cx="298" cy="210" r="14" fill="#191f28"/>
+  <path fill="#ff7aa2" d="M164 373c33-42 62-62 92-62s59 20 92 62c-24 23-55 35-92 35s-68-12-92-35Z"/>
+</svg>

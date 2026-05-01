@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Infant Time</string>
+    <string name="title_activity_main">Infant Time</string>
+    <string name="package_name">com.infanttime.app</string>
+    <string name="custom_url_scheme">com.infanttime.app</string>
+</resources>
