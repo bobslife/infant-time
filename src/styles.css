@@ -162,8 +162,38 @@ button {
 }
 
 .hero h1 {
-  margin-top: 6px;
+  margin-top: 0;
   font-size: 2.35rem;
+}
+
+.baby-title {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.baby-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.baby-gender-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.baby-gender-icon.girl {
+  color: var(--color-pink-strong);
+}
+
+.baby-gender-icon.boy {
+  color: var(--color-blue-strong);
 }
 
 .hero-copy {
@@ -389,6 +419,10 @@ button {
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.compact-heading {
+  margin-bottom: 10px;
 }
 
 .analysis-header {
@@ -810,6 +844,67 @@ button {
   background: #fff;
   color: var(--color-blue-strong);
   box-shadow: 0 8px 18px rgba(49, 130, 246, 0.12);
+}
+
+.gender-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gender-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 52px;
+  border: 1px solid rgba(25, 31, 40, 0.1);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--color-surface);
+  color: var(--color-text-soft);
+  font-weight: 800;
+}
+
+.gender-switch button.gender-girl {
+  border-color: rgba(255, 122, 162, 0.32);
+  background: #fff7fb;
+}
+
+.gender-switch button.gender-boy {
+  border-color: rgba(49, 130, 246, 0.26);
+  background: #f6faff;
+}
+
+.gender-switch button.gender-girl.active {
+  border-color: var(--color-pink-strong);
+  background: var(--color-pink);
+  color: #be456d;
+  box-shadow: 0 0 0 3px rgba(255, 122, 162, 0.14);
+}
+
+.gender-switch button.gender-boy.active {
+  border-color: var(--color-blue-strong);
+  background: #eef6ff;
+  color: var(--color-blue-strong);
+  box-shadow: 0 0 0 3px rgba(49, 130, 246, 0.1);
+}
+
+.gender-switch button:disabled {
+  opacity: 0.64;
+  cursor: wait;
+}
+
+.gender-switch img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.gender-switch button.active img {
+  transform: scale(1.08);
 }
 
 .field {
@@ -1357,8 +1452,10 @@ button {
 .profile-list div {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 16px;
-  padding: 12px 0;
+  min-height: 46px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--color-line);
 }
 
@@ -1373,6 +1470,108 @@ button {
 .profile-list strong {
   text-align: right;
   overflow-wrap: anywhere;
+}
+
+.profile-panel {
+  overflow: hidden;
+}
+
+.profile-baby-name {
+  font-size: 1.7rem;
+}
+
+.profile-baby-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 7px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.gender-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.gender-chip.gender-girl {
+  border-color: rgba(255, 122, 162, 0.26);
+  background: #fff7fb;
+  color: #be456d;
+}
+
+.gender-chip.gender-boy {
+  border-color: rgba(49, 130, 246, 0.22);
+  background: #f6faff;
+  color: var(--color-blue-strong);
+}
+
+.profile-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(138px, auto);
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+}
+
+.profile-setting-row span,
+.profile-setting-row small {
+  display: block;
+  color: var(--color-text-muted);
+}
+
+.profile-setting-row span {
+  font-weight: 800;
+}
+
+.profile-setting-row strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text);
+}
+
+.profile-setting-row small {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.compact-gender-switch {
+  gap: 6px;
+}
+
+.compact-gender-switch button {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 0.88rem;
+}
+
+.profile-action-group {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-line);
+}
+
+.profile-action-group h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.profile-action-group p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .modal-backdrop {

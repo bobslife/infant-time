@@ -4,11 +4,14 @@ export type PoopAmount = "small" | "normal" | "large";
 
 export type PoopColor = "ocher" | "brown" | "dark_brown" | "green" | "red_orange";
 
+export type BabyGender = "girl" | "boy";
+
 export interface BabyProfile {
   id: string;
   ownerId: string;
   name: string;
   birthDate: string;
+  gender: BabyGender;
   inviteCode: string;
   createdAt: string;
 }
@@ -30,10 +33,18 @@ export interface BabyEvent {
 export interface CreateBabyInput {
   name: string;
   birthDate: string;
+  gender?: BabyGender;
 }
 
 export interface JoinBabyInput {
   inviteCode: string;
+}
+
+export interface UpdateBabyInput {
+  id: string;
+  name: string;
+  birthDate: string;
+  gender: BabyGender;
 }
 
 export interface CreateEventInput {

@@ -13,10 +13,18 @@ create table if not exists babies (
   owner_id uuid not null references profiles(id) on delete cascade,
   name text not null,
   birth_date date not null,
+  gender text not null default 'girl' check (gender in ('girl', 'boy')),
   invite_code text not null default upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8)),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table babies add column if not exists gender text;
+update babies set gender = 'girl' where gender is null;
+alter table babies alter column gender set default 'girl';
+alter table babies alter column gender set not null;
+alter table babies drop constraint if exists babies_gender_check;
+alter table babies add constraint babies_gender_check check (gender in ('girl', 'boy'));
 
 alter table babies add column if not exists invite_code text;
 update babies
@@ -233,12 +241,15 @@ using (
   )
 );
 
-create or replace function join_baby_by_invite_code(target_invite_code text, target_user_id uuid)
+drop function if exists join_baby_by_invite_code(text, uuid);
+
+create function join_baby_by_invite_code(target_invite_code text, target_user_id uuid)
 returns table (
   id uuid,
   owner_id uuid,
   name text,
   birth_date date,
+  gender text,
   invite_code text,
   created_at timestamptz
 )
@@ -266,7 +277,7 @@ begin
   end if;
 
   return query
-  select babies.id, babies.owner_id, babies.name, babies.birth_date, babies.invite_code, babies.created_at
+  select babies.id, babies.owner_id, babies.name, babies.birth_date, babies.gender, babies.invite_code, babies.created_at
   from babies
   where babies.invite_code = upper(target_invite_code);
 end;

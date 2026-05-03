@@ -10,6 +10,7 @@ import {
   listLocalEvents,
   localUser,
   setSelectedLocalBabyId,
+  updateLocalBaby,
   updateLocalEvent,
 } from "../../lib/storage/localRepository";
 import {
@@ -21,6 +22,7 @@ import {
   listSupabaseBabies,
   listSupabaseEvents,
   mapSupabaseUser,
+  updateSupabaseBaby,
   updateSupabaseEvent,
 } from "../../lib/storage/supabaseRepository";
 import { startOfToday } from "../../lib/time";
@@ -36,6 +38,7 @@ import {
   SignInInput,
   SignUpInput,
   UpdateEventInput,
+  UpdateBabyInput,
 } from "../../types";
 
 export interface EventSummary {
@@ -388,6 +391,26 @@ export function useEvents() {
     }
   }
 
+  async function updateBaby(input: UpdateBabyInput) {
+    if (!user || !baby) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      const updated =
+        client && !user.isLocal
+          ? await updateSupabaseBaby(client, input)
+          : await updateLocalBaby(input);
+
+      setBabies((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setBaby(updated);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "아기 정보를 수정하지 못했습니다.");
+    }
+  }
+
   async function joinBaby(input: JoinBabyInput) {
     if (!user) {
       return;
@@ -516,6 +539,7 @@ export function useEvents() {
     useLocalPreview,
     signOut,
     createBaby,
+    updateBaby,
     joinBaby,
     selectBaby,
     addEvent,

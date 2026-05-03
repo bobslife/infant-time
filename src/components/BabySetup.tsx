@@ -1,5 +1,10 @@
 import { FormEvent, useState } from "react";
-import { CreateBabyInput, JoinBabyInput } from "../types";
+import { BabyGender, CreateBabyInput, JoinBabyInput } from "../types";
+
+const genderOptions: Array<{ value: BabyGender; label: string; icon: string }> = [
+  { value: "girl", label: "여아", icon: "/icons/girl.svg" },
+  { value: "boy", label: "남아", icon: "/icons/boy.svg" },
+];
 
 interface BabySetupProps {
   errorMessage: string | null;
@@ -11,6 +16,7 @@ export function BabySetup({ errorMessage, onSubmit, onJoin }: BabySetupProps) {
   const [mode, setMode] = useState<"join" | "create">("join");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState(new Date().toISOString().slice(0, 10));
+  const [gender, setGender] = useState<BabyGender>("girl");
   const [inviteCode, setInviteCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,7 +28,7 @@ export function BabySetup({ errorMessage, onSubmit, onJoin }: BabySetupProps) {
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit({ name: name.trim(), birthDate });
+      await onSubmit({ name: name.trim(), birthDate, gender });
     } finally {
       setIsSubmitting(false);
     }
@@ -100,6 +106,24 @@ export function BabySetup({ errorMessage, onSubmit, onJoin }: BabySetupProps) {
                 onChange={(event) => setBirthDate(event.target.value)}
               />
             </label>
+            <div className="field">
+              <span>성별</span>
+              <div className="gender-switch" role="radiogroup" aria-label="아기 성별">
+                {genderOptions.map((option) => (
+                  <button
+                    className={`gender-${option.value}${gender === option.value ? " active" : ""}`}
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={gender === option.value}
+                    onClick={() => setGender(option.value)}
+                  >
+                    <img alt="" aria-hidden="true" src={option.icon} />
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               className="primary-button"
               disabled={isSubmitting || !name.trim()}

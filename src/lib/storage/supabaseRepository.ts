@@ -6,6 +6,7 @@ import {
   CreateBabyInput,
   CreateEventInput,
   JoinBabyInput,
+  UpdateBabyInput,
   UpdateEventInput,
 } from "../../types";
 
@@ -14,6 +15,7 @@ interface BabyRow {
   owner_id: string;
   name: string;
   birth_date: string;
+  gender: BabyProfile["gender"];
   invite_code: string;
   created_at: string;
 }
@@ -58,6 +60,7 @@ function mapBaby(row: BabyRow): BabyProfile {
     ownerId: row.owner_id,
     name: row.name,
     birthDate: row.birth_date,
+    gender: row.gender ?? "girl",
     inviteCode: row.invite_code,
     createdAt: row.created_at,
   };
@@ -104,7 +107,7 @@ export async function listSupabaseBabies(
 ): Promise<BabyProfile[]> {
   const { data: owned, error: ownedError } = await client
     .from("babies")
-    .select("id, owner_id, name, birth_date, invite_code, created_at")
+    .select("id, owner_id, name, birth_date, gender, invite_code, created_at")
     .eq("owner_id", userId)
     .order("created_at", { ascending: true })
     .returns<BabyRow[]>();
@@ -134,7 +137,7 @@ export async function listSupabaseBabies(
 
   const { data: joined, error: joinedError } = await client
     .from("babies")
-    .select("id, owner_id, name, birth_date, invite_code, created_at")
+    .select("id, owner_id, name, birth_date, gender, invite_code, created_at")
     .in("id", memberBabyIds)
     .order("created_at", { ascending: true })
     .returns<BabyRow[]>();
@@ -157,9 +160,32 @@ export async function createSupabaseBaby(
       owner_id: userId,
       name: input.name,
       birth_date: input.birthDate,
+      gender: input.gender ?? "girl",
       invite_code: generateInviteCode(),
     })
-    .select("id, owner_id, name, birth_date, invite_code, created_at")
+    .select("id, owner_id, name, birth_date, gender, invite_code, created_at")
+    .single<BabyRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapBaby(data);
+}
+
+export async function updateSupabaseBaby(
+  client: SupabaseClient,
+  input: UpdateBabyInput,
+): Promise<BabyProfile> {
+  const { data, error } = await client
+    .from("babies")
+    .update({
+      name: input.name,
+      birth_date: input.birthDate,
+      gender: input.gender,
+    })
+    .eq("id", input.id)
+    .select("id, owner_id, name, birth_date, gender, invite_code, created_at")
     .single<BabyRow>();
 
   if (error) {

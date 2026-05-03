@@ -1,12 +1,18 @@
 import { FormEvent, useState } from "react";
-import { AppUser, BabyProfile, JoinBabyInput } from "../types";
+import { AppUser, BabyGender, BabyProfile, CreateBabyInput, JoinBabyInput, UpdateBabyInput } from "../types";
 import { formatAge, formatDateTime } from "../lib/time";
+
+const genderOptions: Array<{ value: BabyGender; label: string; icon: string }> = [
+  { value: "girl", label: "여아", icon: "/icons/girl.svg" },
+  { value: "boy", label: "남아", icon: "/icons/boy.svg" },
+];
 
 interface ProfileScreenProps {
   baby: BabyProfile;
   babies: BabyProfile[];
   user: AppUser;
-  onCreateBaby: (input: { name: string; birthDate: string }) => Promise<void>;
+  onCreateBaby: (input: CreateBabyInput) => Promise<void>;
+  onUpdateBaby: (input: UpdateBabyInput) => Promise<void>;
   onJoinBaby: (input: JoinBabyInput) => Promise<void>;
   onSelectBaby: (babyId: string) => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -17,6 +23,7 @@ export function ProfileScreen({
   babies,
   user,
   onCreateBaby,
+  onUpdateBaby,
   onJoinBaby,
   onSelectBaby,
   onSignOut,
@@ -25,8 +32,11 @@ export function ProfileScreen({
   const [addMode, setAddMode] = useState<"closed" | "create" | "join">("closed");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState(new Date().toISOString().slice(0, 10));
+  const [gender, setGender] = useState<BabyGender>("girl");
   const [inviteCode, setInviteCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const selectedGender = genderOptions.find((option) => option.value === baby.gender) ?? genderOptions[0];
 
   function handleInviteCodeChange(value: string) {
     setInviteCode(value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase());
@@ -36,8 +46,9 @@ export function ProfileScreen({
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      await onCreateBaby({ name: name.trim(), birthDate });
+      await onCreateBaby({ name: name.trim(), birthDate, gender });
       setName("");
+      setGender("girl");
       setAddMode("closed");
       setIsPickerOpen(false);
     } finally {
@@ -64,26 +75,45 @@ export function ProfileScreen({
     setAddMode("closed");
   }
 
+  async function handleGenderChange(nextGender: BabyGender) {
+    if (nextGender === baby.gender) {
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      await onUpdateBaby({
+        id: baby.id,
+        name: baby.name,
+        birthDate: baby.birthDate,
+        gender: nextGender,
+      });
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  }
+
   return (
     <section className="screen-stack">
-      <section className="panel">
+      <section className="panel profile-panel">
         <div className="section-heading">
           <div>
             <p className="eyebrow">아기 프로필</p>
-            <h2>{baby.name}</h2>
+            <h2 className="profile-baby-name">{baby.name}</h2>
+            <p className="profile-baby-meta">
+              {formatAge(baby.birthDate)}
+              <span aria-hidden="true">·</span>
+              <span className={`gender-chip gender-${selectedGender.value}`}>{selectedGender.label}</span>
+            </p>
           </div>
           <button className="ghost-button compact-button" type="button" onClick={() => setIsPickerOpen(true)}>
-            변경하기
+            프로필 수정
           </button>
         </div>
         <div className="profile-list">
           <div>
             <span>생일</span>
             <strong>{baby.birthDate}</strong>
-          </div>
-          <div>
-            <span>생후</span>
-            <strong>{formatAge(baby.birthDate)}</strong>
           </div>
           <div>
             <span>등록일</span>
@@ -96,6 +126,42 @@ export function ProfileScreen({
         </div>
       </section>
       <section className="panel">
+        <div className="section-heading compact-heading">
+          <div>
+            <p className="eyebrow">아기 설정</p>
+            <h2>설정</h2>
+          </div>
+        </div>
+        <div className="profile-setting-row">
+          <div>
+            <span>성별</span>
+            <strong>{selectedGender.label}</strong>
+            <small>선택하면 바로 반영돼요.</small>
+          </div>
+          <div className="gender-switch compact-gender-switch" role="radiogroup" aria-label="아기 성별">
+            {genderOptions.map((option) => (
+              <button
+                className={`gender-${option.value}${baby.gender === option.value ? " active" : ""}`}
+                disabled={isUpdatingProfile}
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={baby.gender === option.value}
+                onClick={() => void handleGenderChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-heading compact-heading">
+          <div>
+            <p className="eyebrow">보호자/계정 정보</p>
+            <h2>계정</h2>
+          </div>
+        </div>
         <div className="profile-list">
           <div>
             <span>보호자 이름</span>
@@ -190,6 +256,24 @@ export function ProfileScreen({
                         onChange={(event) => setBirthDate(event.target.value)}
                       />
                     </label>
+                    <div className="field">
+                      <span>성별</span>
+                      <div className="gender-switch" role="radiogroup" aria-label="아기 성별">
+                        {genderOptions.map((option) => (
+                          <button
+                            className={`gender-${option.value}${gender === option.value ? " active" : ""}`}
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={gender === option.value}
+                            onClick={() => setGender(option.value)}
+                          >
+                            <img alt="" aria-hidden="true" src={option.icon} />
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <button
                       className="primary-button"
                       disabled={isSubmitting || !name.trim()}

@@ -103,6 +103,24 @@ function getFeedStatus(lastFeedAt: string | null, intervalMinutes: number, now: 
   return "calm";
 }
 
+function GenderMark({ gender }: { gender: BabyProfile["gender"] }) {
+  if (gender === "boy") {
+    return (
+      <svg className="baby-gender-icon boy" viewBox="0 0 16 16" aria-label="남아" role="img">
+        <circle cx="6.25" cy="9.75" r="3.75" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9 7L13 3M10.25 3H13V5.75" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className="baby-gender-icon girl" viewBox="0 0 16 16" aria-label="여아" role="img">
+      <circle cx="8" cy="5.75" r="3.75" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 9.5V14M5.8 11.8H10.2" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export function SummaryCards({
   baby,
   feedIntervalMinutes,
@@ -127,8 +145,12 @@ export function SummaryCards({
   return (
     <>
       <section className="hero">
-        <p className="eyebrow">{formatAge(baby.birthDate)}</p>
-        <h1>{baby.name}</h1>
+        <h1 className="baby-title">{baby.name}</h1>
+        <p className="baby-meta">
+          <span>{formatAge(baby.birthDate)}</span>
+          <span aria-hidden="true">·</span>
+          <GenderMark gender={baby.gender} />
+        </p>
         {warning ? (
           <p className="hero-copy hero-warning">
             <span aria-hidden="true">!</span>

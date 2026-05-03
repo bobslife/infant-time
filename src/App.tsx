@@ -38,6 +38,7 @@ export function App() {
     useLocalPreview,
     signOut,
     createBaby,
+    updateBaby,
     joinBaby,
     selectBaby,
     addEvent,
@@ -186,6 +187,7 @@ export function App() {
             baby={baby}
             user={user}
             onCreateBaby={createBaby}
+            onUpdateBaby={updateBaby}
             onJoinBaby={joinBaby}
             onSelectBaby={selectBaby}
             onSignOut={signOut}

@@ -5,6 +5,7 @@ import {
   CreateBabyInput,
   CreateEventInput,
   JoinBabyInput,
+  UpdateBabyInput,
   UpdateEventInput,
 } from "../../types";
 import { mockEvents } from "./mockEvents";
@@ -51,7 +52,11 @@ function readBabies(): BabyProfile[] {
     return [];
   }
 
-  return JSON.parse(saved) as BabyProfile[];
+  const parsed = JSON.parse(saved) as BabyProfile[];
+  return parsed.map((baby) => ({
+    ...baby,
+    gender: baby.gender ?? "girl",
+  }));
 }
 
 function writeBabies(babies: BabyProfile[]) {
@@ -93,6 +98,7 @@ export async function createLocalBaby(input: CreateBabyInput): Promise<BabyProfi
     ownerId: LOCAL_USER_ID,
     name: input.name,
     birthDate: input.birthDate,
+    gender: input.gender ?? "girl",
     inviteCode: generateInviteCode(),
     createdAt: new Date().toISOString(),
   };
@@ -100,6 +106,25 @@ export async function createLocalBaby(input: CreateBabyInput): Promise<BabyProfi
   writeBabies([...readBabies(), baby]);
   await setSelectedLocalBabyId(baby.id);
   return baby;
+}
+
+export async function updateLocalBaby(input: UpdateBabyInput): Promise<BabyProfile> {
+  const babies = readBabies();
+  const current = babies.find((baby) => baby.id === input.id);
+
+  if (!current) {
+    throw new Error("수정할 아기 정보를 찾지 못했습니다.");
+  }
+
+  const updated: BabyProfile = {
+    ...current,
+    name: input.name,
+    birthDate: input.birthDate,
+    gender: input.gender,
+  };
+
+  writeBabies(babies.map((baby) => (baby.id === input.id ? updated : baby)));
+  return updated;
 }
 
 export async function joinLocalBaby(input: JoinBabyInput): Promise<BabyProfile> {
