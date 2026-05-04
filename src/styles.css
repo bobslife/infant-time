@@ -172,6 +172,20 @@ button {
   overflow-wrap: anywhere;
 }
 
+.baby-title-with-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.baby-title-profile {
+  flex: 0 0 auto;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .baby-meta {
   display: flex;
   align-items: center;
@@ -372,7 +386,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 12px;
 }
 
 .poop-color-chip {
@@ -456,7 +470,34 @@ button {
 
 .analysis-stack {
   display: grid;
-  gap: 12px;
+  gap: 16px;
+}
+
+.analysis-range-switch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgba(25, 31, 40, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 20px rgba(25, 31, 40, 0.04);
+}
+
+.analysis-range-switch button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.analysis-range-switch button.active {
+  background: #fff;
+  color: var(--color-blue-strong);
+  box-shadow: 0 7px 16px rgba(49, 130, 246, 0.11);
 }
 
 .analysis-insight {
@@ -571,26 +612,24 @@ button {
 
 .chart-panel {
   display: grid;
-  gap: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  gap: 18px;
+  border-color: rgba(25, 31, 40, 0.05);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 26px rgba(25, 31, 40, 0.055);
 }
 
 .chart-heading {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-start;
   gap: 12px;
 }
 
 .chart-heading h3 {
   margin: 4px 0 0;
-  font-size: 1.05rem;
-}
-
-.chart-heading strong {
-  color: var(--color-blue-strong);
-  font-size: 0.94rem;
-  white-space: nowrap;
+  color: #111827;
+  font-size: 1.12rem;
+  line-height: 1.15;
 }
 
 .chart-legend {
@@ -624,21 +663,21 @@ button {
 
 .feed-timeline-chart {
   position: relative;
-  min-height: 142px;
+  min-height: 164px;
   min-width: 0;
   border-radius: 8px;
-  padding: 18px 10px 28px;
+  padding: 26px 14px 32px;
   background:
-    linear-gradient(to right, rgba(25, 31, 40, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(25, 31, 40, 0.05) 1px, transparent 1px),
-    #f8fafc;
-  background-size: 33.333% 100%, 100% 34px;
+    linear-gradient(to right, rgba(25, 31, 40, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(25, 31, 40, 0.035) 1px, transparent 1px),
+    #fbfdff;
+  background-size: 25% 100%, 100% 38px;
 }
 
 .chart-with-y-axis {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -648,75 +687,147 @@ button {
   justify-content: space-between;
   padding: 10px 0 28px;
   color: var(--color-text-muted);
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 900;
   text-align: right;
 }
 
 .feed-marker {
   position: absolute;
-  bottom: 28px;
-  width: 9px;
+  bottom: 32px;
+  width: 12px;
   min-height: 18px;
   border-radius: 999px 999px 2px 2px;
-  background: var(--color-blue-strong);
-  box-shadow: 0 5px 12px rgba(49, 130, 246, 0.2);
+  background: #5b9df7;
+  box-shadow: 0 7px 14px rgba(49, 130, 246, 0.18);
   transform: translateX(-50%);
+}
+
+.feed-marker em {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 5px);
+  color: #2563eb;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 900;
+  transform: translateX(50%);
+  white-space: nowrap;
 }
 
 .chart-axis {
   position: absolute;
-  right: 10px;
-  bottom: 8px;
-  left: 10px;
+  right: 14px;
+  bottom: 9px;
+  left: 14px;
   display: flex;
   justify-content: space-between;
   color: var(--color-text-muted);
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   font-weight: 800;
 }
 
-.line-chart {
-  min-height: 150px;
+.interval-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 188px;
   min-width: 0;
-  border-radius: 8px;
-  padding: 10px;
-  background: #f8fafc;
+  align-items: end;
+  padding-top: 8px;
 }
 
-.line-chart svg {
-  width: 100%;
+.interval-bars.dense {
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.interval-bar-item {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.interval-bar-stack {
+  position: relative;
+  display: flex;
+  align-items: end;
+  justify-content: center;
   height: 132px;
-  overflow: visible;
+  border-radius: 8px;
+  padding: 22px 4px 8px;
+  background:
+    linear-gradient(to bottom, rgba(25, 31, 40, 0.03) 1px, transparent 1px),
+    #fbfdff;
+  background-size: 100% 33%;
 }
 
-.line-chart line {
-  stroke: rgba(25, 31, 40, 0.12);
-  stroke-width: 1;
+.interval-bar-stack em {
+  position: absolute;
+  top: 6px;
+  right: 50%;
+  color: #a9506e;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+  transform: translateX(50%);
+  white-space: nowrap;
 }
 
-.line-chart polyline {
-  fill: none;
-  stroke: var(--color-pink-strong);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
+.interval-bar-stack i {
+  display: block;
+  width: 14px;
+  min-height: 4px;
+  border-radius: 999px 999px 3px 3px;
+  background: #e89ab3;
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.line-chart circle {
-  fill: #fff;
-  stroke: var(--color-pink-strong);
-  stroke-width: 1.6;
+.interval-bar-stack i:hover {
+  opacity: 0.82;
+  transform: translateY(-2px);
+}
+
+.interval-bars.dense .interval-bar-stack {
+  padding-right: 2px;
+  padding-left: 2px;
+}
+
+.interval-bars.dense .interval-bar-stack em {
+  display: none;
+}
+
+.interval-bars.dense .interval-bar-stack i {
+  width: 7px;
+}
+
+.interval-bar-item.selected .interval-bar-stack {
+  outline: 2px solid rgba(216, 111, 145, 0.22);
+  outline-offset: 2px;
+}
+
+.interval-bar-item span {
+  color: var(--color-text-muted);
+  min-height: 13px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .trend-bars {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 8px;
-  min-height: 170px;
+  gap: 10px;
+  min-height: 188px;
   min-width: 0;
   align-items: end;
-  padding-top: 6px;
+  padding-top: 8px;
+}
+
+.trend-bars.dense {
+  grid-template-columns: repeat(30, minmax(0, 1fr));
+  gap: 3px;
 }
 
 .trend-day {
@@ -726,33 +837,78 @@ button {
 }
 
 .trend-stack {
+  position: relative;
   display: flex;
   align-items: end;
   justify-content: center;
   gap: 3px;
-  height: 128px;
+  height: 132px;
   border-radius: 8px;
-  padding: 8px 4px;
-  background: #f8fafc;
+  padding: 22px 4px 8px;
+  background:
+    linear-gradient(to bottom, rgba(25, 31, 40, 0.03) 1px, transparent 1px),
+    #fbfdff;
+  background-size: 100% 33%;
+}
+
+.trend-stack em {
+  position: absolute;
+  top: 6px;
+  right: 50%;
+  color: var(--color-text-soft);
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+  transform: translateX(50%);
+  white-space: nowrap;
 }
 
 .trend-stack i {
   display: block;
-  width: 9px;
+  width: 14px;
   min-height: 4px;
-  border-radius: 999px;
+  border-radius: 999px 999px 3px 3px;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.trend-stack i:hover {
+  opacity: 0.82;
+  transform: translateY(-2px);
 }
 
 .trend-stack .feed {
-  background: var(--color-blue-strong);
+  background: #6aa8f7;
 }
 
 .trend-stack .sleep {
-  background: #8b5cf6;
+  background: #a78bfa;
+}
+
+.trend-stack .sleep.strong {
+  background: #7c3aed;
+}
+
+.trend-bars.dense .trend-stack {
+  padding-right: 2px;
+  padding-left: 2px;
+}
+
+.trend-bars.dense .trend-stack em {
+  display: none;
+}
+
+.trend-bars.dense .trend-stack i {
+  width: 7px;
+}
+
+.trend-day.selected .trend-stack {
+  outline: 2px solid rgba(49, 130, 246, 0.2);
+  outline-offset: 2px;
 }
 
 .trend-day span {
   color: var(--color-text-muted);
+  min-height: 13px;
   font-size: 0.7rem;
   font-weight: 800;
   text-align: center;
@@ -1100,6 +1256,14 @@ button {
 .event-copy span {
   text-align: right;
   font-weight: 800;
+}
+
+.event-pagination-sentinel {
+  padding: 8px 0 2px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .event-type-grid {

@@ -39,6 +39,11 @@ const poopColorClasses = {
   red_orange: "red-orange",
 };
 
+const defaultProfileImages: Record<BabyProfile["gender"], string> = {
+  boy: "/images/default-profile-boy.png",
+  girl: "/images/default-profile-girl.png",
+};
+
 function getElapsedMinutes(value: string | null, now: Date): number | null {
   if (!value) {
     return null;
@@ -145,7 +150,14 @@ export function SummaryCards({
   return (
     <>
       <section className="hero">
-        <h1 className="baby-title">{baby.name}</h1>
+        <h1 className="baby-title baby-title-with-profile">
+          <img
+            className="baby-title-profile"
+            src={defaultProfileImages[baby.gender]}
+            alt={`${baby.gender === "boy" ? "남아" : "여아"} 기본 프로필`}
+          />
+          <span>{baby.name}</span>
+        </h1>
         <p className="baby-meta">
           <span>{formatAge(baby.birthDate)}</span>
           <span aria-hidden="true">·</span>
@@ -230,8 +242,17 @@ interface DayTrend {
   dateKey: string;
   label: string;
   feedTotalMl: number;
+  feedAverageIntervalMinutes: number | null;
   sleepMinutes: number;
 }
+
+type AnalysisRange = 1 | 7 | 30;
+
+const analysisRangeOptions: Array<{ value: AnalysisRange; label: string }> = [
+  { value: 1, label: "오늘" },
+  { value: 7, label: "7일" },
+  { value: 30, label: "30일" },
+];
 
 const poopColorShortLabels: Record<PoopColor, string> = {
   ocher: "황토",
@@ -313,6 +334,10 @@ function formatAverageInterval(minutes: number | null): string {
   return minutes === null ? "기록 부족" : formatDurationMinutes(minutes);
 }
 
+function formatCompactHours(minutes: number): string {
+  return `${(minutes / 60).toFixed(1)}h`;
+}
+
 function getInsight(summary: DailyEventSummary, averageInterval: number | null, sevenDaySleepAverage: number) {
   if (summary.feedCount >= 2 && averageInterval !== null && averageInterval >= 120 && averageInterval <= 240) {
     return {
@@ -369,20 +394,29 @@ function TrendBars({
   valueKey,
   maxValue,
   tone,
+  selectedDate,
 }: {
   data: DayTrend[];
   valueKey: "feedTotalMl" | "sleepMinutes";
   maxValue: number;
   tone: "feed" | "sleep";
+  selectedDate: string;
 }) {
   const safeMax = Math.max(1, maxValue);
 
   return (
-    <div className="trend-bars">
+    <div className={`trend-bars ${data.length > 7 ? "dense" : ""}`}>
       {data.map((item) => (
-        <div className="trend-day" key={item.dateKey}>
+        <div className={`trend-day ${item.dateKey === selectedDate ? "selected" : ""}`} key={item.dateKey}>
           <div className="trend-stack">
-            <i className={tone} style={{ height: `${Math.max(4, (item[valueKey] / safeMax) * 100)}%` }} />
+            <em>{valueKey === "feedTotalMl" ? `${item.feedTotalMl}ml` : formatCompactHours(item.sleepMinutes)}</em>
+            <i
+              className={`${tone}${tone === "sleep" && item.sleepMinutes >= 360 ? " strong" : ""}`}
+              style={{ height: `${Math.max(item[valueKey] > 0 ? 8 : 3, (item[valueKey] / safeMax) * 100)}%` }}
+              title={`${item.label || item.dateKey} ${
+                valueKey === "feedTotalMl" ? `${item.feedTotalMl}ml` : formatDurationMinutes(item.sleepMinutes)
+              }`}
+            />
           </div>
           <span>{item.label}</span>
         </div>
@@ -413,12 +447,16 @@ function FeedTimelineChart({ feeds }: { feeds: BabyEvent[] }) {
               key={event.id}
               style={{ left: `${left}%`, height: `${height}%` }}
               title={`${formatTime(event.occurredAt)} ${event.amountMl ?? 0}ml`}
-            />
+            >
+              <em>{event.amountMl ?? 0}ml</em>
+            </span>
           );
         })}
         <div className="chart-axis">
           <span>0시</span>
+          <span>6시</span>
           <span>12시</span>
+          <span>18시</span>
           <span>24시</span>
         </div>
       </div>
@@ -426,28 +464,39 @@ function FeedTimelineChart({ feeds }: { feeds: BabyEvent[] }) {
   );
 }
 
-function IntervalLineChart({ intervals }: { intervals: number[] }) {
-  const maxInterval = Math.max(240, ...intervals);
-  const points = intervals.map((interval, index) => {
-    const x = intervals.length === 1 ? 50 : 8 + (index / (intervals.length - 1)) * 84;
-    const y = 84 - (interval / maxInterval) * 68;
-    return `${x},${y}`;
-  });
+function IntervalLineChart({
+  data,
+  maxInterval,
+  selectedDate,
+}: {
+  data: DayTrend[];
+  maxInterval: number;
+  selectedDate: string;
+}) {
+  const safeMax = Math.max(1, maxInterval);
+  const hasInterval = data.some((item) => item.feedAverageIntervalMinutes !== null);
 
   return (
     <div className="chart-with-y-axis">
       <ChartAxisLabels labels={[formatAxisMinutes(maxInterval), formatAxisMinutes(Math.round(maxInterval / 2)), "0분"]} />
-      <div className="line-chart">
-        {intervals.length === 0 ? <p className="empty-copy">간격 계산에는 수유 기록 2개 이상이 필요합니다.</p> : null}
-        <svg aria-label="수유 간격 변화 차트" viewBox="0 0 100 92" preserveAspectRatio="none">
-          <line x1="8" x2="92" y1="84" y2="84" />
-          <line x1="8" x2="8" y1="12" y2="84" />
-          {points.length > 0 ? <polyline points={points.join(" ")} /> : null}
-          {points.map((point) => {
-            const [cx, cy] = point.split(",");
-            return <circle cx={cx} cy={cy} key={point} r="1.8" />;
-          })}
-        </svg>
+      <div className={`interval-bars ${data.length > 7 ? "dense" : ""}`}>
+        {!hasInterval ? <p className="empty-copy">간격 계산에는 날짜별 수유 기록 2개 이상이 필요합니다.</p> : null}
+        {data.map((item) => {
+          const interval = item.feedAverageIntervalMinutes;
+
+          return (
+          <div className={`interval-bar-item ${item.dateKey === selectedDate ? "selected" : ""}`} key={item.dateKey}>
+            <div className="interval-bar-stack">
+              <em>{interval === null ? "-" : formatAxisMinutes(interval)}</em>
+              <i
+                style={{ height: `${interval === null ? 3 : Math.max(8, (interval / safeMax) * 100)}%` }}
+                title={interval === null ? `${item.label || item.dateKey} 기록 부족` : `${item.label || item.dateKey} ${formatDurationMinutes(interval)}`}
+              />
+            </div>
+            <span>{item.label}</span>
+          </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -486,6 +535,7 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
 }
 
 export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
+  const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(7);
   const selectedEvents = getEventsForDate(events, selectedDate);
   const feedEvents = selectedEvents.filter((event) => event.eventType === "feed");
   const poopEvents = selectedEvents.filter((event) => event.eventType === "poop");
@@ -495,17 +545,24 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const selectedStart = new Date(`${selectedDate}T00:00:00`);
   const yesterdayKey = toDateKey(addDays(selectedStart, -1));
   const yesterdaySummary = buildDailySummary(events, yesterdayKey);
-  const trendData: DayTrend[] = Array.from({ length: 7 }, (_, index) => {
-    const date = addDays(selectedStart, index - 6);
+  const trendData: DayTrend[] = Array.from({ length: analysisRange }, (_, index) => {
+    const date = addDays(selectedStart, index - (analysisRange - 1));
     const dateKey = toDateKey(date);
     const dayEvents = getEventsForDate(events, dateKey);
+    const dayFeedEvents = dayEvents.filter((event) => event.eventType === "feed");
+    const dayIntervals = getFeedIntervals(dayFeedEvents);
 
     return {
       dateKey,
-      label: `${date.getMonth() + 1}/${date.getDate()}`,
-      feedTotalMl: dayEvents
-        .filter((event) => event.eventType === "feed")
-        .reduce((total, event) => total + (event.amountMl ?? 0), 0),
+      label:
+        analysisRange === 30 && index % 3 !== 0 && index !== analysisRange - 1
+          ? ""
+          : `${date.getMonth() + 1}/${date.getDate()}`,
+      feedTotalMl: dayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+      feedAverageIntervalMinutes:
+        dayIntervals.length > 0
+          ? Math.round(dayIntervals.reduce((total, interval) => total + interval, 0) / dayIntervals.length)
+          : null,
       sleepMinutes: getSleepMinutes(dayEvents),
     };
   });
@@ -513,7 +570,8 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     trendData.reduce((total, item) => total + item.sleepMinutes, 0) / trendData.length,
   );
   const maxSevenDayFeed = Math.max(120, ...trendData.map((item) => item.feedTotalMl));
-  const maxSevenDaySleep = Math.max(60, ...trendData.map((item) => item.sleepMinutes));
+  const maxTrendInterval = Math.max(240, ...trendData.map((item) => item.feedAverageIntervalMinutes ?? 0));
+  const maxSevenDaySleep = Math.max(480, ...trendData.map((item) => item.sleepMinutes));
   const insight = getInsight(summary, averageInterval, sevenDaySleepAverage);
   const feedDiff = summary.feedTotalMl - yesterdaySummary.feedTotalMl;
   const sleepDiff = summary.sleepMinutes - yesterdaySummary.sleepMinutes;
@@ -532,6 +590,20 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
           onChange={(event) => onDateChange(event.target.value)}
         />
       </section>
+
+      <div className="analysis-range-switch" role="tablist" aria-label="분석 기간">
+        {analysisRangeOptions.map((option) => (
+          <button
+            aria-selected={analysisRange === option.value}
+            className={analysisRange === option.value ? "active" : ""}
+            key={option.value}
+            type="button"
+            onClick={() => setAnalysisRange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
 
       <section className={`panel analysis-insight ${insight.tone}`}>
         <span>Insight</span>
@@ -566,7 +638,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
             <p className="eyebrow">수유 타임라인</p>
             <h3>시간대별 수유량</h3>
           </div>
-          <strong>{summary.feedCount}회</strong>
         </div>
         <FeedTimelineChart feeds={feedEvents} />
       </section>
@@ -575,40 +646,49 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         <div className="chart-heading">
           <div>
             <p className="eyebrow">수유 간격</p>
-            <h3>간격 변화</h3>
+            <h3>날짜별 평균 간격</h3>
           </div>
-          <strong>{formatAverageInterval(averageInterval)}</strong>
         </div>
-        <IntervalLineChart intervals={intervals} />
+        <IntervalLineChart data={trendData} maxInterval={maxTrendInterval} selectedDate={selectedDate} />
       </section>
 
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>
-            <p className="eyebrow">최근 7일</p>
+            <p className="eyebrow">최근 {analysisRange}일</p>
             <h3>수유량</h3>
           </div>
-          <strong>ml</strong>
         </div>
         <div className="chart-with-y-axis">
           <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
-          <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" />
+          <TrendBars
+            data={trendData}
+            valueKey="feedTotalMl"
+            maxValue={maxSevenDayFeed}
+            tone="feed"
+            selectedDate={selectedDate}
+          />
         </div>
       </section>
 
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>
-            <p className="eyebrow">최근 7일</p>
+            <p className="eyebrow">최근 {analysisRange}일</p>
             <h3>수면 시간</h3>
           </div>
-          <strong>시간</strong>
         </div>
         <div className="chart-with-y-axis">
           <ChartAxisLabels
             labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]}
           />
-          <TrendBars data={trendData} valueKey="sleepMinutes" maxValue={maxSevenDaySleep} tone="sleep" />
+          <TrendBars
+            data={trendData}
+            valueKey="sleepMinutes"
+            maxValue={maxSevenDaySleep}
+            tone="sleep"
+            selectedDate={selectedDate}
+          />
         </div>
       </section>
 
@@ -618,7 +698,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
             <p className="eyebrow">배변 상태</p>
             <h3>색상 분포</h3>
           </div>
-          <strong>{poopEvents.length}회</strong>
         </div>
         <PoopDistribution events={selectedEvents} />
       </section>

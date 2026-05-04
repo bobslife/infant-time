@@ -1,4 +1,4 @@
-import { PointerEvent, useState } from "react";
+import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { BabyEvent } from "../types";
 import { formatDurationMinutes, formatTime } from "../lib/time";
 
@@ -21,6 +21,8 @@ const eventIcons: Record<BabyEvent["eventType"], string> = {
   pee: "/icons/pee.svg",
   poop: "/icons/poo.svg",
 };
+
+const DATE_PAGE_SIZE = 7;
 
 const poopAmountLabels = {
   small: "적음",
@@ -90,7 +92,11 @@ function formatDateHeader(dateKey: string): string {
 function groupEventsByDate(events: BabyEvent[]) {
   const groups = new Map<string, BabyEvent[]>();
 
-  events.forEach((event) => {
+  const sortedEvents = [...events].sort(
+    (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
+  );
+
+  sortedEvents.forEach((event) => {
     const key = eventDateKey(event);
     groups.set(key, [...(groups.get(key) ?? []), event]);
   });
@@ -113,7 +119,41 @@ function groupEventsByDate(events: BabyEvent[]) {
 export function EventList({ events, onDelete, onEdit }: EventListProps) {
   const [dragStart, setDragStart] = useState<{ id: string; x: number } | null>(null);
   const [openedId, setOpenedId] = useState<string | null>(null);
-  const groupedEvents = groupEventsByDate(events);
+  const [visibleDateCount, setVisibleDateCount] = useState(DATE_PAGE_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const groupedEvents = useMemo(() => groupEventsByDate(events), [events]);
+  const visibleGroups = groupedEvents.slice(0, visibleDateCount);
+  const hasMoreGroups = visibleDateCount < groupedEvents.length;
+
+  useEffect(() => {
+    setVisibleDateCount(DATE_PAGE_SIZE);
+    setOpenedId(null);
+  }, [events]);
+
+  useEffect(() => {
+    if (!hasMoreGroups) {
+      return;
+    }
+
+    const target = loadMoreRef.current;
+    if (!target) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          return;
+        }
+
+        setVisibleDateCount((current) => Math.min(current + DATE_PAGE_SIZE, groupedEvents.length));
+      },
+      { rootMargin: "240px 0px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [groupedEvents.length, hasMoreGroups]);
 
   function handlePointerDown(event: PointerEvent<HTMLElement>, babyEvent: BabyEvent) {
     setDragStart({ id: babyEvent.id, x: event.clientX });
@@ -156,7 +196,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
         </div>
       </div>
       <div className="event-list timeline-list">
-        {groupedEvents.map((group) => (
+        {visibleGroups.map((group) => (
           <section className="event-date-group" key={group.dateKey}>
             <div className="event-date-heading">
               <strong>{formatDateHeader(group.dateKey)}</strong>
@@ -193,6 +233,11 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
             </div>
           </section>
         ))}
+        {hasMoreGroups ? (
+          <div className="event-pagination-sentinel" ref={loadMoreRef} aria-hidden="true">
+            이전 기록 불러오는 중
+          </div>
+        ) : null}
         {events.length === 0 ? <p className="empty-copy">아직 기록이 없습니다.</p> : null}
       </div>
     </section>

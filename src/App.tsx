@@ -121,6 +121,7 @@ export function App() {
     }
 
     setActiveTab(tab);
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   if (isLoading) {
