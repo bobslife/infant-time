@@ -246,13 +246,7 @@ interface DayTrend {
   sleepMinutes: number;
 }
 
-type AnalysisRange = 1 | 7 | 30;
-
-const analysisRangeOptions: Array<{ value: AnalysisRange; label: string }> = [
-  { value: 1, label: "오늘" },
-  { value: 7, label: "7일" },
-  { value: 30, label: "30일" },
-];
+const RECENT_TREND_DAYS = 7;
 
 const poopColorShortLabels: Record<PoopColor, string> = {
   ocher: "황토",
@@ -535,7 +529,6 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
 }
 
 export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
-  const [analysisRange, setAnalysisRange] = useState<AnalysisRange>(7);
   const selectedEvents = getEventsForDate(events, selectedDate);
   const feedEvents = selectedEvents.filter((event) => event.eventType === "feed");
   const poopEvents = selectedEvents.filter((event) => event.eventType === "poop");
@@ -545,8 +538,8 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const selectedStart = new Date(`${selectedDate}T00:00:00`);
   const yesterdayKey = toDateKey(addDays(selectedStart, -1));
   const yesterdaySummary = buildDailySummary(events, yesterdayKey);
-  const trendData: DayTrend[] = Array.from({ length: analysisRange }, (_, index) => {
-    const date = addDays(selectedStart, index - (analysisRange - 1));
+  const trendData: DayTrend[] = Array.from({ length: RECENT_TREND_DAYS }, (_, index) => {
+    const date = addDays(selectedStart, index - (RECENT_TREND_DAYS - 1));
     const dateKey = toDateKey(date);
     const dayEvents = getEventsForDate(events, dateKey);
     const dayFeedEvents = dayEvents.filter((event) => event.eventType === "feed");
@@ -554,10 +547,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
 
     return {
       dateKey,
-      label:
-        analysisRange === 30 && index % 3 !== 0 && index !== analysisRange - 1
-          ? ""
-          : `${date.getMonth() + 1}/${date.getDate()}`,
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
       feedTotalMl: dayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
       feedAverageIntervalMinutes:
         dayIntervals.length > 0
@@ -581,7 +571,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     <section className="analysis-stack">
       <section className="panel analysis-header">
         <div>
-          <p className="eyebrow">패턴 분석</p>
           <h2>오늘의 리듬</h2>
         </div>
         <input
@@ -591,20 +580,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
           onChange={(event) => onDateChange(event.target.value)}
         />
       </section>
-
-      <div className="analysis-range-switch" role="tablist" aria-label="분석 기간">
-        {analysisRangeOptions.map((option) => (
-          <button
-            aria-selected={analysisRange === option.value}
-            className={analysisRange === option.value ? "active" : ""}
-            key={option.value}
-            type="button"
-            onClick={() => setAnalysisRange(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
 
       <section className={`panel analysis-insight ${insight.tone}`}>
         <span>Insight</span>
@@ -662,7 +637,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>
-            <p className="eyebrow">최근 {analysisRange}일</p>
+            <p className="eyebrow">최근 7일</p>
             <h3>수유량</h3>
           </div>
         </div>
@@ -681,7 +656,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>
-            <p className="eyebrow">최근 {analysisRange}일</p>
+            <p className="eyebrow">최근 7일</p>
             <h3>수면 시간</h3>
           </div>
         </div>
@@ -711,7 +686,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
 
       <section className="panel analysis-action">
         <strong>해석이 필요한 날은 기록을 더 촘촘히 남겨보세요.</strong>
-        <p>수유량, 대변 색상, 수면 종료 시간이 채워질수록 패턴 분석이 정확해집니다.</p>
+        <p>수유량, 대변 색상, 수면 종료 시간이 채워질수록 흐름을 더 정확히 볼 수 있습니다.</p>
       </section>
     </section>
   );
