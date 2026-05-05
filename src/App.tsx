@@ -3,6 +3,7 @@ import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
 import { LoginScreen } from "./components/LoginScreen";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
@@ -24,6 +25,10 @@ function getFeedIntervalStorageKey(babyId: string) {
 }
 
 export function App() {
+  if (window.location.pathname === "/privacy") {
+    return <PrivacyPolicy />;
+  }
+
   const {
     user,
     babies,
@@ -37,6 +42,7 @@ export function App() {
     signIn,
     useLocalPreview,
     signOut,
+    deleteAccount,
     createBaby,
     updateBaby,
     joinBaby,
@@ -192,6 +198,7 @@ export function App() {
             onJoinBaby={joinBaby}
             onSelectBaby={selectBaby}
             onSignOut={signOut}
+            onDeleteAccount={deleteAccount}
           />
         ) : null}
       </div>

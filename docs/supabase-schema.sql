@@ -55,16 +55,27 @@ create table if not exists events (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists account_histories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  event_type text not null check (event_type in ('sign_up', 'withdrawal')),
+  occurred_at timestamptz not null default now(),
+  metadata jsonb not null default '{}'::jsonb
+);
+
 create index if not exists babies_owner_id_idx on babies(owner_id);
 create unique index if not exists babies_invite_code_key on babies(invite_code);
 create index if not exists baby_members_user_id_idx on baby_members(user_id);
 create index if not exists events_baby_id_occurred_at_idx on events(baby_id, occurred_at desc);
 create index if not exists events_user_id_idx on events(user_id);
+create index if not exists account_histories_user_id_idx on account_histories(user_id);
+create unique index if not exists account_histories_user_event_key on account_histories(user_id, event_type);
 
 alter table profiles enable row level security;
 alter table babies enable row level security;
 alter table baby_members enable row level security;
 alter table events enable row level security;
+alter table account_histories enable row level security;
 
 drop policy if exists "profiles_select_own" on profiles;
 create policy "profiles_select_own"
@@ -241,6 +252,29 @@ using (
   )
 );
 
+drop trigger if exists profiles_log_sign_up on profiles;
+drop function if exists log_profile_sign_up();
+
+create function log_profile_sign_up()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into account_histories (user_id, event_type, occurred_at, metadata)
+  values (new.id, 'sign_up', coalesce(new.created_at, now()), '{}'::jsonb)
+  on conflict (user_id, event_type) do nothing;
+
+  return new;
+end;
+$$;
+
+create trigger profiles_log_sign_up
+after insert on profiles
+for each row
+execute function log_profile_sign_up();
+
 drop function if exists join_baby_by_invite_code(text, uuid);
 
 create function join_baby_by_invite_code(target_invite_code text, target_user_id uuid)
@@ -284,3 +318,32 @@ end;
 $$;
 
 grant execute on function join_baby_by_invite_code(text, uuid) to authenticated;
+
+drop function if exists delete_current_user_account();
+
+create function delete_current_user_account()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into account_histories (user_id, event_type, occurred_at, metadata)
+  values (current_user_id, 'withdrawal', now(), '{}'::jsonb)
+  on conflict (user_id, event_type) do update
+  set occurred_at = excluded.occurred_at,
+      metadata = excluded.metadata;
+
+  delete from auth.users
+  where id = current_user_id;
+end;
+$$;
+
+revoke all on function delete_current_user_account() from public;
+grant execute on function delete_current_user_account() to authenticated;

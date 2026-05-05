@@ -4,6 +4,7 @@ import {
   createLocalBaby,
   createLocalEvent,
   deleteLocalEvent,
+  deleteLocalAccount,
   getSelectedLocalBabyId,
   joinLocalBaby,
   listLocalBabies,
@@ -17,6 +18,7 @@ import {
   createSupabaseBaby,
   createSupabaseEvent,
   deleteSupabaseEvent,
+  deleteSupabaseAccount,
   ensureProfile,
   joinSupabaseBaby,
   listSupabaseBabies,
@@ -367,6 +369,40 @@ export function useEvents() {
     }
   }
 
+  async function deleteAccount() {
+    if (!user) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    try {
+      if (client && !user.isLocal) {
+        await deleteSupabaseAccount(client);
+        await client.auth.signOut().catch(() => undefined);
+        window.localStorage.removeItem(selectedBabyStorageKey(user.id));
+        setUser(null);
+      } else {
+        await deleteLocalAccount();
+        setUser(client ? null : localUser);
+      }
+
+      setBabies([]);
+      setBaby(null);
+      setEvents([]);
+
+      if (!client) {
+        await loadForUser(localUser);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "회원 탈퇴를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
+  }
+
   async function createBaby(input: CreateBabyInput) {
     if (!user) {
       return;
@@ -538,6 +574,7 @@ export function useEvents() {
     signIn,
     useLocalPreview,
     signOut,
+    deleteAccount,
     createBaby,
     updateBaby,
     joinBaby,

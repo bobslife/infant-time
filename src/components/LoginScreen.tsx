@@ -142,7 +142,10 @@ export function LoginScreen({
             로컬 미리보기로 확인
           </button>
         ) : null}
-        <footer className="auth-footer">Infant Time</footer>
+        <footer className="auth-footer">
+          <span>Infant Time</span>
+          <a href="/privacy">개인정보처리방침</a>
+        </footer>
       </section>
     </main>
   );

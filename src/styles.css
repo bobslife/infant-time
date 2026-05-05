@@ -106,6 +106,23 @@ button {
   text-align: center;
 }
 
+.auth-footer a,
+.policy-link {
+  color: var(--color-text-soft);
+  text-decoration: none;
+}
+
+.auth-footer {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.policy-link {
+  text-align: center;
+}
+
 .auth-panel h1,
 .hero h1,
 .section-heading h2 {
@@ -208,6 +225,135 @@ button {
 
 .baby-gender-icon.boy {
   color: var(--color-blue-strong);
+}
+
+.privacy-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 24px 16px 48px;
+}
+
+.privacy-document {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-card);
+}
+
+.privacy-header {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5e8eb;
+}
+
+.privacy-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: var(--color-text);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.privacy-brand img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+
+.privacy-header h1 {
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 7vw, 3.1rem);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.privacy-header p,
+.privacy-section p,
+.privacy-section li,
+.privacy-contact dd,
+.privacy-contact dt {
+  color: var(--color-text-soft);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.72;
+}
+
+.privacy-header p,
+.privacy-section p {
+  margin: 0;
+}
+
+.privacy-section {
+  display: grid;
+  gap: 12px;
+  padding: 24px 0;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.privacy-section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.privacy-section h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.18rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.privacy-section ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.privacy-list {
+  display: grid;
+  gap: 10px;
+}
+
+.privacy-list-item {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid #e5e8eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.privacy-list-item strong {
+  color: #111827;
+  font-size: 0.98rem;
+}
+
+.privacy-contact {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.privacy-contact div {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.privacy-contact dt {
+  color: var(--color-text-muted);
+}
+
+.privacy-contact dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .hero-copy {
@@ -973,6 +1119,13 @@ button {
   line-height: 1.45;
 }
 
+.interval-empty-copy {
+  display: flex;
+  align-items: center;
+  min-height: 92px;
+  margin: 4px 0 0;
+}
+
 .entry-form {
   display: grid;
   gap: 14px;
@@ -1088,7 +1241,11 @@ button {
 }
 
 .primary-button,
-.ghost-button {
+.ghost-button,
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 8px;
   min-height: 54px;
@@ -1110,6 +1267,16 @@ button {
 .ghost-button {
   background: var(--color-blue);
   color: #1b64da;
+}
+
+.danger-button {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.danger-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .compact-button {
@@ -1736,6 +1903,24 @@ button {
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.delete-account-copy {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.delete-account-copy p {
+  margin: 0;
+  color: var(--color-text-soft);
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.delete-account-copy strong {
+  color: #be123c;
 }
 
 .modal-backdrop {

@@ -300,3 +300,11 @@ export async function deleteSupabaseEvent(
     throw error;
   }
 }
+
+export async function deleteSupabaseAccount(client: SupabaseClient): Promise<void> {
+  const { error } = await client.rpc("delete_current_user_account");
+
+  if (error) {
+    throw error;
+  }
+}

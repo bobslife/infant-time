@@ -575,6 +575,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const insight = getInsight(summary, averageInterval, sevenDaySleepAverage);
   const feedDiff = summary.feedTotalMl - yesterdaySummary.feedTotalMl;
   const sleepDiff = summary.sleepMinutes - yesterdaySummary.sleepMinutes;
+  const hasEnoughFeedsForIntervalChart = feedEvents.length >= 2;
 
   return (
     <section className="analysis-stack">
@@ -649,7 +650,13 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
             <h3>날짜별 평균 간격</h3>
           </div>
         </div>
-        <IntervalLineChart data={trendData} maxInterval={maxTrendInterval} selectedDate={selectedDate} />
+        {hasEnoughFeedsForIntervalChart ? (
+          <IntervalLineChart data={trendData} maxInterval={maxTrendInterval} selectedDate={selectedDate} />
+        ) : (
+          <p className="empty-copy interval-empty-copy">
+            선택한 날짜의 수유 기록이 2개 이상이면 날짜별 평균 간격을 확인할 수 있습니다.
+          </p>
+        )}
       </section>
 
       <section className="panel chart-panel">

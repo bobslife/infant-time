@@ -16,6 +16,7 @@ interface ProfileScreenProps {
   onJoinBaby: (input: JoinBabyInput) => Promise<void>;
   onSelectBaby: (babyId: string) => Promise<void>;
   onSignOut: () => Promise<void>;
+  onDeleteAccount: () => Promise<void>;
 }
 
 export function ProfileScreen({
@@ -27,15 +28,19 @@ export function ProfileScreen({
   onJoinBaby,
   onSelectBaby,
   onSignOut,
+  onDeleteAccount,
 }: ProfileScreenProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [addMode, setAddMode] = useState<"closed" | "create" | "join">("closed");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState(new Date().toISOString().slice(0, 10));
   const [gender, setGender] = useState<BabyGender>("girl");
   const [inviteCode, setInviteCode] = useState("");
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const selectedGender = genderOptions.find((option) => option.value === baby.gender) ?? genderOptions[0];
 
   function handleInviteCodeChange(value: string) {
@@ -90,6 +95,21 @@ export function ProfileScreen({
       });
     } finally {
       setIsUpdatingProfile(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirmText !== "탈퇴") {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      await onDeleteAccount();
+      setDeleteConfirmText("");
+      setIsDeleteConfirmOpen(false);
+    } finally {
+      setIsDeletingAccount(false);
     }
   }
 
@@ -176,10 +196,68 @@ export function ProfileScreen({
             <strong>{user.isLocal ? "로컬 미리보기" : "Supabase"}</strong>
           </div>
         </div>
+        <a className="ghost-button full-width policy-link" href="/privacy">
+          개인정보처리방침
+        </a>
         <button className="ghost-button full-width" type="button" onClick={onSignOut}>
           로그아웃
         </button>
+        <button
+          className="danger-button full-width"
+          type="button"
+          onClick={() => setIsDeleteConfirmOpen(true)}
+        >
+          회원 탈퇴
+        </button>
       </section>
+      {isDeleteConfirmOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setIsDeleteConfirmOpen(false)}>
+          <section
+            className="modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="회원 탈퇴 확인"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">계정 삭제</p>
+                <h2>회원 탈퇴</h2>
+              </div>
+              <button
+                className="ghost-button compact-button"
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+            <div className="delete-account-copy">
+              <p>
+                탈퇴하면 계정 정보와 직접 등록한 아기 프로필, 돌봄 기록이 삭제됩니다. 삭제된 데이터는
+                되돌릴 수 없습니다.
+              </p>
+              <p>계속하려면 아래 입력칸에 <strong>탈퇴</strong>를 입력하세요.</p>
+            </div>
+            <label className="field">
+              <span>확인 문구</span>
+              <input
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                placeholder="탈퇴"
+              />
+            </label>
+            <button
+              className="danger-button full-width"
+              disabled={deleteConfirmText !== "탈퇴" || isDeletingAccount}
+              type="button"
+              onClick={() => void handleDeleteAccount()}
+            >
+              {isDeletingAccount ? "처리 중..." : "영구 삭제하고 탈퇴"}
+            </button>
+          </section>
+        </div>
+      ) : null}
       {isPickerOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setIsPickerOpen(false)}>
           <section

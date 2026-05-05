@@ -190,3 +190,9 @@ export async function updateLocalEvent(input: UpdateEventInput): Promise<BabyEve
 export async function deleteLocalEvent(eventId: string): Promise<void> {
   writeEvents(readEvents().filter((event) => event.id !== eventId));
 }
+
+export async function deleteLocalAccount(): Promise<void> {
+  window.localStorage.removeItem(EVENTS_STORAGE_KEY);
+  window.localStorage.removeItem(BABIES_STORAGE_KEY);
+  window.localStorage.removeItem(SELECTED_BABY_STORAGE_KEY);
+}
