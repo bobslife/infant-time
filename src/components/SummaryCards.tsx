@@ -251,7 +251,9 @@ export function SummaryCards({
               <option value={180}>3시간</option>
               <option value={210}>3시간 30분</option>
               <option value={240}>4시간</option>
+              <option value={270}>4시간 30분</option>
               <option value={300}>5시간</option>
+              <option value={330}>5시간 30분</option>
             </select>
           </div>
         </div>
