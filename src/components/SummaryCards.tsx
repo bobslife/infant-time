@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
 import { buildDailySummary, DailyEventSummary, EventSummary } from "../features/events/useEvents";
 import {
@@ -49,7 +50,7 @@ const defaultProfileImages: Record<BabyProfile["gender"], string> = {
 const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
   { type: "sleep", icon: "/icons/sleeping.svg", label: "수면 시작" },
-  { type: "diaper", icon: "/icons/poo.svg", label: "기저귀" },
+  { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
   { type: "meal", icon: "/icons/action.svg", label: "이유식" },
@@ -302,6 +303,7 @@ export function SummaryCards({
           </button>
         </div>
       </section>
+      <AdBanner placement="home-bottom" />
       <section className="panel home-quick-section" aria-label="빠른 기록">
         <div className="section-heading compact-heading">
           <div>
@@ -705,6 +707,8 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         </article>
       </section>
 
+      <AdBanner placement="analysis-bottom" />
+
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>
@@ -714,7 +718,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         </div>
         <FeedTimelineChart feeds={feedEvents} />
       </section>
-
       <section className="panel chart-panel">
         <div className="chart-heading">
           <div>

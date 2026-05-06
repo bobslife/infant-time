@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { AdBanner } from "./ads/AdBanner";
 import { AppUser, BabyGender, BabyProfile, CreateBabyInput, JoinBabyInput, UpdateBabyInput } from "../types";
 import { formatAge, formatDateTime } from "../lib/time";
 
@@ -145,28 +146,7 @@ export function ProfileScreen({
           </div>
         </div>
       </section>
-      <section className="panel">
-        <div className="section-heading compact-heading">
-          <div>
-            <p className="eyebrow">육아 운영</p>
-            <h2>알림/공유/데이터</h2>
-          </div>
-        </div>
-        <div className="profile-list">
-          <div>
-            <span>알림 설정</span>
-            <strong>수유 · 약 · 예방접종</strong>
-          </div>
-          <div>
-            <span>보호자 공유</span>
-            <strong>초대 코드 {baby.inviteCode}</strong>
-          </div>
-          <div>
-            <span>데이터 관리</span>
-            <strong>내보내기/백업 준비 중</strong>
-          </div>
-        </div>
-      </section>
+      <AdBanner placement="profile-bottom" />
       <section className="panel">
         <div className="section-heading compact-heading">
           <div>

@@ -175,3 +175,45 @@ MVP 1차 구현 스택은 `React + Vite + Supabase + Vercel`로 정합니다.
 - 입력 속도를 높이려다 보면 기록 항목의 정확성이나 확장성이 떨어질 수 있다.
 - 모바일 웹은 빠르게 배포할 수 있지만, 실제 App Store 네이티브 앱과 동일한 사용성을 완전히 보장하지는 않는다.
 - 알림 기능은 사용자 기대치가 높기 때문에 지원 범위와 동작 조건을 제품 설명에서 명확히 안내해야 한다.
+
+## 광고 설정
+
+광고 영역은 하단 탭 바로 위의 일반 문서 흐름에만 배치합니다. 수유, 수면, 기저귀 저장 버튼 주변과 Bottom Sheet 내부에는 광고를 넣지 않습니다.
+
+개발 중에는 mock 광고가 표시됩니다.
+
+```env
+VITE_AD_MODE=mock
+```
+
+광고 숨김:
+
+```env
+VITE_AD_MODE=off
+```
+
+자체 스폰서/제휴 영역:
+
+```env
+VITE_AD_MODE=sponsor
+```
+
+AdSense 사용:
+
+```env
+VITE_AD_MODE=adsense
+VITE_ADSENSE_CLIENT=ca-pub-xxxxxxxxxxxxxxxx
+VITE_ADSENSE_SLOT_HOME_BOTTOM=xxxxxxxxxx
+VITE_ADSENSE_SLOT_ACTIVITY_BOTTOM=xxxxxxxxxx
+VITE_ADSENSE_SLOT_ANALYSIS_BOTTOM=xxxxxxxxxx
+VITE_ADSENSE_SLOT_GROWTH_BOTTOM=xxxxxxxxxx
+VITE_ADSENSE_SLOT_PROFILE_BOTTOM=xxxxxxxxxx
+```
+
+Vite 설정에서 `NEXT_PUBLIC_*` 환경변수도 읽을 수 있게 열어두었지만, 이 프로젝트에서는 `VITE_*` 사용을 기본으로 합니다.
+
+주의:
+
+- AdSense는 승인을 받은 도메인에서만 실제 광고가 정상 표시됩니다.
+- iOS/Android 앱으로 패키징할 경우 WebView 안의 AdSense보다 네이티브 AdMob 배너를 별도로 검토해야 합니다.
+- 광고는 앱의 핵심 기록 UX보다 우선하지 않습니다.

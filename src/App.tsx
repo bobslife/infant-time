@@ -170,40 +170,48 @@ export function App() {
           </section>
         ) : null}
         {activeTab === "input" ? (
-          <EventInputScreen
-            baby={baby}
-            editingEvent={editingEvent}
-            events={events}
-            initialEventType={inputEventType}
-            onSubmit={handleAddEvent}
-            onUpdateEvent={handleUpdateEventFromInput}
-          />
+          <section className="screen-stack">
+            <EventInputScreen
+              baby={baby}
+              editingEvent={editingEvent}
+              events={events}
+              initialEventType={inputEventType}
+              onSubmit={handleAddEvent}
+              onUpdateEvent={handleUpdateEventFromInput}
+            />
+          </section>
         ) : null}
         {activeTab === "analysis" ? (
-          <AnalysisCards
-            events={events}
-            selectedDate={analysisDate}
-            summary={buildDailySummary(events, analysisDate)}
-            onDateChange={setAnalysisDate}
-          />
+          <section className="screen-stack">
+            <AnalysisCards
+              events={events}
+              selectedDate={analysisDate}
+              summary={buildDailySummary(events, analysisDate)}
+              onDateChange={setAnalysisDate}
+            />
+          </section>
         ) : null}
         {activeTab === "growth" ? (
-          <Suspense fallback={<p className="empty-copy">성장 기록을 불러오는 중입니다.</p>}>
-            <GrowthScreen baby={baby} />
-          </Suspense>
+          <section className="screen-stack">
+            <Suspense fallback={<p className="empty-copy">성장 기록을 불러오는 중입니다.</p>}>
+              <GrowthScreen baby={baby} />
+            </Suspense>
+          </section>
         ) : null}
         {activeTab === "profile" ? (
-          <ProfileScreen
-            babies={babies}
-            baby={baby}
-            user={user}
-            onCreateBaby={createBaby}
-            onUpdateBaby={updateBaby}
-            onJoinBaby={joinBaby}
-            onSelectBaby={selectBaby}
-            onSignOut={signOut}
-            onDeleteAccount={deleteAccount}
-          />
+          <section className="screen-stack">
+            <ProfileScreen
+              babies={babies}
+              baby={baby}
+              user={user}
+              onCreateBaby={createBaby}
+              onUpdateBaby={updateBaby}
+              onJoinBaby={joinBaby}
+              onSelectBaby={selectBaby}
+              onSignOut={signOut}
+              onDeleteAccount={deleteAccount}
+            />
+          </section>
         ) : null}
       </div>
       <QuickEntrySheet

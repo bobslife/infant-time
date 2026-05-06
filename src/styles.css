@@ -1429,7 +1429,8 @@ button {
   background: #fff4bd;
 }
 
-.event-chip.poop {
+.event-chip.poop,
+.event-chip.diaper {
   background: #f5e6d8;
 }
 
@@ -2253,6 +2254,73 @@ button {
   bottom: 0;
   left: auto;
   width: 100%;
+}
+
+.ad-banner {
+  display: grid;
+  gap: 8px;
+  min-height: 96px;
+  margin-top: 2px;
+  border: 1px solid var(--color-line);
+  border-radius: 24px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.ad-label {
+  color: var(--color-text-muted);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.ad-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ad-visual,
+.ad-image {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(255, 225, 236, 0.88), rgba(220, 236, 255, 0.82)),
+    #f8fafc;
+}
+
+.ad-image {
+  object-fit: cover;
+}
+
+.ad-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ad-copy strong {
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.ad-copy span {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.ad-adsense-slot {
+  min-height: 72px;
 }
 
 .modal-backdrop {

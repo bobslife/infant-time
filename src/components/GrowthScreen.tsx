@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AdBanner } from "./ads/AdBanner";
 import { BabyProfile, GrowthRecord } from "../types";
 
 interface GrowthScreenProps {
@@ -118,6 +119,8 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
           </div>
         </div>
       </section>
+
+      <AdBanner placement="growth-bottom" />
 
       <section className="panel growth-chart-panel">
         <div className="section-heading compact-heading">

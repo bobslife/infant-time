@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
 import {
   BabyEvent,
@@ -26,7 +27,7 @@ interface EventInputScreenProps {
 const eventOptions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
   { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
-  { type: "diaper", icon: "/icons/poo.svg", label: "기저귀" },
+  { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
   { type: "meal", icon: "/icons/action.svg", label: "이유식" },
@@ -648,6 +649,7 @@ export function EventInputScreen({
       ) : null}
 
       {toastMessage ? <div className="toast-message">{toastMessage}</div> : null}
+      <AdBanner placement="activity-bottom" />
     </section>
   );
 }

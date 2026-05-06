@@ -24,7 +24,7 @@ const eventIcons: Record<BabyEvent["eventType"], string> = {
   sleep: "/icons/sleeping.svg",
   pee: "/icons/pee.svg",
   poop: "/icons/poo.svg",
-  diaper: "/icons/poo.svg",
+  diaper: "/icons/diaper.svg",
   medicine: "/icons/pill.svg",
   temperature: "/icons/thermometer.svg",
   meal: "/icons/action.svg",
@@ -116,6 +116,22 @@ function eventDetail(event: BabyEvent): string {
   }
 
   return "기록";
+}
+
+function eventIcon(event: BabyEvent): string {
+  if (event.eventType === "diaper") {
+    if (event.diaperType === "wet") {
+      return "/icons/pee.svg";
+    }
+
+    if (event.diaperType === "dirty") {
+      return "/icons/poo.svg";
+    }
+
+    return "/icons/diaper.svg";
+  }
+
+  return eventIcons[event.eventType];
 }
 
 function eventDateKey(event: BabyEvent): string {
@@ -277,7 +293,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                   >
                     <time>{formatTime(event.occurredAt)}</time>
                     <div className={`event-chip ${event.eventType}`}>
-                      <img alt={eventLabels[event.eventType]} src={eventIcons[event.eventType]} />
+                      <img alt={eventLabels[event.eventType]} src={eventIcon(event)} />
                     </div>
                     <div className="event-copy">
                       <strong>{eventLabels[event.eventType]}</strong>
