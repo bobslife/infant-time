@@ -1,24 +1,29 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
 import { LoginScreen } from "./components/LoginScreen";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
+import { QuickEntrySheet } from "./components/quick-entry/QuickEntrySheet";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
 import { BabyEvent, EventType } from "./types";
 
-type AppTab = "home" | "input" | "analysis" | "profile";
+type AppTab = "home" | "input" | "analysis" | "growth" | "profile";
 
 const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "home", icon: "/icons/home.svg", label: "홈" },
   { id: "input", icon: "/icons/action.svg", label: "활동" },
   { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
+  { id: "growth", icon: "/icons/grow-up.svg", label: "성장" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
 ];
 
 const DEFAULT_FEED_INTERVAL_MINUTES = 180;
+const GrowthScreen = lazy(() =>
+  import("./components/GrowthScreen").then((module) => ({ default: module.GrowthScreen })),
+);
 
 function getFeedIntervalStorageKey(babyId: string) {
   return `infant-time-feed-interval-${babyId}`;
@@ -54,8 +59,19 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
+  const [quickEntryType, setQuickEntryType] = useState<EventType | null>(null);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setActiveTab("home");
+    setEditingEvent(null);
+    setInputEventType("feed");
+  }, [user?.id]);
 
   useEffect(() => {
     if (!baby) {
@@ -78,43 +94,25 @@ export function App() {
   }
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
-    if (editingEvent) {
-      await updateEvent({ ...input, id: editingEvent.id });
-      setEditingEvent(null);
-      setActiveTab("home");
-      return;
-    }
-
-    if (input.eventType === "feed") {
-      const ongoingSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt);
-
-      if (ongoingSleep && new Date(input.occurredAt).getTime() >= new Date(ongoingSleep.occurredAt).getTime()) {
-        await updateEvent({
-          id: ongoingSleep.id,
-          babyId: ongoingSleep.babyId,
-          eventType: "sleep",
-          occurredAt: ongoingSleep.occurredAt,
-          endedAt: input.occurredAt,
-          amountMl: null,
-          poopAmount: null,
-          poopColor: null,
-          note: ongoingSleep.note,
-        });
-      }
-    }
-
     await addEvent(input);
+  }
+
+  async function handleUpdateEventFromInput(input: Parameters<typeof updateEvent>[0]) {
+    await updateEvent(input);
+    setEditingEvent(null);
+    setActiveTab("home");
   }
 
   function handleEditEvent(event: BabyEvent) {
     setEditingEvent(event);
+    setInputEventType(event.eventType === "pee" || event.eventType === "poop" ? "diaper" : event.eventType);
+    setQuickEntryType(null);
     setActiveTab("input");
   }
 
   function handleQuickAdd(eventType: EventType) {
     setEditingEvent(null);
-    setInputEventType(eventType);
-    setActiveTab("input");
+    setQuickEntryType(eventType);
   }
 
   function handleTabChange(tab: AppTab) {
@@ -162,6 +160,7 @@ export function App() {
           <section className="screen-stack">
             <SummaryCards
               baby={baby}
+              events={events}
               feedIntervalMinutes={feedIntervalMinutes}
               summary={summary}
               onFeedIntervalChange={handleFeedIntervalChange}
@@ -177,7 +176,7 @@ export function App() {
             events={events}
             initialEventType={inputEventType}
             onSubmit={handleAddEvent}
-            onUpdateEvent={updateEvent}
+            onUpdateEvent={handleUpdateEventFromInput}
           />
         ) : null}
         {activeTab === "analysis" ? (
@@ -187,6 +186,11 @@ export function App() {
             summary={buildDailySummary(events, analysisDate)}
             onDateChange={setAnalysisDate}
           />
+        ) : null}
+        {activeTab === "growth" ? (
+          <Suspense fallback={<p className="empty-copy">성장 기록을 불러오는 중입니다.</p>}>
+            <GrowthScreen baby={baby} />
+          </Suspense>
         ) : null}
         {activeTab === "profile" ? (
           <ProfileScreen
@@ -202,6 +206,14 @@ export function App() {
           />
         ) : null}
       </div>
+      <QuickEntrySheet
+        baby={baby}
+        eventType={quickEntryType}
+        events={events}
+        onClose={() => setQuickEntryType(null)}
+        onSubmit={handleAddEvent}
+        onUpdateEvent={updateEvent}
+      />
       <nav className="bottom-tabs" aria-label="주요 메뉴">
         {tabs.map((tab) => (
           <button

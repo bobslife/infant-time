@@ -1,8 +1,22 @@
-export type EventType = "feed" | "sleep" | "pee" | "poop";
+export type EventType =
+  | "feed"
+  | "sleep"
+  | "diaper"
+  | "medicine"
+  | "temperature"
+  | "meal"
+  | "pee"
+  | "poop";
+
+export type DiaperType = "wet" | "dirty" | "both";
 
 export type PoopAmount = "small" | "normal" | "large";
 
 export type PoopColor = "ocher" | "brown" | "dark_brown" | "green" | "red_orange";
+
+export type TemperatureLocation = "forehead" | "ear" | "armpit";
+
+export type MealReaction = "good" | "normal" | "poor" | "allergy";
 
 export type BabyGender = "girl" | "boy";
 
@@ -24,10 +38,30 @@ export interface BabyEvent {
   occurredAt: string;
   endedAt?: string | null;
   amountMl?: number | null;
+  diaperType?: DiaperType | null;
   poopAmount?: PoopAmount | null;
   poopColor?: PoopColor | null;
+  medicineName?: string | null;
+  medicineDose?: string | null;
+  medicineNextAt?: string | null;
+  temperatureC?: number | null;
+  temperatureLocation?: TemperatureLocation | null;
+  mealName?: string | null;
+  mealAmountG?: number | null;
+  mealReaction?: MealReaction | null;
   createdAt: string;
   note?: string;
+}
+
+export interface GrowthRecord {
+  id: string;
+  babyId: string;
+  measuredAt: string;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  headCm?: number | null;
+  note?: string | null;
+  createdAt: string;
 }
 
 export interface CreateBabyInput {
@@ -53,8 +87,17 @@ export interface CreateEventInput {
   occurredAt: string;
   endedAt?: string | null;
   amountMl?: number | null;
+  diaperType?: DiaperType | null;
   poopAmount?: PoopAmount | null;
   poopColor?: PoopColor | null;
+  medicineName?: string | null;
+  medicineDose?: string | null;
+  medicineNextAt?: string | null;
+  temperatureC?: number | null;
+  temperatureLocation?: TemperatureLocation | null;
+  mealName?: string | null;
+  mealAmountG?: number | null;
+  mealReaction?: MealReaction | null;
   note?: string;
 }
 

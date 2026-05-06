@@ -1,11 +1,15 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ActivityShortcut } from "./activity/ActivityShortcut";
 import {
   BabyEvent,
   BabyProfile,
   CreateEventInput,
+  DiaperType,
   EventType,
+  MealReaction,
   PoopAmount,
   PoopColor,
+  TemperatureLocation,
   UpdateEventInput,
 } from "../types";
 import { formatDurationMinutes, formatTime, toLocalDateTimeInputValue } from "../lib/time";
@@ -22,8 +26,18 @@ interface EventInputScreenProps {
 const eventOptions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
   { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
-  { type: "pee", icon: "/icons/pee.svg", label: "소변" },
-  { type: "poop", icon: "/icons/poo.svg", label: "대변" },
+  { type: "diaper", icon: "/icons/poo.svg", label: "기저귀" },
+  { type: "medicine", icon: "/icons/pill.svg", label: "약" },
+  { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
+  { type: "meal", icon: "/icons/action.svg", label: "이유식" },
+];
+
+const feedQuickAmounts = [60, 80, 100, 120, 140];
+
+const diaperOptions: Array<{ value: DiaperType; label: string }> = [
+  { value: "wet", label: "소변" },
+  { value: "dirty", label: "대변" },
+  { value: "both", label: "둘다" },
 ];
 
 const poopAmounts: Array<{ value: PoopAmount; label: string }> = [
@@ -33,11 +47,24 @@ const poopAmounts: Array<{ value: PoopAmount; label: string }> = [
 ];
 
 const poopColors: Array<{ value: PoopColor; label: string; className: string }> = [
-  { value: "ocher", label: "황토색", className: "ocher" },
+  { value: "ocher", label: "노랑", className: "ocher" },
+  { value: "green", label: "초록", className: "green" },
   { value: "brown", label: "갈색", className: "brown" },
-  { value: "dark_brown", label: "진한 갈색", className: "dark-brown" },
-  { value: "green", label: "쑥색", className: "green" },
-  { value: "red_orange", label: "다홍색", className: "red-orange" },
+  { value: "dark_brown", label: "진갈", className: "dark-brown" },
+  { value: "red_orange", label: "다홍", className: "red-orange" },
+];
+
+const temperatureLocations: Array<{ value: TemperatureLocation; label: string }> = [
+  { value: "forehead", label: "이마" },
+  { value: "ear", label: "귀" },
+  { value: "armpit", label: "겨드랑이" },
+];
+
+const mealReactions: Array<{ value: MealReaction; label: string }> = [
+  { value: "good", label: "잘 먹음" },
+  { value: "normal", label: "보통" },
+  { value: "poor", label: "적게 먹음" },
+  { value: "allergy", label: "반응 있음" },
 ];
 
 function toInputDateTime(value: string | null | undefined): string {
@@ -65,6 +92,20 @@ function isEndedBeforeStarted(start: string, end: string): boolean {
   return new Date(end).getTime() < new Date(start).getTime();
 }
 
+function normalizeEventType(type: EventType): EventType {
+  if (type === "pee" || type === "poop") {
+    return "diaper";
+  }
+
+  return type;
+}
+
+function triggerHaptic() {
+  if ("vibrate" in navigator) {
+    navigator.vibrate(10);
+  }
+}
+
 export function EventInputScreen({
   baby,
   editingEvent,
@@ -73,16 +114,27 @@ export function EventInputScreen({
   onSubmit,
   onUpdateEvent,
 }: EventInputScreenProps) {
-  const [eventType, setEventType] = useState<EventType>(initialEventType);
-  const [occurredAt, setOccurredAt] = useState(toLocalDateTimeInputValue());
-  const [quickDate, setQuickDate] = useState(toInputDate(toLocalDateTimeInputValue()));
-  const [quickTime, setQuickTime] = useState(toInputTime(toLocalDateTimeInputValue()));
-  const [endedAt, setEndedAt] = useState("");
-  const [endedDate, setEndedDate] = useState("");
-  const [endedTime, setEndedTime] = useState("");
-  const [amountMl, setAmountMl] = useState(100);
+  const initialOccurredAt = editingEvent ? toInputDateTime(editingEvent.occurredAt) : toLocalDateTimeInputValue();
+  const initialEndedAt = editingEvent?.endedAt ? toInputDateTime(editingEvent.endedAt) : "";
+  const [eventType, setEventType] = useState<EventType>(normalizeEventType(editingEvent?.eventType ?? initialEventType));
+  const [occurredAt, setOccurredAt] = useState(initialOccurredAt);
+  const [quickDate, setQuickDate] = useState(toInputDate(initialOccurredAt));
+  const [quickTime, setQuickTime] = useState(toInputTime(initialOccurredAt));
+  const [endedAt, setEndedAt] = useState(initialEndedAt);
+  const [endedDate, setEndedDate] = useState(initialEndedAt ? toInputDate(initialEndedAt) : "");
+  const [endedTime, setEndedTime] = useState(initialEndedAt ? toInputTime(initialEndedAt) : "");
+  const [amountMl, setAmountMl] = useState(120);
+  const [diaperType, setDiaperType] = useState<DiaperType>("wet");
   const [poopAmount, setPoopAmount] = useState<PoopAmount>("normal");
   const [poopColor, setPoopColor] = useState<PoopColor>("ocher");
+  const [medicineName, setMedicineName] = useState("");
+  const [medicineDose, setMedicineDose] = useState("");
+  const [medicineNextAt, setMedicineNextAt] = useState("");
+  const [temperatureC, setTemperatureC] = useState(36.6);
+  const [temperatureLocation, setTemperatureLocation] = useState<TemperatureLocation>("forehead");
+  const [mealName, setMealName] = useState("");
+  const [mealAmountG, setMealAmountG] = useState(80);
+  const [mealReaction, setMealReaction] = useState<MealReaction>("good");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(Boolean(editingEvent));
@@ -90,11 +142,19 @@ export function EventInputScreen({
   const [now, setNow] = useState(new Date());
 
   const ongoingSleep = useMemo(
-    () =>
-      events.find((event) => event.eventType === "sleep" && !event.endedAt) ??
-      null,
+    () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
     [events],
   );
+
+  const feedEvents = useMemo(
+    () => events.filter((event) => event.eventType === "feed").slice(0, 5),
+    [events],
+  );
+  const recentFeedAverage = feedEvents.length
+    ? Math.round(feedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0) / feedEvents.length)
+    : null;
+  const previousFeedAmount = feedEvents[0]?.amountMl ?? null;
+  const feedDiff = previousFeedAmount === null ? null : amountMl - previousFeedAmount;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -113,22 +173,32 @@ export function EventInputScreen({
   useEffect(() => {
     if (!editingEvent) {
       const current = toLocalDateTimeInputValue();
-      setEventType(initialEventType);
+      setEventType(normalizeEventType(initialEventType));
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
       setEndedAt("");
       setEndedDate("");
       setEndedTime("");
-      setAmountMl(100);
+      setAmountMl(120);
+      setDiaperType("wet");
       setPoopAmount("normal");
       setPoopColor("ocher");
+      setMedicineName("");
+      setMedicineDose("");
+      setMedicineNextAt("");
+      setTemperatureC(36.6);
+      setTemperatureLocation("forehead");
+      setMealName("");
+      setMealAmountG(80);
+      setMealReaction("good");
       setNote("");
       setShowDetails(false);
       return;
     }
 
-    setEventType(editingEvent.eventType);
+    const normalizedType = normalizeEventType(editingEvent.eventType);
+    setEventType(normalizedType);
     const nextOccurredAt = toInputDateTime(editingEvent.occurredAt);
     setOccurredAt(nextOccurredAt);
     setQuickDate(toInputDate(nextOccurredAt));
@@ -137,11 +207,20 @@ export function EventInputScreen({
     setEndedAt(nextEndedAt);
     setEndedDate(nextEndedAt ? toInputDate(nextEndedAt) : "");
     setEndedTime(nextEndedAt ? toInputTime(nextEndedAt) : "");
-    setAmountMl(editingEvent.amountMl ?? 100);
+    setAmountMl(editingEvent.amountMl ?? 120);
+    setDiaperType(editingEvent.diaperType ?? (editingEvent.eventType === "poop" ? "dirty" : "wet"));
     setPoopAmount(editingEvent.poopAmount ?? "normal");
     setPoopColor(editingEvent.poopColor ?? "ocher");
+    setMedicineName(editingEvent.medicineName ?? "");
+    setMedicineDose(editingEvent.medicineDose ?? "");
+    setMedicineNextAt(editingEvent.medicineNextAt ? toInputDateTime(editingEvent.medicineNextAt) : "");
+    setTemperatureC(editingEvent.temperatureC ?? 36.6);
+    setTemperatureLocation(editingEvent.temperatureLocation ?? "forehead");
+    setMealName(editingEvent.mealName ?? "");
+    setMealAmountG(editingEvent.mealAmountG ?? 80);
+    setMealReaction(editingEvent.mealReaction ?? "good");
     setNote(editingEvent.note ?? "");
-    setShowDetails(editingEvent.eventType !== "sleep");
+    setShowDetails(normalizedType !== "sleep");
   }, [editingEvent, initialEventType]);
 
   function showSavedToast(message: string) {
@@ -177,21 +256,53 @@ export function EventInputScreen({
   }
 
   function buildCurrentInput(): CreateEventInput {
+    const hasPoopDetail = eventType === "diaper" && diaperType !== "wet";
+
     return {
       babyId: baby.id,
       eventType,
       occurredAt,
       endedAt: eventType === "sleep" && endedAt ? endedAt : null,
       amountMl: eventType === "feed" ? amountMl : null,
-      poopAmount: eventType === "poop" ? poopAmount : null,
-      poopColor: eventType === "poop" ? poopColor : null,
+      diaperType: eventType === "diaper" ? diaperType : null,
+      poopAmount: hasPoopDetail ? poopAmount : null,
+      poopColor: hasPoopDetail ? poopColor : null,
+      medicineName: eventType === "medicine" ? medicineName.trim() : null,
+      medicineDose: eventType === "medicine" ? medicineDose.trim() || null : null,
+      medicineNextAt: eventType === "medicine" && medicineNextAt ? medicineNextAt : null,
+      temperatureC: eventType === "temperature" ? temperatureC : null,
+      temperatureLocation: eventType === "temperature" ? temperatureLocation : null,
+      mealName: eventType === "meal" ? mealName.trim() : null,
+      mealAmountG: eventType === "meal" ? mealAmountG : null,
+      mealReaction: eventType === "meal" ? mealReaction : null,
       note: note.trim() || undefined,
     };
   }
 
-  async function submitQuick(input: CreateEventInput, message: string) {
+  function validateInput(input: CreateEventInput): string | null {
+    if (input.eventType === "medicine" && !input.medicineName?.trim()) {
+      return "약 종류를 입력해 주세요";
+    }
+
+    if (input.eventType === "temperature" && (!input.temperatureC || input.temperatureC < 34 || input.temperatureC > 43)) {
+      return "체온을 34~43도 사이로 입력해 주세요";
+    }
+
+    if (input.eventType === "meal" && !input.mealName?.trim()) {
+      return "이유식 종류를 입력해 주세요";
+    }
+
     if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
-      showSavedToast("종료 시간이 시작 시간보다 빨라요");
+      return "종료 시간이 시작 시간보다 빨라요";
+    }
+
+    return null;
+  }
+
+  async function submitQuick(input: CreateEventInput, message: string) {
+    const errorMessage = validateInput(input);
+    if (errorMessage) {
+      showSavedToast(errorMessage);
       return;
     }
 
@@ -203,12 +314,12 @@ export function EventInputScreen({
       } else {
         await onSubmit(input);
       }
+      triggerHaptic();
       const current = toLocalDateTimeInputValue();
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
       setEndedAtFromDateTime("");
-      setNote("");
       showSavedToast(message);
     } finally {
       setIsSubmitting(false);
@@ -217,47 +328,11 @@ export function EventInputScreen({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const input = buildCurrentInput();
-
-      if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
-        showSavedToast("종료 시간이 시작 시간보다 빨라요");
-        return;
-      }
-
-      if (editingEvent) {
-        await onUpdateEvent({ ...input, id: editingEvent.id });
-      } else {
-        await onSubmit(input);
-      }
-
-      showSavedToast(editingEvent ? "수정했어요" : "저장했어요");
-    } finally {
-      setIsSubmitting(false);
-    }
+    await submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요");
   }
 
   async function handleQuickFeed() {
-    if (editingEvent) {
-      await submitQuick(buildCurrentInput(), "수유 기록 수정");
-      return;
-    }
-
-    await submitQuick(
-      {
-        babyId: baby.id,
-        eventType: "feed",
-        occurredAt,
-        endedAt: null,
-        amountMl,
-        poopAmount: null,
-        poopColor: null,
-        note: note.trim() || undefined,
-      },
-      `수유 ${amountMl}ml 저장`,
-    );
+    await submitQuick(buildCurrentInput(), editingEvent ? "수유 기록 수정" : `수유 ${amountMl}ml 저장`);
   }
 
   async function handleSleepAction() {
@@ -284,10 +359,13 @@ export function EventInputScreen({
           occurredAt: toInputDateTime(ongoingSleep.occurredAt),
           endedAt: toLocalDateTimeInputValue(),
           amountMl: null,
+          diaperType: null,
           poopAmount: null,
           poopColor: null,
+          medicineName: null,
           note: ongoingSleep.note,
         });
+        triggerHaptic();
         showSavedToast("수면 종료 저장");
         return;
       }
@@ -298,61 +376,22 @@ export function EventInputScreen({
         occurredAt,
         endedAt: null,
         amountMl: null,
+        diaperType: null,
         poopAmount: null,
         poopColor: null,
+        medicineName: null,
         note: note.trim() || undefined,
       });
+      triggerHaptic();
       showSavedToast("수면 시작 저장");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  async function handleQuickPee() {
-    if (editingEvent) {
-      await submitQuick(buildCurrentInput(), "소변 기록 수정");
-      return;
-    }
-
-    await submitQuick(
-      {
-        babyId: baby.id,
-        eventType: "pee",
-        occurredAt,
-        endedAt: null,
-        amountMl: null,
-        poopAmount: null,
-        poopColor: null,
-        note: note.trim() || undefined,
-      },
-      "소변 저장",
-    );
-  }
-
-  async function handleQuickPoop() {
-    if (editingEvent) {
-      await submitQuick(buildCurrentInput(), "대변 기록 수정");
-      return;
-    }
-
-    await submitQuick(
-      {
-        babyId: baby.id,
-        eventType: "poop",
-        occurredAt,
-        endedAt: null,
-        amountMl: null,
-        poopAmount,
-        poopColor,
-        note: note.trim() || undefined,
-      },
-      "대변 저장",
-    );
-  }
-
   const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
   const isEditingSleep = editingEvent?.eventType === "sleep";
-  const canWakeSleep = eventType === "sleep" && ((isEditingSleep && !endedAt) || (!editingEvent && ongoingSleep));
+  const canWakeSleep = eventType === "sleep" && ((!editingEvent && Boolean(ongoingSleep)) || (isEditingSleep && !endedAt));
   const sleepStatusTitle =
     eventType === "sleep" && ongoingSleep && !editingEvent
       ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
@@ -363,31 +402,31 @@ export function EventInputScreen({
         : "깨어 있음";
   const sleepStatusDescription =
     eventType === "sleep" && ongoingSleep && !editingEvent
-      ? `${formatTime(sleepStatusStart)} 시작`
+      ? `${formatTime(sleepStatusStart)} 시작 · 예상 기상 ${formatTime(new Date(new Date(sleepStatusStart).getTime() + 90 * 60000).toISOString())}`
       : isEditingSleep
         ? endedAt
           ? `${formatTime(occurredAt)} 시작 · ${formatTime(endedAt)} 종료`
           : `${formatTime(occurredAt)} 시작`
         : "재우기 시작하면 시간이 자동 기록돼요.";
-  const detailToggleLabel = eventType === "sleep" ? (showDetails ? "수정 닫기" : "시간/메모 수정") : showDetails ? "메모 닫기" : "메모 수정";
+  const detailToggleLabel = showDetails ? "수정 닫기" : "시간/메모 수정";
 
   return (
     <section className="screen-stack action-screen">
       <section className="panel action-type-panel">
-        <p className="eyebrow">활동 기록</p>
         <div className="event-type-grid">
           {eventOptions.map((option) => (
-            <button
-              className={`event-type-button ${eventType === option.type ? "active" : ""}`}
+            <ActivityShortcut
+              active={eventType === option.type}
+              icon={option.icon}
               key={option.type}
-              type="button"
-              onClick={() => setEventType(option.type)}
-            >
-              <span aria-hidden="true">
-                <img alt="" src={option.icon} />
-              </span>
-              {option.label}
-            </button>
+              label={option.label}
+              variant="nav"
+              onClick={() => {
+                if (!editingEvent) {
+                  setEventType(option.type);
+                }
+              }}
+            />
           ))}
         </div>
       </section>
@@ -398,7 +437,10 @@ export function EventInputScreen({
           {eventType === "feed" ? (
             <>
               <strong>{amountMl}ml</strong>
-              <small>버튼으로 10ml씩 조절하고 바로 저장해요.</small>
+              <small>
+                {recentFeedAverage ? `최근 평균 ${recentFeedAverage}ml` : "빠른 버튼으로 수유량을 선택해요"}
+                {feedDiff !== null ? ` · 이전보다 ${Math.abs(feedDiff)}ml ${feedDiff >= 0 ? "많아요" : "적어요"}` : ""}
+              </small>
             </>
           ) : null}
           {eventType === "sleep" ? (
@@ -407,56 +449,126 @@ export function EventInputScreen({
               <small>{sleepStatusDescription}</small>
             </>
           ) : null}
-          {eventType === "pee" ? (
+          {eventType === "diaper" ? (
             <>
-              <strong>지금 소변</strong>
-              <small>한 번 누르면 현재 시간으로 저장돼요.</small>
+              <strong>{diaperOptions.find((item) => item.value === diaperType)?.label}</strong>
+              <small>기저귀 상태를 한 번에 기록해요.</small>
             </>
           ) : null}
-          {eventType === "poop" ? (
+          {eventType === "medicine" ? (
             <>
-              <strong>{poopAmounts.find((item) => item.value === poopAmount)?.label}</strong>
-              <small>기본값으로 바로 저장하거나 색상/양을 바꿀 수 있어요.</small>
+              <strong>약 복용</strong>
+              <small>약 이름, 용량, 다음 복용 예정까지 기록할 수 있어요.</small>
+            </>
+          ) : null}
+          {eventType === "temperature" ? (
+            <>
+              <strong>{temperatureC.toFixed(1)}도</strong>
+              <small>{temperatureC >= 38 ? "고열 경향" : temperatureC >= 37.5 ? "미열 경향" : "정상 범위 경향"}</small>
+            </>
+          ) : null}
+          {eventType === "meal" ? (
+            <>
+              <strong>{mealAmountG}g</strong>
+              <small>이유식 종류와 반응을 함께 남겨요.</small>
             </>
           ) : null}
         </div>
 
         {eventType === "feed" ? (
-          <div className="amount-stepper" aria-label="수유량">
-            <button type="button" onClick={() => setAmountMl((current) => Math.max(0, current - 10))}>
-              -10
-            </button>
-            <strong>{amountMl}ml</strong>
-            <button type="button" onClick={() => setAmountMl((current) => Math.min(300, current + 10))}>
-              +10
-            </button>
-          </div>
+          <>
+            <div className="quick-chip-row" aria-label="빠른 수유량">
+              {feedQuickAmounts.map((amount) => (
+                <button className={amountMl === amount ? "active" : ""} key={amount} type="button" onClick={() => setAmountMl(amount)}>
+                  {amount}
+                </button>
+              ))}
+            </div>
+            <div className="amount-stepper" aria-label="수유량">
+              <button type="button" onClick={() => setAmountMl((current) => Math.max(0, current - 10))}>-10</button>
+              <strong>{amountMl}ml</strong>
+              <button type="button" onClick={() => setAmountMl((current) => Math.min(300, current + 10))}>+10</button>
+            </div>
+          </>
         ) : null}
 
-        {eventType === "poop" ? (
+        {eventType === "diaper" ? (
           <div className="quick-poop-row">
             <div className="choice-grid">
-              {poopAmounts.map((option) => (
-                <button
-                  className={poopAmount === option.value ? "active" : ""}
-                  key={option.value}
-                  type="button"
-                  onClick={() => setPoopAmount(option.value)}
-                >
+              {diaperOptions.map((option) => (
+                <button className={diaperType === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setDiaperType(option.value)}>
                   {option.label}
                 </button>
               ))}
             </div>
-            <div className="color-grid">
-              {poopColors.map((option) => (
-                <button
-                  className={poopColor === option.value ? "active" : ""}
-                  aria-label={option.label}
-                  key={option.value}
-                  type="button"
-                  onClick={() => setPoopColor(option.value)}
-                >
-                  <i className={option.className} />
+            {diaperType !== "wet" ? (
+              <>
+                <div className="choice-grid">
+                  {poopAmounts.map((option) => (
+                    <button className={poopAmount === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setPoopAmount(option.value)}>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="color-grid">
+                  {poopColors.map((option) => (
+                    <button className={poopColor === option.value ? "active" : ""} aria-label={option.label} key={option.value} type="button" onClick={() => setPoopColor(option.value)}>
+                      <i className={option.className} />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {eventType === "medicine" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>약 이름</span>
+              <input required value={medicineName} onChange={(event) => setMedicineName(event.target.value)} placeholder="예: 비타민 D" />
+            </label>
+            <label className="medicine-name-field">
+              <span>용량</span>
+              <input value={medicineDose} onChange={(event) => setMedicineDose(event.target.value)} placeholder="예: 1방울, 2.5ml" />
+            </label>
+            <label className="medicine-name-field">
+              <span>다음 복용 예정</span>
+              <input type="datetime-local" value={medicineNextAt} onChange={(event) => setMedicineNextAt(event.target.value)} />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType === "temperature" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>체온</span>
+              <input type="number" step="0.1" min="34" max="43" value={temperatureC} onChange={(event) => setTemperatureC(Number(event.target.value))} />
+            </label>
+            <div className="choice-grid">
+              {temperatureLocations.map((option) => (
+                <button className={temperatureLocation === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setTemperatureLocation(option.value)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {eventType === "meal" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>종류</span>
+              <input required value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="예: 쌀미음" />
+            </label>
+            <label className="medicine-name-field">
+              <span>양(g)</span>
+              <input type="number" min="0" max="500" value={mealAmountG} onChange={(event) => setMealAmountG(Number(event.target.value))} />
+            </label>
+            <div className="choice-grid">
+              {mealReactions.map((option) => (
+                <button className={mealReaction === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setMealReaction(option.value)}>
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -467,19 +579,11 @@ export function EventInputScreen({
           <div className="quick-time-card" aria-label="기록 시간">
             <label>
               <span>날짜</span>
-              <input
-                type="date"
-                value={quickDate}
-                onChange={(event) => handleQuickDateChange(event.target.value)}
-              />
+              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
             </label>
             <label>
               <span>시간</span>
-              <input
-                type="time"
-                value={quickTime}
-                onChange={(event) => handleQuickTimeChange(event.target.value)}
-              />
+              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
             </label>
           </div>
         ) : null}
@@ -492,17 +596,12 @@ export function EventInputScreen({
           ) : null}
           {eventType === "sleep" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {canWakeSleep ? "깨어남" : editingEvent ? "수면 수정하기" : "지금 재우기"}
+              {canWakeSleep ? "깨어남" : editingEvent ? "수면 수정하기" : "수면 시작"}
             </button>
           ) : null}
-          {eventType === "pee" ? (
-            <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickPee()}>
-              {editingEvent ? "소변 수정하기" : "소변 바로 기록"}
-            </button>
-          ) : null}
-          {eventType === "poop" ? (
-            <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickPoop()}>
-              {editingEvent ? "대변 수정하기" : "대변 바로 기록"}
+          {eventType !== "feed" && eventType !== "sleep" ? (
+            <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요")}>
+              {editingEvent ? "수정하기" : "바로 기록하기"}
             </button>
           ) : null}
         </div>
@@ -519,46 +618,26 @@ export function EventInputScreen({
               <div className="sleep-time-editor" aria-label="수면 시간 수정">
                 <label>
                   <span>시작 날짜</span>
-                  <input
-                    type="date"
-                    value={quickDate}
-                    onChange={(event) => handleQuickDateChange(event.target.value)}
-                  />
+                  <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
                 </label>
                 <label>
                   <span>시작 시간</span>
-                  <input
-                    type="time"
-                    value={quickTime}
-                    onChange={(event) => handleQuickTimeChange(event.target.value)}
-                  />
+                  <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
                 </label>
                 <label>
                   <span>종료 날짜</span>
-                  <input
-                    type="date"
-                    value={endedDate}
-                    onChange={(event) => handleEndedDateChange(event.target.value)}
-                  />
+                  <input type="date" value={endedDate} onChange={(event) => handleEndedDateChange(event.target.value)} />
                 </label>
                 <label>
                   <span>종료 시간</span>
-                  <input
-                    type="time"
-                    value={endedTime}
-                    onChange={(event) => handleEndedTimeChange(event.target.value)}
-                  />
+                  <input type="time" value={endedTime} onChange={(event) => handleEndedTimeChange(event.target.value)} />
                 </label>
               </div>
             ) : null}
 
             <label className="field">
               <span>메모</span>
-              <input
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder="선택 입력"
-              />
+              <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="선택 입력" />
             </label>
 
             <button className="primary-button" disabled={isSubmitting} type="submit">

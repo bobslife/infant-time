@@ -28,8 +28,17 @@ interface EventRow {
   occurred_at: string;
   ended_at: string | null;
   amount_ml: number | null;
+  diaper_type: BabyEvent["diaperType"];
   poop_amount: BabyEvent["poopAmount"];
   poop_color: BabyEvent["poopColor"];
+  medicine_name: string | null;
+  medicine_dose: string | null;
+  medicine_next_at: string | null;
+  temperature_c: number | null;
+  temperature_location: BabyEvent["temperatureLocation"];
+  meal_name: string | null;
+  meal_amount_g: number | null;
+  meal_reaction: BabyEvent["mealReaction"];
   note: string | null;
   created_at: string;
 }
@@ -82,12 +91,24 @@ function mapEvent(row: EventRow): BabyEvent {
     occurredAt: row.occurred_at,
     endedAt: row.ended_at,
     amountMl: row.amount_ml,
+    diaperType: row.diaper_type,
     poopAmount: row.poop_amount,
     poopColor: row.poop_color,
+    medicineName: row.medicine_name,
+    medicineDose: row.medicine_dose,
+    medicineNextAt: row.medicine_next_at,
+    temperatureC: row.temperature_c,
+    temperatureLocation: row.temperature_location,
+    mealName: row.meal_name,
+    mealAmountG: row.meal_amount_g,
+    mealReaction: row.meal_reaction,
     note: row.note ?? undefined,
     createdAt: row.created_at,
   };
 }
+
+const eventSelectColumns =
+  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
 
 export async function ensureProfile(client: SupabaseClient, user: AppUser) {
   const { error } = await client.from("profiles").upsert({
@@ -218,9 +239,7 @@ export async function listSupabaseEvents(
 ): Promise<BabyEvent[]> {
   const { data, error } = await client
     .from("events")
-    .select(
-      "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, poop_amount, poop_color, note, created_at",
-    )
+    .select(eventSelectColumns)
     .eq("baby_id", babyId)
     .order("occurred_at", { ascending: false })
     .returns<EventRow[]>();
@@ -246,13 +265,20 @@ export async function createSupabaseEvent(
       occurred_at: new Date(input.occurredAt).toISOString(),
       ended_at: input.endedAt ? new Date(input.endedAt).toISOString() : null,
       amount_ml: input.amountMl ?? null,
+      diaper_type: input.diaperType ?? null,
       poop_amount: input.poopAmount ?? null,
       poop_color: input.poopColor ?? null,
+      medicine_name: input.medicineName || null,
+      medicine_dose: input.medicineDose || null,
+      medicine_next_at: input.medicineNextAt ? new Date(input.medicineNextAt).toISOString() : null,
+      temperature_c: input.temperatureC ?? null,
+      temperature_location: input.temperatureLocation ?? null,
+      meal_name: input.mealName || null,
+      meal_amount_g: input.mealAmountG ?? null,
+      meal_reaction: input.mealReaction ?? null,
       note: input.note || null,
     })
-    .select(
-      "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, poop_amount, poop_color, note, created_at",
-    )
+    .select(eventSelectColumns)
     .single<EventRow>();
 
   if (error) {
@@ -273,14 +299,21 @@ export async function updateSupabaseEvent(
       occurred_at: new Date(input.occurredAt).toISOString(),
       ended_at: input.endedAt ? new Date(input.endedAt).toISOString() : null,
       amount_ml: input.amountMl ?? null,
+      diaper_type: input.diaperType ?? null,
       poop_amount: input.poopAmount ?? null,
       poop_color: input.poopColor ?? null,
+      medicine_name: input.medicineName || null,
+      medicine_dose: input.medicineDose || null,
+      medicine_next_at: input.medicineNextAt ? new Date(input.medicineNextAt).toISOString() : null,
+      temperature_c: input.temperatureC ?? null,
+      temperature_location: input.temperatureLocation ?? null,
+      meal_name: input.mealName || null,
+      meal_amount_g: input.mealAmountG ?? null,
+      meal_reaction: input.mealReaction ?? null,
       note: input.note || null,
     })
     .eq("id", input.id)
-    .select(
-      "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, poop_amount, poop_color, note, created_at",
-    )
+    .select(eventSelectColumns)
     .single<EventRow>();
 
   if (error) {

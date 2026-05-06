@@ -13,6 +13,10 @@ const eventLabels: Record<BabyEvent["eventType"], string> = {
   sleep: "수면",
   pee: "소변",
   poop: "대변",
+  diaper: "기저귀",
+  medicine: "약",
+  temperature: "체온",
+  meal: "이유식",
 };
 
 const eventIcons: Record<BabyEvent["eventType"], string> = {
@@ -20,6 +24,10 @@ const eventIcons: Record<BabyEvent["eventType"], string> = {
   sleep: "/icons/sleeping.svg",
   pee: "/icons/pee.svg",
   poop: "/icons/poo.svg",
+  diaper: "/icons/poo.svg",
+  medicine: "/icons/pill.svg",
+  temperature: "/icons/thermometer.svg",
+  meal: "/icons/action.svg",
 };
 
 const DATE_PAGE_SIZE = 7;
@@ -36,6 +44,25 @@ const poopColorLabels = {
   dark_brown: "진한 갈색",
   green: "쑥색",
   red_orange: "다홍색",
+};
+
+const diaperLabels = {
+  wet: "소변",
+  dirty: "대변",
+  both: "둘다",
+};
+
+const temperatureLocationLabels = {
+  forehead: "이마",
+  ear: "귀",
+  armpit: "겨드랑이",
+};
+
+const mealReactionLabels = {
+  good: "잘 먹음",
+  normal: "보통",
+  poor: "적게 먹음",
+  allergy: "반응 있음",
 };
 
 function eventDetail(event: BabyEvent): string {
@@ -61,6 +88,31 @@ function eventDetail(event: BabyEvent): string {
     const amount = event.poopAmount ? poopAmountLabels[event.poopAmount] : "양 미입력";
     const color = event.poopColor ? poopColorLabels[event.poopColor] : "색상 미입력";
     return `${color} · ${amount}`;
+  }
+
+  if (event.eventType === "diaper") {
+    const diaper = event.diaperType ? diaperLabels[event.diaperType] : "기저귀";
+    if (event.diaperType === "wet") {
+      return diaper;
+    }
+
+    const amount = event.poopAmount ? poopAmountLabels[event.poopAmount] : "양 미입력";
+    const color = event.poopColor ? poopColorLabels[event.poopColor] : "색상 미입력";
+    return `${diaper} · ${color} · ${amount}`;
+  }
+
+  if (event.eventType === "medicine") {
+    return `${event.medicineName || "약 종류 미입력"}${event.medicineDose ? ` · ${event.medicineDose}` : ""}`;
+  }
+
+  if (event.eventType === "temperature") {
+    const location = event.temperatureLocation ? temperatureLocationLabels[event.temperatureLocation] : "위치 미입력";
+    return `${event.temperatureC?.toFixed(1) ?? "-"}도 · ${location}`;
+  }
+
+  if (event.eventType === "meal") {
+    const reaction = event.mealReaction ? mealReactionLabels[event.mealReaction] : "반응 미입력";
+    return `${event.mealName || "종류 미입력"} · ${event.mealAmountG ?? 0}g · ${reaction}`;
   }
 
   return "기록";
@@ -105,13 +157,17 @@ function groupEventsByDate(events: BabyEvent[]) {
     const feedTotalMl = groupEvents
       .filter((event) => event.eventType === "feed")
       .reduce((total, event) => total + (event.amountMl ?? 0), 0);
-    const poopCount = groupEvents.filter((event) => event.eventType === "poop").length;
+    const diaperCount = groupEvents.filter(
+      (event) => event.eventType === "diaper" || event.eventType === "pee" || event.eventType === "poop",
+    ).length;
+    const medicineCount = groupEvents.filter((event) => event.eventType === "medicine").length;
 
     return {
       dateKey,
       events: groupEvents,
       feedTotalMl,
-      poopCount,
+      diaperCount,
+      medicineCount,
     };
   });
 }
@@ -201,7 +257,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
             <div className="event-date-heading">
               <strong>{formatDateHeader(group.dateKey)}</strong>
               <span>
-                총 수유량 {group.feedTotalMl}ml · 대변 {group.poopCount}회
+                총 수유량 {group.feedTotalMl}ml · 기저귀 {group.diaperCount}회 · 약 {group.medicineCount}회
               </span>
             </div>
             <div className="event-date-list">

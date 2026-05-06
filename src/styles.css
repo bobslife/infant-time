@@ -206,6 +206,7 @@ button {
 .baby-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 6px 0 0;
   color: var(--color-text-muted);
@@ -373,6 +374,38 @@ button {
 
 .summary-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.today-summary-grid {
+  margin-top: 16px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #e7f8ee;
+  color: #15803d;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.status-badge.soon {
+  background: #fff7d6;
+  color: #946200;
+}
+
+.status-badge.overdue {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.rhythm-copy {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
 .status-card {
@@ -1401,6 +1434,18 @@ button {
   background: #f5e6d8;
 }
 
+.event-chip.medicine {
+  background: #e8f8ef;
+}
+
+.event-chip.temperature {
+  background: #dcfce7;
+}
+
+.event-chip.meal {
+  background: #fff7d6;
+}
+
 .event-copy {
   min-width: 0;
   display: flex;
@@ -1435,8 +1480,8 @@ button {
 
 .event-type-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .action-screen {
@@ -1446,40 +1491,6 @@ button {
 .action-type-panel {
   display: grid;
   gap: 12px;
-}
-
-.event-type-button {
-  display: grid;
-  gap: 6px;
-  place-items: center;
-  min-height: 74px;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  background: var(--color-surface-soft);
-  color: var(--color-text-soft);
-  font-weight: 700;
-}
-
-.event-type-button span {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--color-blue-strong);
-}
-
-.event-type-button img {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-}
-
-.event-type-button.active {
-  border-color: rgba(49, 130, 246, 0.26);
-  background: var(--color-blue);
-  color: #1b64da;
 }
 
 .quick-action-card {
@@ -1502,6 +1513,18 @@ button {
 
 .quick-action-card.poop {
   border-color: rgba(124, 74, 35, 0.18);
+}
+
+.quick-action-card.medicine {
+  border-color: rgba(22, 163, 74, 0.22);
+}
+
+.quick-action-card.temperature {
+  border-color: rgba(20, 184, 166, 0.24);
+}
+
+.quick-action-card.meal {
+  border-color: rgba(217, 159, 0, 0.22);
 }
 
 .quick-status {
@@ -1573,6 +1596,19 @@ button {
   gap: 10px;
 }
 
+.stacked-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.medicine-name-field {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+
 .quick-time-card {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1605,6 +1641,7 @@ button {
 }
 
 .quick-time-card span,
+.medicine-name-field span,
 .sleep-time-editor span {
   color: var(--color-text-muted);
   font-size: 0.76rem;
@@ -1612,6 +1649,7 @@ button {
 }
 
 .quick-time-card input,
+.medicine-name-field input,
 .sleep-time-editor input {
   width: 100%;
   min-width: 0;
@@ -1648,6 +1686,21 @@ button {
 .quick-action-card.poop .quick-save-button {
   background: #8a5a32;
   box-shadow: 0 12px 20px rgba(138, 90, 50, 0.16);
+}
+
+.quick-action-card.medicine .quick-save-button {
+  background: #16a34a;
+  box-shadow: 0 12px 20px rgba(22, 163, 74, 0.16);
+}
+
+.quick-action-card.temperature .quick-save-button {
+  background: #0f766e;
+  box-shadow: 0 12px 20px rgba(15, 118, 110, 0.16);
+}
+
+.quick-action-card.meal .quick-save-button {
+  background: #d99f00;
+  box-shadow: 0 12px 20px rgba(217, 159, 0, 0.16);
 }
 
 .detail-toggle {
@@ -1713,6 +1766,13 @@ button {
   gap: 8px;
 }
 
+.quick-chip-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.quick-chip-row button,
 .choice-grid button,
 .color-grid button {
   border: 1px solid var(--color-line);
@@ -1723,6 +1783,7 @@ button {
   font-weight: 700;
 }
 
+.quick-chip-row button.active,
 .choice-grid button.active,
 .color-grid button.active {
   border-color: rgba(49, 130, 246, 0.26);
@@ -1923,6 +1984,269 @@ button {
   color: #be123c;
 }
 
+.growth-hero {
+  display: grid;
+  gap: 16px;
+}
+
+.growth-hero h2 {
+  margin: 4px 0 0;
+  font-size: 1.65rem;
+}
+
+.growth-latest-grid,
+.growth-input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.growth-latest-grid div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(25, 31, 40, 0.04);
+}
+
+.growth-latest-grid span,
+.growth-latest-grid small {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.growth-latest-grid strong {
+  color: #111827;
+  font-size: 1.35rem;
+}
+
+.growth-chart {
+  width: 100%;
+  min-width: 0;
+  height: 260px;
+}
+
+.activity-shortcut {
+  position: relative;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  color: var(--color-text-soft);
+  font-weight: 800;
+  text-align: center;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.activity-shortcut:active {
+  transform: scale(0.95);
+}
+
+.activity-shortcut-nav {
+  min-height: 74px;
+  border-radius: 8px;
+  padding: 9px 4px;
+  background: var(--color-surface-soft);
+}
+
+.activity-shortcut-quick {
+  min-height: 88px;
+  align-content: center;
+  border-radius: 24px;
+  padding: 14px 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(14px);
+}
+
+.activity-shortcut.active,
+.activity-shortcut:hover {
+  border-color: rgba(49, 130, 246, 0.26);
+  background: var(--color-blue);
+  color: #1b64da;
+}
+
+.activity-shortcut-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.activity-shortcut-quick .activity-shortcut-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.activity-shortcut-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.activity-shortcut-quick .activity-shortcut-icon img {
+  width: 24px;
+  height: 24px;
+}
+
+.activity-shortcut-label {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  line-height: 1.15;
+}
+
+.activity-shortcut-badge {
+  min-height: 22px;
+  max-width: 100%;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(248, 250, 252, 0.94);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.home-quick-section {
+  display: grid;
+  gap: 14px;
+}
+
+.compact-heading {
+  margin: 0;
+  padding: 0;
+}
+
+.compact-heading h2 {
+  margin: 4px 0 0;
+  font-size: 1.28rem;
+}
+
+.home-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quick-entry-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 18px 12px calc(18px + env(safe-area-inset-bottom));
+  background: rgba(25, 31, 40, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.quick-entry-sheet {
+  width: min(100%, 520px);
+  max-height: min(86vh, 720px);
+  overflow: auto;
+  border-radius: 32px 32px 0 0;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 -18px 44px rgba(25, 31, 40, 0.22);
+  animation: quick-sheet-in 180ms ease-out;
+}
+
+@keyframes quick-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.quick-entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.quick-entry-header span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.quick-entry-header strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text);
+  font-size: 1.45rem;
+}
+
+.quick-entry-header button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface-soft);
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.quick-entry-value {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 24px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.quick-entry-value strong {
+  color: #111827;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.quick-entry-value span,
+.quick-entry-hint {
+  color: var(--color-text-soft);
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.quick-entry-hint {
+  margin: 0;
+}
+
+.quick-chip-row-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.sheet-toast {
+  position: sticky;
+  right: auto;
+  bottom: 0;
+  left: auto;
+  width: 100%;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1992,7 +2316,7 @@ button {
   width: 100%;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   border: 1px solid rgba(25, 31, 40, 0.08);
@@ -2038,6 +2362,11 @@ button {
   color: #d94d73;
 }
 
+.bottom-tabs button.tab-growth.active {
+  background: #e7f8ee;
+  color: #15803d;
+}
+
 .bottom-tabs img {
   width: 22px;
   height: 22px;
@@ -2065,6 +2394,10 @@ button {
 
 .bottom-tabs button.tab-analysis.active img {
   filter: brightness(0) saturate(100%) invert(45%) sepia(68%) saturate(1005%) hue-rotate(303deg) brightness(95%) contrast(81%);
+}
+
+.bottom-tabs button.tab-growth.active img {
+  filter: brightness(0) saturate(100%) invert(34%) sepia(78%) saturate(835%) hue-rotate(94deg) brightness(92%) contrast(88%);
 }
 
 .error-copy {
@@ -2142,6 +2475,35 @@ button {
 
   .poop-bar-row {
     grid-template-columns: 62px minmax(0, 1fr) 22px;
+  }
+
+  .event-type-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .activity-shortcut-nav {
+    min-height: 60px;
+    padding: 7px 2px;
+  }
+
+  .activity-shortcut-nav .activity-shortcut-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .activity-shortcut-nav img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .activity-shortcut-nav .activity-shortcut-label {
+    font-size: 0.68rem;
+  }
+
+  .growth-latest-grid,
+  .growth-input-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

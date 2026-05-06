@@ -55,6 +55,12 @@ export interface EventSummary {
   todaySleepMinutes: number;
   todayPeeCount: number;
   todayPoopCount: number;
+  todayDiaperCount: number;
+  todayMedicineCount: number;
+  todayTemperatureCount: number;
+  todayMealCount: number;
+  latestTemperatureC: number | null;
+  activeSleepStartedAt: string | null;
   latestFeedGapMinutes: number | null;
 }
 
@@ -65,6 +71,10 @@ export interface DailyEventSummary {
   sleepMinutes: number;
   peeCount: number;
   poopCount: number;
+  diaperCount: number;
+  medicineCount: number;
+  temperatureCount: number;
+  mealCount: number;
 }
 
 function sortDescending(events: BabyEvent[]) {
@@ -102,6 +112,10 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
     }, 0),
     peeCount: dayEvents.filter((event) => event.eventType === "pee").length,
     poopCount: dayEvents.filter((event) => event.eventType === "poop").length,
+    diaperCount: dayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType)).length,
+    medicineCount: dayEvents.filter((event) => event.eventType === "medicine").length,
+    temperatureCount: dayEvents.filter((event) => event.eventType === "temperature").length,
+    mealCount: dayEvents.filter((event) => event.eventType === "meal").length,
   };
 }
 
@@ -115,6 +129,8 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   const todayFeedEvents = todayEvents.filter((event) => event.eventType === "feed");
   const poopEvents = events.filter((event) => event.eventType === "poop");
   const sleepEvents = todayEvents.filter((event) => event.eventType === "sleep");
+  const activeSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
+  const temperatureEvents = events.filter((event) => event.eventType === "temperature");
 
   const lastFeedAt = feedEvents[0]?.occurredAt ?? null;
   const lastPoopAt = poopEvents[0]?.occurredAt ?? null;
@@ -148,6 +164,12 @@ function buildSummary(events: BabyEvent[]): EventSummary {
     todaySleepMinutes,
     todayPeeCount: todayEvents.filter((event) => event.eventType === "pee").length,
     todayPoopCount: todayEvents.filter((event) => event.eventType === "poop").length,
+    todayDiaperCount: todayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType)).length,
+    todayMedicineCount: todayEvents.filter((event) => event.eventType === "medicine").length,
+    todayTemperatureCount: todayEvents.filter((event) => event.eventType === "temperature").length,
+    todayMealCount: todayEvents.filter((event) => event.eventType === "meal").length,
+    latestTemperatureC: temperatureEvents[0]?.temperatureC ?? null,
+    activeSleepStartedAt: activeSleep?.occurredAt ?? null,
     latestFeedGapMinutes,
   };
 }

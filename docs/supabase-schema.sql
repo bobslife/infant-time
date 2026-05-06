@@ -44,16 +44,43 @@ create table if not exists events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   baby_id uuid not null references babies(id) on delete cascade,
-  event_type text not null check (event_type in ('feed', 'sleep', 'pee', 'poop')),
+  event_type text not null check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal')),
   occurred_at timestamptz not null,
   ended_at timestamptz,
   amount_ml integer check (amount_ml is null or (amount_ml >= 0 and amount_ml <= 300)),
+  diaper_type text check (diaper_type is null or diaper_type in ('wet', 'dirty', 'both')),
   poop_amount text check (poop_amount is null or poop_amount in ('small', 'normal', 'large')),
   poop_color text check (poop_color is null or poop_color in ('ocher', 'brown', 'dark_brown', 'green', 'red_orange')),
+  medicine_name text,
+  medicine_dose text,
+  medicine_next_at timestamptz,
+  temperature_c numeric(4,1),
+  temperature_location text check (temperature_location is null or temperature_location in ('forehead', 'ear', 'armpit')),
+  meal_name text,
+  meal_amount_g integer check (meal_amount_g is null or (meal_amount_g >= 0 and meal_amount_g <= 500)),
+  meal_reaction text check (meal_reaction is null or meal_reaction in ('good', 'normal', 'poor', 'allergy')),
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table events add column if not exists diaper_type text;
+alter table events add column if not exists medicine_name text;
+alter table events add column if not exists medicine_dose text;
+alter table events add column if not exists medicine_next_at timestamptz;
+alter table events add column if not exists temperature_c numeric(4,1);
+alter table events add column if not exists temperature_location text;
+alter table events add column if not exists meal_name text;
+alter table events add column if not exists meal_amount_g integer;
+alter table events add column if not exists meal_reaction text;
+alter table events drop constraint if exists events_event_type_check;
+alter table events add constraint events_event_type_check check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal'));
+alter table events drop constraint if exists events_diaper_type_check;
+alter table events add constraint events_diaper_type_check check (diaper_type is null or diaper_type in ('wet', 'dirty', 'both'));
+alter table events drop constraint if exists events_temperature_location_check;
+alter table events add constraint events_temperature_location_check check (temperature_location is null or temperature_location in ('forehead', 'ear', 'armpit'));
+alter table events drop constraint if exists events_meal_reaction_check;
+alter table events add constraint events_meal_reaction_check check (meal_reaction is null or meal_reaction in ('good', 'normal', 'poor', 'allergy'));
 
 create table if not exists account_histories (
   id uuid primary key default gen_random_uuid(),
@@ -63,6 +90,17 @@ create table if not exists account_histories (
   metadata jsonb not null default '{}'::jsonb
 );
 
+create table if not exists growth_records (
+  id uuid primary key default gen_random_uuid(),
+  baby_id uuid not null references babies(id) on delete cascade,
+  measured_at timestamptz not null,
+  weight_kg numeric(4,1),
+  height_cm numeric(4,1),
+  head_cm numeric(4,1),
+  note text,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists babies_owner_id_idx on babies(owner_id);
 create unique index if not exists babies_invite_code_key on babies(invite_code);
 create index if not exists baby_members_user_id_idx on baby_members(user_id);
@@ -70,12 +108,14 @@ create index if not exists events_baby_id_occurred_at_idx on events(baby_id, occ
 create index if not exists events_user_id_idx on events(user_id);
 create index if not exists account_histories_user_id_idx on account_histories(user_id);
 create unique index if not exists account_histories_user_event_key on account_histories(user_id, event_type);
+create index if not exists growth_records_baby_id_measured_at_idx on growth_records(baby_id, measured_at desc);
 
 alter table profiles enable row level security;
 alter table babies enable row level security;
 alter table baby_members enable row level security;
 alter table events enable row level security;
 alter table account_histories enable row level security;
+alter table growth_records enable row level security;
 
 drop policy if exists "profiles_select_own" on profiles;
 create policy "profiles_select_own"
@@ -240,6 +280,69 @@ using (
     select 1
     from babies
     where babies.id = events.baby_id
+      and (
+        babies.owner_id = auth.uid()
+        or exists (
+          select 1
+          from baby_members
+          where baby_members.baby_id = babies.id
+            and baby_members.user_id = auth.uid()
+        )
+      )
+  )
+);
+
+drop policy if exists "growth_records_select_accessible_baby" on growth_records;
+create policy "growth_records_select_accessible_baby"
+on growth_records for select
+to authenticated
+using (
+  exists (
+    select 1
+    from babies
+    where babies.id = growth_records.baby_id
+      and (
+        babies.owner_id = auth.uid()
+        or exists (
+          select 1
+          from baby_members
+          where baby_members.baby_id = babies.id
+            and baby_members.user_id = auth.uid()
+        )
+      )
+  )
+);
+
+drop policy if exists "growth_records_insert_accessible_baby" on growth_records;
+create policy "growth_records_insert_accessible_baby"
+on growth_records for insert
+to authenticated
+with check (
+  exists (
+    select 1
+    from babies
+    where babies.id = growth_records.baby_id
+      and (
+        babies.owner_id = auth.uid()
+        or exists (
+          select 1
+          from baby_members
+          where baby_members.baby_id = babies.id
+            and baby_members.user_id = auth.uid()
+        )
+      )
+  )
+);
+
+drop policy if exists "growth_records_delete_accessible_baby" on growth_records;
+create policy "growth_records_delete_accessible_baby"
+on growth_records for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from babies
+    where babies.id = growth_records.baby_id
       and (
         babies.owner_id = auth.uid()
         or exists (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ActivityShortcut } from "./activity/ActivityShortcut";
 import { buildDailySummary, DailyEventSummary, EventSummary } from "../features/events/useEvents";
 import {
   formatAge,
@@ -11,6 +12,7 @@ import { BabyEvent, BabyProfile, EventType, PoopColor } from "../types";
 
 interface SummaryCardsProps {
   baby: BabyProfile;
+  events: BabyEvent[];
   feedIntervalMinutes: number;
   summary: EventSummary;
   onFeedIntervalChange: (minutes: number) => void;
@@ -43,6 +45,51 @@ const defaultProfileImages: Record<BabyProfile["gender"], string> = {
   boy: "/images/default-profile-boy.png",
   girl: "/images/default-profile-girl.png",
 };
+
+const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
+  { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
+  { type: "sleep", icon: "/icons/sleeping.svg", label: "수면 시작" },
+  { type: "diaper", icon: "/icons/poo.svg", label: "기저귀" },
+  { type: "medicine", icon: "/icons/pill.svg", label: "약" },
+  { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
+  { type: "meal", icon: "/icons/action.svg", label: "이유식" },
+];
+
+function getTodayCount(events: BabyEvent[], type: EventType): number {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  return events.filter((event) => {
+    if (type === "diaper") {
+      return ["diaper", "pee", "poop"].includes(event.eventType) && new Date(event.occurredAt).getTime() >= todayStart.getTime();
+    }
+
+    return event.eventType === type && new Date(event.occurredAt).getTime() >= todayStart.getTime();
+  }).length;
+}
+
+function getLastEvent(events: BabyEvent[], type: EventType): BabyEvent | null {
+  if (type === "diaper") {
+    return events.find((event) => ["diaper", "pee", "poop"].includes(event.eventType)) ?? null;
+  }
+
+  return events.find((event) => event.eventType === type) ?? null;
+}
+
+function getQuickBadge(events: BabyEvent[], type: EventType, now: Date): string {
+  const activeSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt);
+  if (type === "sleep" && activeSleep) {
+    return "수면 중";
+  }
+
+  const todayCount = getTodayCount(events, type);
+  if (todayCount > 0 && (type === "diaper" || type === "medicine" || type === "temperature" || type === "meal")) {
+    return `오늘 ${todayCount}회`;
+  }
+
+  const lastEvent = getLastEvent(events, type);
+  return lastEvent ? formatRelativeSince(lastEvent.occurredAt, now) : "기록 없음";
+}
 
 function getElapsedMinutes(value: string | null, now: Date): number | null {
   if (!value) {
@@ -128,6 +175,7 @@ function GenderMark({ gender }: { gender: BabyProfile["gender"] }) {
 
 export function SummaryCards({
   baby,
+  events,
   feedIntervalMinutes,
   summary,
   onFeedIntervalChange,
@@ -137,10 +185,20 @@ export function SummaryCards({
   const warning = isOverFourHours(summary.lastFeedAt);
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
-  const poopAmountSummary = summary.lastPoopAmount
-    ? poopAmountLabels[summary.lastPoopAmount]
-    : "기록 없음";
-  const poopColorLabel = summary.lastPoopColor ? poopColorLabels[summary.lastPoopColor] : null;
+  const currentStatus = summary.activeSleepStartedAt
+    ? "수면 중"
+    : warning
+      ? "배고픔 주의"
+      : summary.todayDiaperCount === 0
+        ? "기저귀 확인 필요"
+        : "평온";
+  const rhythmCopy = summary.activeSleepStartedAt
+    ? "평균보다 조금 길게 자고 있는지 지켜봐 주세요"
+    : summary.latestFeedGapMinutes
+      ? summary.latestFeedGapMinutes >= 120 && summary.latestFeedGapMinutes <= 240
+        ? "오늘은 수유 간격이 일정해요"
+        : "수유 간격이 평소와 조금 달라요"
+      : "기록이 쌓이면 오늘 리듬을 더 정확히 보여드려요";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -162,6 +220,7 @@ export function SummaryCards({
           <span>{formatAge(baby.birthDate)}</span>
           <span aria-hidden="true">·</span>
           <GenderMark gender={baby.gender} />
+          <span className={`status-badge ${feedStatus}`}>{currentStatus}</span>
         </p>
         {warning ? (
           <p className="hero-copy hero-warning">
@@ -173,12 +232,13 @@ export function SummaryCards({
         )}
         <div className={`status-card ${feedStatus}`}>
           <span>지금 상태 요약</span>
-          <p>마지막 수유 후</p>
-          <strong>{formatElapsedTitle(summary.lastFeedAt, now)}</strong>
+          <p>{summary.activeSleepStartedAt ? "수면 시작 후" : "마지막 수유 후"}</p>
+          <strong>{summary.activeSleepStartedAt ? formatRelativeSince(summary.activeSleepStartedAt, now) : formatElapsedTitle(summary.lastFeedAt, now)}</strong>
           <em>{formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now)}</em>
           <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
             <i style={{ width: `${feedProgress}%` }} />
           </div>
+          <p className="rhythm-copy">{rhythmCopy}</p>
           <div className="status-meta">
             <small>{formatDurationMinutes(feedIntervalMinutes)} 텀 기준</small>
             <select
@@ -195,36 +255,69 @@ export function SummaryCards({
             </select>
           </div>
         </div>
-        <div className="hero-grid">
+        <div className="summary-grid today-summary-grid">
           <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
-            <span>마지막 수유</span>
+            <span>수유량</span>
             <div className="metric-value">
-              <strong>{summary.lastFeedAmountMl !== null ? `${summary.lastFeedAmountMl}ml` : "기록 없음"}</strong>
-              <small>
-                {summary.lastFeedAt ? `${formatTime(summary.lastFeedAt)} · ` : ""}
-                {formatRelativeSince(summary.lastFeedAt, now)}
-              </small>
+              <strong>{summary.todayFeedTotalMl}ml</strong>
+              <small>{summary.todayFeedCount}회</small>
             </div>
           </button>
-          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("poop")}>
-            <span>마지막 대변</span>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("sleep")}>
+            <span>수면시간</span>
             <div className="metric-value">
-              <strong className="poop-summary-value">
-                {summary.lastPoopColor ? (
-                  <i
-                    aria-label={poopColorLabel ?? undefined}
-                    className={`poop-color-chip ${poopColorClasses[summary.lastPoopColor]}`}
-                    role="img"
-                  />
-                ) : null}
-                {poopAmountSummary}
-              </strong>
-              <small>
-                {summary.lastPoopAt ? `${formatTime(summary.lastPoopAt)} · ` : ""}
-                {formatRelativeSince(summary.lastPoopAt, now)}
-              </small>
+              <strong>{formatDurationMinutes(summary.todaySleepMinutes)}</strong>
+              <small>{summary.todaySleepCount}회</small>
             </div>
           </button>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
+            <span>기저귀</span>
+            <div className="metric-value">
+              <strong>{summary.todayDiaperCount}회</strong>
+              <small>오늘 기록</small>
+            </div>
+          </button>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("medicine")}>
+            <span>약</span>
+            <div className="metric-value">
+              <strong>{summary.todayMedicineCount}회</strong>
+              <small>복용 기록</small>
+            </div>
+          </button>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("temperature")}>
+            <span>체온</span>
+            <div className="metric-value">
+              <strong>{summary.latestTemperatureC ? `${summary.latestTemperatureC.toFixed(1)}도` : "-"}</strong>
+              <small>{summary.todayTemperatureCount}회</small>
+            </div>
+          </button>
+          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("meal")}>
+            <span>이유식</span>
+            <div className="metric-value">
+              <strong>{summary.todayMealCount}회</strong>
+              <small>식사 기록</small>
+            </div>
+          </button>
+        </div>
+      </section>
+      <section className="panel home-quick-section" aria-label="빠른 기록">
+        <div className="section-heading compact-heading">
+          <div>
+            <span className="eyebrow">빠른 기록</span>
+            <h2>바로 남기기</h2>
+          </div>
+        </div>
+        <div className="home-quick-grid">
+          {quickActions.map((action) => (
+            <ActivityShortcut
+              badge={getQuickBadge(events, action.type, now)}
+              icon={action.icon}
+              key={action.type}
+              label={action.label}
+              variant="quick"
+              onClick={() => onQuickAdd(action.type)}
+            />
+          ))}
         </div>
       </section>
     </>
@@ -497,7 +590,9 @@ function IntervalLineChart({
 }
 
 function PoopDistribution({ events }: { events: BabyEvent[] }) {
-  const poopEvents = events.filter((event) => event.eventType === "poop" && event.poopColor);
+  const poopEvents = events.filter(
+    (event) => (event.eventType === "poop" || event.eventType === "diaper") && event.poopColor,
+  );
   const counts = poopEvents.reduce<Record<PoopColor, number>>(
     (result, event) => {
       if (event.poopColor) {
@@ -531,7 +626,7 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
 export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
   const selectedEvents = getEventsForDate(events, selectedDate);
   const feedEvents = selectedEvents.filter((event) => event.eventType === "feed");
-  const poopEvents = selectedEvents.filter((event) => event.eventType === "poop");
+  const poopEvents = selectedEvents.filter((event) => (event.eventType === "poop" || event.eventType === "diaper") && event.poopColor);
   const intervals = getFeedIntervals(feedEvents);
   const averageInterval =
     intervals.length > 0 ? Math.round(intervals.reduce((total, value) => total + value, 0) / intervals.length) : null;
@@ -601,9 +696,9 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
           <em className={sleepDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(sleepDiff)}</em>
         </article>
         <article className="panel analysis-metric poop">
-          <p>배변</p>
-          <strong>{summary.poopCount}회</strong>
-          <small>소변 {summary.peeCount}회</small>
+          <p>기저귀</p>
+          <strong>{summary.diaperCount}회</strong>
+          <small>소변/대변 통합</small>
           <em>{poopEvents[0]?.poopColor ? poopColorLabels[poopEvents[0].poopColor] : "상태 기록 없음"}</em>
         </article>
       </section>
