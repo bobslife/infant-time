@@ -154,7 +154,7 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
           </div>
         </div>
         <form className="entry-form" onSubmit={handleSubmit}>
-          <label className="field">
+          <label className="field growth-date-field">
             <span>측정일</span>
             <input type="date" value={measuredAt} onChange={(event) => setMeasuredAt(event.target.value)} />
           </label>

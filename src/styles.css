@@ -1334,10 +1334,8 @@ button {
 }
 
 .event-date-heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 3px;
   padding: 4px 2px;
 }
 
@@ -1349,7 +1347,8 @@ button {
   color: var(--color-text-muted);
   font-size: 0.84rem;
   font-weight: 700;
-  text-align: right;
+  text-align: left;
+  line-height: 1.35;
 }
 
 .event-date-list {
@@ -1999,6 +1998,15 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.growth-date-field {
+  width: min(100%, 180px);
+  justify-self: center;
+}
+
+.growth-date-field input {
+  text-align: center;
 }
 
 .growth-latest-grid div {

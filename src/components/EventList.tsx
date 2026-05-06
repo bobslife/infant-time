@@ -291,7 +291,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
         ))}
         {hasMoreGroups ? (
           <div className="event-pagination-sentinel" ref={loadMoreRef} aria-hidden="true">
-            이전 기록 불러오는 중
+            이전 7일 기록 불러오는 중
           </div>
         ) : null}
         {events.length === 0 ? <p className="empty-copy">아직 기록이 없습니다.</p> : null}
