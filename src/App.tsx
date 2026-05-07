@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type TouchEvent } from "react";
 import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
@@ -23,6 +23,9 @@ const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
 ];
 
 const DEFAULT_FEED_INTERVAL_MINUTES = 180;
+const PULL_REFRESH_THRESHOLD = 84;
+const MAX_PULL_DISTANCE = 112;
+const PULL_FRICTION = 0.45;
 const GrowthScreen = lazy(() =>
   import("./components/GrowthScreen").then((module) => ({ default: module.GrowthScreen })),
 );
@@ -61,6 +64,7 @@ export function App() {
     addEvent,
     updateEvent,
     deleteEvent,
+    refreshData,
   } = useEvents();
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
@@ -69,6 +73,11 @@ export function App() {
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pullDistanceRef = useRef(0);
+  const pullActiveRef = useRef(false);
 
   useEffect(() => {
     if (!user) {
@@ -160,6 +169,74 @@ export function App() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
+  function resetPullState() {
+    touchStartRef.current = null;
+    pullDistanceRef.current = 0;
+    pullActiveRef.current = false;
+    setPullDistance(0);
+  }
+
+  function handleTouchStart(event: TouchEvent<HTMLElement>) {
+    if (isRefreshing || event.touches.length !== 1 || window.scrollY > 0) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+    pullActiveRef.current = true;
+  }
+
+  function handleTouchMove(event: TouchEvent<HTMLElement>) {
+    if (!pullActiveRef.current || !touchStartRef.current || event.touches.length !== 1) {
+      return;
+    }
+
+    if (window.scrollY > 0) {
+      resetPullState();
+      return;
+    }
+
+    const touch = event.touches[0];
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
+
+    if (deltaY <= 0 || deltaX > deltaY) {
+      resetPullState();
+      return;
+    }
+
+    event.preventDefault();
+
+    const nextDistance = Math.min(Math.round(deltaY * PULL_FRICTION), MAX_PULL_DISTANCE);
+    pullDistanceRef.current = nextDistance;
+    setPullDistance(nextDistance);
+  }
+
+  function handleTouchEnd() {
+    if (!pullActiveRef.current) {
+      return;
+    }
+
+    const shouldRefresh = pullDistanceRef.current >= PULL_REFRESH_THRESHOLD;
+    resetPullState();
+
+    if (!shouldRefresh) {
+      return;
+    }
+
+    void (async () => {
+      setIsRefreshing(true);
+      try {
+        await refreshData();
+      } finally {
+        setIsRefreshing(false);
+      }
+    })();
+  }
+
   if (isLoading) {
     return (
       <main className="loading-shell" aria-label="Infant Time">
@@ -189,7 +266,21 @@ export function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main
+      className={`app-shell${isRefreshing ? " refreshing" : ""}`}
+      onTouchCancel={handleTouchEnd}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchStart={handleTouchStart}
+    >
+      <div
+        className={`pull-refresh-indicator${pullDistance > 0 || isRefreshing ? " visible" : ""}${isRefreshing ? " refreshing" : ""}`}
+        style={{
+          transform: `translateX(-50%) translateY(${Math.max(0, pullDistance - 16)}px)`,
+        }}
+      >
+        {isRefreshing ? "새로고침 중..." : pullDistance >= PULL_REFRESH_THRESHOLD ? "놓으면 새로고침" : "당겨서 새로고침"}
+      </div>
       <div className="page-frame">
         {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
         {activeTab === "home" ? (

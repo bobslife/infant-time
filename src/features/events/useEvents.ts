@@ -286,8 +286,11 @@ export function useEvents() {
   );
 
   const loadForUser = useCallback(
-    async (nextUser: AppUser) => {
-      setIsLoading(true);
+    async (nextUser: AppUser, options?: { silent?: boolean }) => {
+      if (!options?.silent) {
+        setIsLoading(true);
+      }
+
       setErrorMessage(null);
 
       try {
@@ -322,7 +325,9 @@ export function useEvents() {
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
       } finally {
-        setIsLoading(false);
+        if (!options?.silent) {
+          setIsLoading(false);
+        }
       }
     },
     [client, loadEventsForBaby, selectedBabyStorageKey],
@@ -667,6 +672,14 @@ export function useEvents() {
     }
   }
 
+  async function refreshData() {
+    if (!user) {
+      return;
+    }
+
+    await loadForUser(user, { silent: true });
+  }
+
   return {
     user,
     babies,
@@ -688,5 +701,6 @@ export function useEvents() {
     addEvent,
     updateEvent,
     deleteEvent,
+    refreshData,
   };
 }

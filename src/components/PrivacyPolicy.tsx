@@ -1,3 +1,5 @@
+import { DocumentPageHeader } from "./DocumentPageHeader";
+
 const effectiveDate = "2026년 5월 6일";
 
 const collectedItems = [
@@ -23,23 +25,25 @@ const collectedItems = [
   },
 ];
 
+function handleBack() {
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  window.location.href = "/";
+}
+
 export function PrivacyPolicy() {
   return (
     <main className="privacy-shell">
       <article className="privacy-document">
-        <header className="privacy-header">
-          <a className="privacy-brand" href="/" aria-label="Infant Time 홈">
-            <img src="/infant-time-log.png" alt="" />
-            <span>Infant Time</span>
-          </a>
-          <p>시행일: {effectiveDate}</p>
-          <h1>개인정보처리방침</h1>
-          <p>
-            Infant Time은 보호자가 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 등 돌봄 기록을 관리할 수 있도록 서비스를
-            제공합니다. 본 방침은 Infant Time이 어떤 개인정보를 수집하고, 어떻게 이용 및 보호하는지
-            설명합니다.
-          </p>
-        </header>
+        <DocumentPageHeader title="개인정보처리방침" dateLabel={`시행일: ${effectiveDate}`} onBack={handleBack} />
+        <p className="privacy-intro">
+          Infant Time은 보호자가 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 등 돌봄 기록을 관리할 수 있도록 서비스를
+          제공합니다. 본 방침은 Infant Time이 어떤 개인정보를 수집하고, 어떻게 이용 및 보호하는지
+          설명합니다.
+        </p>
 
         <section className="privacy-section">
           <h2>1. 수집하는 개인정보 항목</h2>

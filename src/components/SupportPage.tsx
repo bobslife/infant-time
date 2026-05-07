@@ -1,3 +1,5 @@
+import { DocumentPageHeader } from "./DocumentPageHeader";
+
 const effectiveDate = "2026년 5월 6일";
 
 const supportTopics = [
@@ -7,22 +9,24 @@ const supportTopics = [
   "기능 문의 및 개선 제안",
 ];
 
+function handleBack() {
+  if (window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  window.location.href = "/";
+}
+
 export function SupportPage() {
   return (
     <main className="privacy-shell">
       <article className="privacy-document">
-        <header className="privacy-header">
-          <a className="privacy-brand" href="/" aria-label="Infant Time 홈">
-            <img src="/infant-time-log.png" alt="" />
-            <span>Infant Time</span>
-          </a>
-          <p>지원 페이지 | 시행일: {effectiveDate}</p>
-          <h1>고객 지원 안내</h1>
-          <p>
-            Infant Time은 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 기록을 관리하는 서비스입니다.
-            앱 사용 중 문제가 발생하거나 도움이 필요하시면 아래 연락처로 문의해 주세요.
-          </p>
-        </header>
+        <DocumentPageHeader title="고객 지원 안내" dateLabel={`시행일: ${effectiveDate}`} onBack={handleBack} />
+        <p className="privacy-intro">
+          Infant Time은 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 기록을 관리하는 서비스입니다.
+          앱 사용 중 문제가 발생하거나 도움이 필요하시면 아래 연락처로 문의해 주세요.
+        </p>
 
         <section className="privacy-section">
           <h2>문의 가능한 내용</h2>
