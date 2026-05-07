@@ -1166,6 +1166,10 @@ button {
   gap: 14px;
 }
 
+.growth-entry-form {
+  margin-top: 18px;
+}
+
 .auth-switch {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2004,12 +2008,7 @@ button {
 }
 
 .growth-date-field {
-  width: min(100%, 180px);
-  justify-self: center;
-}
-
-.growth-date-field input {
-  text-align: center;
+  width: 100%;
 }
 
 .growth-latest-grid div {
