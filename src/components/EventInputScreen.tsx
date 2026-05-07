@@ -22,6 +22,7 @@ interface EventInputScreenProps {
   initialEventType?: EventType;
   onSubmit: (input: CreateEventInput) => Promise<void>;
   onUpdateEvent: (input: UpdateEventInput) => Promise<void>;
+  onStartNewEvent: (eventType: EventType) => void;
 }
 
 const eventOptions: Array<{ type: EventType; icon: string; label: string }> = [
@@ -114,6 +115,7 @@ export function EventInputScreen({
   initialEventType = "feed",
   onSubmit,
   onUpdateEvent,
+  onStartNewEvent,
 }: EventInputScreenProps) {
   const initialOccurredAt = editingEvent ? toInputDateTime(editingEvent.occurredAt) : toLocalDateTimeInputValue();
   const initialEndedAt = editingEvent?.endedAt ? toInputDateTime(editingEvent.endedAt) : "";
@@ -136,7 +138,7 @@ export function EventInputScreen({
   const [mealName, setMealName] = useState("");
   const [mealAmountG, setMealAmountG] = useState(80);
   const [mealReaction, setMealReaction] = useState<MealReaction>("good");
-  const [note, setNote] = useState("");
+  const [memoText, setMemoText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDetails, setShowDetails] = useState(Boolean(editingEvent));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -193,7 +195,7 @@ export function EventInputScreen({
       setMealName("");
       setMealAmountG(80);
       setMealReaction("good");
-      setNote("");
+      setMemoText("");
       setShowDetails(false);
       return;
     }
@@ -220,8 +222,8 @@ export function EventInputScreen({
     setMealName(editingEvent.mealName ?? "");
     setMealAmountG(editingEvent.mealAmountG ?? 80);
     setMealReaction(editingEvent.mealReaction ?? "good");
-    setNote(editingEvent.note ?? "");
-    setShowDetails(normalizedType !== "sleep");
+    setMemoText(editingEvent.eventType === "memo" ? editingEvent.note ?? "" : "");
+    setShowDetails(normalizedType === "sleep" || Boolean(editingEvent));
   }, [editingEvent, initialEventType]);
 
   function showSavedToast(message: string) {
@@ -276,7 +278,7 @@ export function EventInputScreen({
       mealName: eventType === "meal" ? mealName.trim() : null,
       mealAmountG: eventType === "meal" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
-      note: note.trim() || undefined,
+      note: eventType === "memo" ? memoText.trim() || undefined : editingEvent?.note ?? undefined,
     };
   }
 
@@ -381,7 +383,7 @@ export function EventInputScreen({
         poopAmount: null,
         poopColor: null,
         medicineName: null,
-        note: note.trim() || undefined,
+        note: undefined,
       });
       triggerHaptic();
       showSavedToast("수면 시작 저장");
@@ -392,7 +394,6 @@ export function EventInputScreen({
 
   const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
   const isEditingSleep = editingEvent?.eventType === "sleep";
-  const canWakeSleep = eventType === "sleep" && ((!editingEvent && Boolean(ongoingSleep)) || (isEditingSleep && !endedAt));
   const sleepStatusTitle =
     eventType === "sleep" && ongoingSleep && !editingEvent
       ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
@@ -409,7 +410,7 @@ export function EventInputScreen({
           ? `${formatTime(occurredAt)} 시작 · ${formatTime(endedAt)} 종료`
           : `${formatTime(occurredAt)} 시작`
         : "재우기 시작하면 시간이 자동 기록돼요.";
-  const detailToggleLabel = showDetails ? "수정 닫기" : "시간/메모 수정";
+  const shouldForceShowDetails = eventType === "sleep" || isEditingSleep;
 
   return (
     <section className="screen-stack action-screen">
@@ -423,9 +424,12 @@ export function EventInputScreen({
               label={option.label}
               variant="nav"
               onClick={() => {
-                if (!editingEvent) {
-                  setEventType(option.type);
+                if (editingEvent) {
+                  onStartNewEvent(option.type);
+                  return;
                 }
+
+                setEventType(option.type);
               }}
             />
           ))}
@@ -472,6 +476,12 @@ export function EventInputScreen({
             <>
               <strong>{mealAmountG}g</strong>
               <small>이유식 종류와 반응을 함께 남겨요.</small>
+            </>
+          ) : null}
+          {eventType === "memo" ? (
+            <>
+              <strong>메모</strong>
+              <small>홈에서 남긴 메모를 수정할 수 있어요.</small>
             </>
           ) : null}
         </div>
@@ -576,6 +586,20 @@ export function EventInputScreen({
           </div>
         ) : null}
 
+        {eventType === "memo" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>메모</span>
+              <textarea
+                rows={4}
+                value={memoText}
+                onChange={(event) => setMemoText(event.target.value)}
+                placeholder="메모를 입력해 주세요"
+              />
+            </label>
+          </div>
+        ) : null}
+
         {eventType !== "sleep" ? (
           <div className="quick-time-card" aria-label="기록 시간">
             <label>
@@ -595,24 +619,21 @@ export function EventInputScreen({
               {editingEvent ? "수유 수정하기" : "수유 기록하기"}
             </button>
           ) : null}
-          {eventType === "sleep" ? (
+          {eventType === "sleep" && !isEditingSleep ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {canWakeSleep ? "깨어남" : editingEvent ? "수면 수정하기" : "수면 시작"}
+              {ongoingSleep ? "깨어남" : "수면 시작"}
             </button>
           ) : null}
-          {eventType !== "feed" && eventType !== "sleep" ? (
+          {eventType !== "feed" && eventType !== "sleep" && eventType !== "memo" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요")}>
               {editingEvent ? "수정하기" : "바로 기록하기"}
             </button>
           ) : null}
         </div>
 
-        <button className="detail-toggle" type="button" onClick={() => setShowDetails((current) => !current)}>
-          {detailToggleLabel}
-        </button>
       </section>
 
-      {showDetails ? (
+      {showDetails || shouldForceShowDetails ? (
         <section className="panel">
           <form className="entry-form" onSubmit={handleSubmit}>
             {eventType === "sleep" ? (
@@ -635,14 +656,8 @@ export function EventInputScreen({
                 </label>
               </div>
             ) : null}
-
-            <label className="field">
-              <span>메모</span>
-              <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="선택 입력" />
-            </label>
-
             <button className="primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "저장 중..." : editingEvent ? "수정" : "메모 저장"}
+              {isSubmitting ? "저장 중..." : eventType === "memo" ? "메모 저장" : editingEvent ? "수정" : "저장"}
             </button>
           </form>
         </section>

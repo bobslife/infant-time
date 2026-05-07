@@ -402,58 +402,161 @@ button {
   color: #be123c;
 }
 
-.rhythm-copy {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
 .status-card {
   display: grid;
-  gap: 8px;
+  gap: 16px;
   margin-top: 16px;
-  padding: 18px;
-  border: 1px solid rgba(49, 130, 246, 0.14);
-  border-radius: 8px;
-  background: #ffffff;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.84);
   box-shadow: 0 10px 24px rgba(25, 31, 40, 0.06);
+  backdrop-filter: blur(14px);
 }
 
-.status-card > span {
+.status-card.sleeping {
+  border-color: rgba(99, 102, 241, 0.18);
+}
+
+.status-card.soon {
+  border-color: rgba(217, 119, 6, 0.2);
+}
+
+.status-card.overdue {
+  border-color: rgba(244, 63, 94, 0.24);
+  background: rgba(255, 247, 248, 0.92);
+}
+
+.status-card-section {
+  display: grid;
+  gap: 8px;
+}
+
+.status-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.status-pill.sleeping {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.status-card-section strong {
+  color: #0f172a;
+  font-size: 2rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.status-card-section small {
+  color: var(--color-text-soft);
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.status-next strong {
+  color: var(--color-blue-strong);
+  font-size: 1.72rem;
+}
+
+.status-progress-label {
   color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
-.status-card p {
-  margin: 2px 0 0;
+.status-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.status-meta select {
+  min-width: 108px;
+  min-height: 36px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.9);
   color: var(--color-text-soft);
-  font-weight: 800;
+  font-size: 0.88rem;
+  font-weight: 700;
 }
 
-.status-card strong {
-  color: #111827;
-  font-size: 2.35rem;
-  line-height: 1.04;
+.status-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #f8fafc;
 }
 
-.status-card em {
-  color: var(--color-blue-strong);
-  font-style: normal;
-  font-weight: 900;
+.status-callout span {
+  margin-top: 2px;
+  font-size: 0.65rem;
+  line-height: 1;
 }
 
-.status-card.soon em {
-  color: #a16207;
+.status-callout p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
-.status-card.overdue {
-  border-color: rgba(255, 122, 162, 0.32);
-  background: #fff7f8;
+.status-callout.good {
+  background: #ecfdf5;
 }
 
-.status-card.overdue em {
-  color: #be123c;
+.status-callout.good span,
+.status-callout.good p {
+  color: #047857;
+}
+
+.status-callout.neutral {
+  background: #f8fafc;
+}
+
+.status-callout.neutral span,
+.status-callout.neutral p {
+  color: #475569;
+}
+
+.status-callout.warn {
+  background: #fffbeb;
+}
+
+.status-callout.warn span,
+.status-callout.warn p {
+  color: #b45309;
+}
+
+.rhythm-copy {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .feed-progress {
@@ -469,7 +572,7 @@ button {
   height: 100%;
   border-radius: inherit;
   background: var(--color-blue-strong);
-  transition: width 240ms ease;
+  transition: width 500ms ease;
 }
 
 .status-card.soon .feed-progress i {
@@ -478,30 +581,6 @@ button {
 
 .status-card.overdue .feed-progress i {
   background: var(--color-pink-strong);
-}
-
-.status-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.status-meta small {
-  color: var(--color-text-muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.status-meta select {
-  min-width: 108px;
-  min-height: 36px;
-  border: 1px solid rgba(25, 31, 40, 0.08);
-  border-radius: 8px;
-  padding: 0 9px;
-  background: var(--color-surface-soft);
-  color: var(--color-text);
-  font-weight: 800;
 }
 
 .metric-card,
@@ -2485,6 +2564,43 @@ button {
   line-height: 1.45;
 }
 
+.offline-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.offline-card {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow-card);
+}
+
+.offline-card h1 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.offline-card p {
+  margin: 0;
+  color: var(--color-text-soft);
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.offline-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 @media (max-width: 640px) {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2511,8 +2627,8 @@ button {
     font-size: 2.2rem;
   }
 
-  .status-card strong {
-    font-size: 2.15rem;
+  .status-card-section strong {
+    font-size: 1.95rem;
   }
 
   .analysis-header {

@@ -26,6 +26,7 @@ const eventLabels: Partial<Record<EventType, string>> = {
   medicine: "약",
   temperature: "체온",
   meal: "이유식",
+  memo: "메모",
 };
 
 const feedAmounts = [60, 80, 100, 120, 140];
@@ -65,6 +66,7 @@ export function QuickEntrySheet({
   const [mealName, setMealName] = useState("쌀미음");
   const [mealAmountG, setMealAmountG] = useState(80);
   const [mealReaction] = useState<MealReaction>("good");
+  const [memoText, setMemoText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
@@ -99,6 +101,7 @@ export function QuickEntrySheet({
     setTemperatureC(36.8);
     setMealName("쌀미음");
     setMealAmountG(80);
+    setMemoText("");
     setToastMessage(null);
   }, [eventType]);
 
@@ -138,6 +141,7 @@ export function QuickEntrySheet({
       mealName: eventType === "meal" ? mealName.trim() || "쌀미음" : null,
       mealAmountG: eventType === "meal" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
+      note: eventType === "memo" ? memoText.trim() || undefined : undefined,
     };
   }
 
@@ -149,6 +153,11 @@ export function QuickEntrySheet({
 
     if (eventType === "meal" && mealAmountG <= 0) {
       setToastMessage("이유식 양을 입력해 주세요");
+      return;
+    }
+
+    if (eventType === "memo" && !memoText.trim()) {
+      setToastMessage("메모 내용을 입력해 주세요");
       return;
     }
 
@@ -303,8 +312,22 @@ export function QuickEntrySheet({
           </div>
         ) : null}
 
+        {eventType === "memo" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>메모</span>
+              <textarea
+                rows={4}
+                value={memoText}
+                onChange={(event) => setMemoText(event.target.value)}
+                placeholder="오늘 기억하고 싶은 내용을 적어 주세요"
+              />
+            </label>
+          </div>
+        ) : null}
+
         <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSave()}>
-          {eventType === "sleep" && ongoingSleep ? "수면 종료" : "저장하기"}
+          {eventType === "sleep" && ongoingSleep ? "수면 종료" : eventType === "memo" ? "메모 저장" : "저장하기"}
         </button>
 
         {toastMessage ? <div className="toast-message sheet-toast">{toastMessage}</div> : null}

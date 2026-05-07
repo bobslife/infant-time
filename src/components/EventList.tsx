@@ -17,6 +17,7 @@ const eventLabels: Record<BabyEvent["eventType"], string> = {
   medicine: "약",
   temperature: "체온",
   meal: "이유식",
+  memo: "메모",
 };
 
 const eventIcons: Record<BabyEvent["eventType"], string> = {
@@ -28,6 +29,7 @@ const eventIcons: Record<BabyEvent["eventType"], string> = {
   medicine: "/icons/pill.svg",
   temperature: "/icons/thermometer.svg",
   meal: "/icons/action.svg",
+  memo: "/icons/action.svg",
 };
 
 const DATE_PAGE_SIZE = 7;
@@ -113,6 +115,10 @@ function eventDetail(event: BabyEvent): string {
   if (event.eventType === "meal") {
     const reaction = event.mealReaction ? mealReactionLabels[event.mealReaction] : "반응 미입력";
     return `${event.mealName || "종류 미입력"} · ${event.mealAmountG ?? 0}g · ${reaction}`;
+  }
+
+  if (event.eventType === "memo") {
+    return event.note?.trim() || "메모";
   }
 
   return "기록";

@@ -3,6 +3,7 @@ import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
 import { LoginScreen } from "./components/LoginScreen";
+import { OfflineFallbackScreen } from "./components/OfflineFallbackScreen";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { QuickEntrySheet } from "./components/quick-entry/QuickEntrySheet";
@@ -62,6 +63,7 @@ export function App() {
   const [quickEntryType, setQuickEntryType] = useState<EventType | null>(null);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
+  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
 
   useEffect(() => {
     if (!user) {
@@ -72,6 +74,24 @@ export function App() {
     setEditingEvent(null);
     setInputEventType("feed");
   }, [user?.id]);
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!baby) {
@@ -110,6 +130,13 @@ export function App() {
     setActiveTab("input");
   }
 
+  function handleStartNewEvent(eventType: EventType) {
+    setEditingEvent(null);
+    setInputEventType(eventType);
+    setQuickEntryType(null);
+    setActiveTab("input");
+  }
+
   function handleQuickAdd(eventType: EventType) {
     setEditingEvent(null);
     setQuickEntryType(eventType);
@@ -134,6 +161,10 @@ export function App() {
         <img className="loading-logo" src="/infant-time-log.png" alt="Infant Time" />
       </main>
     );
+  }
+
+  if (!isOnline) {
+    return <OfflineFallbackScreen onLocalPreview={useLocalPreview} onRetry={() => window.location.reload()} />;
   }
 
   if (!user) {
@@ -178,6 +209,7 @@ export function App() {
               initialEventType={inputEventType}
               onSubmit={handleAddEvent}
               onUpdateEvent={handleUpdateEventFromInput}
+              onStartNewEvent={handleStartNewEvent}
             />
           </section>
         ) : null}

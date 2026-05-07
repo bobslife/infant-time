@@ -5,6 +5,7 @@ export type EventType =
   | "medicine"
   | "temperature"
   | "meal"
+  | "memo"
   | "pee"
   | "poop";
 

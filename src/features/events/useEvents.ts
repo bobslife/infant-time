@@ -84,6 +84,17 @@ function sortDescending(events: BabyEvent[]) {
   );
 }
 
+function getSleepDurationMinutes(event: BabyEvent, now = new Date()): number {
+  if (event.eventType !== "sleep") {
+    return 0;
+  }
+
+  const start = new Date(event.occurredAt).getTime();
+  const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
+
+  return Math.max(0, Math.round((end - start) / 60000));
+}
+
 export function buildDailySummary(events: BabyEvent[], date: string): DailyEventSummary {
   const targetStart = new Date(`${date}T00:00:00`);
   const targetEnd = new Date(targetStart);
@@ -101,15 +112,7 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
     feedCount: feedEvents.length,
     feedTotalMl: feedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
     sleepCount: sleepEvents.length,
-    sleepMinutes: sleepEvents.reduce((total, event) => {
-      if (!event.endedAt) {
-        return total;
-      }
-
-      const start = new Date(event.occurredAt).getTime();
-      const end = new Date(event.endedAt).getTime();
-      return total + Math.max(0, Math.round((end - start) / 60000));
-    }, 0),
+    sleepMinutes: sleepEvents.reduce((total, event) => total + getSleepDurationMinutes(event), 0),
     peeCount: dayEvents.filter((event) => event.eventType === "pee").length,
     poopCount: dayEvents.filter((event) => event.eventType === "poop").length,
     diaperCount: dayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType)).length,
@@ -142,15 +145,10 @@ function buildSummary(events: BabyEvent[]): EventSummary {
     latestFeedGapMinutes = Math.round((latest - previous) / 60000);
   }
 
-  const todaySleepMinutes = sleepEvents.reduce((total, event) => {
-    if (!event.endedAt) {
-      return total;
-    }
-
-    const start = new Date(event.occurredAt).getTime();
-    const end = new Date(event.endedAt).getTime();
-    return total + Math.max(0, Math.round((end - start) / 60000));
-  }, 0);
+  const todaySleepMinutes = sleepEvents.reduce(
+    (total, event) => total + getSleepDurationMinutes(event),
+    0,
+  );
 
   return {
     lastFeedAt,
@@ -188,6 +186,81 @@ export function useEvents() {
     [],
   );
 
+  const normalizeOvernightSleep = useCallback(
+    async (nextUser: AppUser, nextBaby: BabyProfile, nextEvents: BabyEvent[]) => {
+      const activeSleep = nextEvents.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
+
+      if (!activeSleep) {
+        return nextEvents;
+      }
+
+      const todayStart = startOfToday();
+      const activeSleepStartedAt = new Date(activeSleep.occurredAt).getTime();
+
+      if (activeSleepStartedAt >= todayStart.getTime()) {
+        return nextEvents;
+      }
+
+      const midnightIso = todayStart.toISOString();
+      const createInput: CreateEventInput = {
+        babyId: nextBaby.id,
+        eventType: "sleep",
+        occurredAt: midnightIso,
+        note: activeSleep.note,
+      };
+      const updateInput: UpdateEventInput = {
+        id: activeSleep.id,
+        babyId: activeSleep.babyId,
+        eventType: activeSleep.eventType,
+        occurredAt: activeSleep.occurredAt,
+        endedAt: midnightIso,
+        amountMl: activeSleep.amountMl,
+        diaperType: activeSleep.diaperType,
+        poopAmount: activeSleep.poopAmount,
+        poopColor: activeSleep.poopColor,
+        medicineName: activeSleep.medicineName,
+        medicineDose: activeSleep.medicineDose,
+        medicineNextAt: activeSleep.medicineNextAt,
+        temperatureC: activeSleep.temperatureC,
+        temperatureLocation: activeSleep.temperatureLocation,
+        mealName: activeSleep.mealName,
+        mealAmountG: activeSleep.mealAmountG,
+        mealReaction: activeSleep.mealReaction,
+        note: activeSleep.note,
+      };
+
+      const createdSleep =
+        client && !nextUser.isLocal
+          ? await createSupabaseEvent(client, nextUser.id, createInput)
+          : await createLocalEvent(createInput);
+
+      try {
+        const closedSleep =
+          client && !nextUser.isLocal
+            ? await updateSupabaseEvent(client, updateInput)
+            : await updateLocalEvent(updateInput);
+
+        return sortDescending([
+          createdSleep,
+          ...nextEvents.map((event) => (event.id === closedSleep.id ? closedSleep : event)),
+        ]);
+      } catch (error) {
+        try {
+          if (client && !nextUser.isLocal) {
+            await deleteSupabaseEvent(client, createdSleep.id);
+          } else {
+            await deleteLocalEvent(createdSleep.id);
+          }
+        } catch {
+          // Best effort rollback if the second write fails.
+        }
+
+        throw error;
+      }
+    },
+    [client],
+  );
+
   const loadEventsForBaby = useCallback(
     async (nextUser: AppUser, nextBaby: BabyProfile) => {
       const nextEvents =
@@ -195,10 +268,21 @@ export function useEvents() {
           ? await listSupabaseEvents(client, nextBaby.id)
           : await listLocalEvents(nextBaby.id);
 
+      let normalizedEvents = nextEvents;
+      try {
+        normalizedEvents = await normalizeOvernightSleep(nextUser, nextBaby, nextEvents);
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "자정 경계의 수면 기록을 자동으로 보정하지 못했습니다.",
+        );
+      }
+
       setBaby(nextBaby);
-      setEvents(nextEvents);
+      setEvents(normalizedEvents);
     },
-    [client],
+    [client, normalizeOvernightSleep],
   );
 
   const loadForUser = useCallback(

@@ -54,6 +54,7 @@ const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
   { type: "meal", icon: "/icons/action.svg", label: "이유식" },
+  { type: "memo", icon: "/icons/action.svg", label: "메모" },
 ];
 
 function getTodayCount(events: BabyEvent[], type: EventType): number {
@@ -107,6 +108,23 @@ function formatElapsedTitle(lastFeedAt: string | null, now: Date): string {
 
   const elapsedMinutes = getElapsedMinutes(lastFeedAt, now) ?? 0;
   return formatDurationMinutes(elapsedMinutes);
+}
+
+function formatSleepElapsed(startIso: string | null, now: Date): string {
+  if (!startIso) {
+    return "수면 기록 없음";
+  }
+
+  const elapsedMinutes = getElapsedMinutes(startIso, now) ?? 0;
+  return `${formatDurationMinutes(elapsedMinutes)}째 수면 중`;
+}
+
+function formatSleepStartTime(startIso: string | null): string {
+  if (!startIso) {
+    return "시작 시각 없음";
+  }
+
+  return `${formatTime(startIso)} 시작`;
 }
 
 function getFeedProgress(lastFeedAt: string | null, intervalMinutes: number, now: Date): number {
@@ -200,6 +218,23 @@ export function SummaryCards({
         ? "오늘은 수유 간격이 일정해요"
         : "수유 간격이 평소와 조금 달라요"
       : "기록이 쌓이면 오늘 리듬을 더 정확히 보여드려요";
+  const sleepStateTitle = summary.activeSleepStartedAt
+    ? formatSleepElapsed(summary.activeSleepStartedAt, now)
+    : formatElapsedTitle(summary.lastFeedAt, now);
+  const sleepStateDescription = summary.activeSleepStartedAt
+    ? formatSleepStartTime(summary.activeSleepStartedAt)
+    : summary.lastFeedAt
+      ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
+      : "수유 기록을 남기면 다음 예측이 표시됩니다.";
+  const nextFeedCopy = formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now);
+  const sleepCardTone = summary.activeSleepStartedAt ? "sleeping" : feedStatus;
+  const insightTone = summary.activeSleepStartedAt
+    ? feedStatus === "overdue"
+      ? "warn"
+      : "good"
+    : feedStatus === "overdue"
+      ? "warn"
+      : "neutral";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -221,7 +256,6 @@ export function SummaryCards({
           <span>{formatAge(baby.birthDate)}</span>
           <span aria-hidden="true">·</span>
           <GenderMark gender={baby.gender} />
-          <span className={`status-badge ${feedStatus}`}>{currentStatus}</span>
         </p>
         {warning ? (
           <p className="hero-copy hero-warning">
@@ -231,31 +265,47 @@ export function SummaryCards({
         ) : (
           <p className="hero-copy">오늘의 돌봄 기록을 한 화면에서 확인할 수 있습니다.</p>
         )}
-        <div className={`status-card ${feedStatus}`}>
-          <span>지금 상태 요약</span>
-          <p>{summary.activeSleepStartedAt ? "수면 시작 후" : "마지막 수유 후"}</p>
-          <strong>{summary.activeSleepStartedAt ? formatRelativeSince(summary.activeSleepStartedAt, now) : formatElapsedTitle(summary.lastFeedAt, now)}</strong>
-          <em>{formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now)}</em>
-          <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
-            <i style={{ width: `${feedProgress}%` }} />
+        <div className={`status-card ${sleepCardTone}`}>
+          <div className="status-card-section status-current">
+            <div className="status-card-heading">
+              <span>현재 상태</span>
+              <span className={`status-pill ${summary.activeSleepStartedAt ? "sleeping" : feedStatus}`}>{currentStatus}</span>
+            </div>
+            <strong>{sleepStateTitle}</strong>
+            <small>{sleepStateDescription}</small>
           </div>
-          <p className="rhythm-copy">{rhythmCopy}</p>
-          <div className="status-meta">
-            <small>{formatDurationMinutes(feedIntervalMinutes)} 텀 기준</small>
-            <select
-              aria-label="수유 텀"
-              value={feedIntervalMinutes}
-              onChange={(event) => onFeedIntervalChange(Number(event.target.value))}
-            >
-              <option value={120}>2시간</option>
-              <option value={150}>2시간 30분</option>
-              <option value={180}>3시간</option>
-              <option value={210}>3시간 30분</option>
-              <option value={240}>4시간</option>
-              <option value={270}>4시간 30분</option>
-              <option value={300}>5시간</option>
-              <option value={330}>5시간 30분</option>
-            </select>
+
+          <div className="status-card-section status-next">
+            <div className="status-card-heading">
+              <span>다음 수유 예측</span>
+              <small>{formatDurationMinutes(feedIntervalMinutes)} 기준</small>
+            </div>
+            <strong>{nextFeedCopy}</strong>
+            <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
+              <i style={{ width: `${feedProgress}%` }} />
+            </div>
+            <small className="status-progress-label">평균 수유 간격 기준</small>
+            <div className="status-meta">
+              <select
+                aria-label="수유 텀"
+                value={feedIntervalMinutes}
+                onChange={(event) => onFeedIntervalChange(Number(event.target.value))}
+              >
+                <option value={120}>2시간</option>
+                <option value={150}>2시간 30분</option>
+                <option value={180}>3시간</option>
+                <option value={210}>3시간 30분</option>
+                <option value={240}>4시간</option>
+                <option value={270}>4시간 30분</option>
+                <option value={300}>5시간</option>
+                <option value={330}>5시간 30분</option>
+              </select>
+            </div>
+          </div>
+
+          <div className={`status-callout ${insightTone}`}>
+            <span aria-hidden="true">●</span>
+            <p className="rhythm-copy">{rhythmCopy}</p>
           </div>
         </div>
         <div className="summary-grid today-summary-grid">
@@ -376,16 +426,12 @@ function getEventsForDate(events: BabyEvent[], dateKey: string): BabyEvent[] {
   });
 }
 
-function getSleepMinutes(events: BabyEvent[]): number {
+function getSleepMinutes(events: BabyEvent[], now: Date): number {
   return events
     .filter((event) => event.eventType === "sleep")
     .reduce((total, event) => {
-      if (!event.endedAt) {
-        return total;
-      }
-
       const start = new Date(event.occurredAt).getTime();
-      const end = new Date(event.endedAt).getTime();
+      const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
       return total + Math.max(0, Math.round((end - start) / 60000));
     }, 0);
 }
@@ -576,16 +622,16 @@ function IntervalLineChart({
           const interval = item.feedAverageIntervalMinutes;
 
           return (
-          <div className={`interval-bar-item ${item.dateKey === selectedDate ? "selected" : ""}`} key={item.dateKey}>
-            <div className="interval-bar-stack">
-              <em>{interval === null ? "-" : formatAxisMinutes(interval)}</em>
-              <i
-                style={{ height: `${interval === null ? 3 : Math.max(8, (interval / safeMax) * 100)}%` }}
-                title={interval === null ? `${item.label || item.dateKey} 기록 부족` : `${item.label || item.dateKey} ${formatDurationMinutes(interval)}`}
-              />
+            <div className={`interval-bar-item ${item.dateKey === selectedDate ? "selected" : ""}`} key={item.dateKey}>
+              <div className="interval-bar-stack">
+                <em>{interval === null ? "-" : formatAxisMinutes(interval)}</em>
+                <i
+                  style={{ height: `${interval === null ? 3 : Math.max(8, (interval / safeMax) * 100)}%` }}
+                  title={interval === null ? `${item.label || item.dateKey} 기록 부족` : `${item.label || item.dateKey} ${formatDurationMinutes(interval)}`}
+                />
+              </div>
+              <span>{item.label}</span>
             </div>
-            <span>{item.label}</span>
-          </div>
           );
         })}
       </div>
@@ -628,7 +674,10 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
 }
 
 export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
+  const [now, setNow] = useState(new Date());
   const selectedEvents = getEventsForDate(events, selectedDate);
+  const todayKey = toDateKey(now);
+  const isTodaySelected = selectedDate === todayKey;
   const feedEvents = selectedEvents.filter((event) => event.eventType === "feed");
   const poopEvents = selectedEvents.filter((event) => (event.eventType === "poop" || event.eventType === "diaper") && event.poopColor);
   const intervals = getFeedIntervals(feedEvents);
@@ -652,7 +701,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         dayIntervals.length > 0
           ? Math.round(dayIntervals.reduce((total, interval) => total + interval, 0) / dayIntervals.length)
           : null,
-      sleepMinutes: getSleepMinutes(dayEvents),
+      sleepMinutes: getSleepMinutes(dayEvents, now),
     };
   });
   const sevenDaySleepAverage = Math.round(
@@ -661,10 +710,21 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const maxSevenDayFeed = Math.max(120, ...trendData.map((item) => item.feedTotalMl));
   const maxTrendInterval = Math.max(240, ...trendData.map((item) => item.feedAverageIntervalMinutes ?? 0));
   const maxSevenDaySleep = Math.max(480, ...trendData.map((item) => item.sleepMinutes));
-  const insight = getInsight(summary, averageInterval, sevenDaySleepAverage);
-  const feedDiff = summary.feedTotalMl - yesterdaySummary.feedTotalMl;
-  const sleepDiff = summary.sleepMinutes - yesterdaySummary.sleepMinutes;
+  const displaySummary = isTodaySelected
+    ? {
+        ...summary,
+        sleepMinutes: getSleepMinutes(selectedEvents, now),
+      }
+    : summary;
+  const insight = getInsight(displaySummary, averageInterval, sevenDaySleepAverage);
+  const feedDiff = displaySummary.feedTotalMl - yesterdaySummary.feedTotalMl;
+  const sleepDiff = displaySummary.sleepMinutes - yesterdaySummary.sleepMinutes;
   const hasEnoughFeedsForIntervalChart = feedEvents.length >= 2;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return (
     <section className="analysis-stack">
@@ -695,8 +755,8 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         </article>
         <article className="panel analysis-metric sleep">
           <p>수면</p>
-          <strong>{formatDurationMinutes(summary.sleepMinutes)}</strong>
-          <small>{summary.sleepCount}회 기록</small>
+          <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
+          <small>{displaySummary.sleepCount}회 기록</small>
           <em className={sleepDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(sleepDiff)}</em>
         </article>
         <article className="panel analysis-metric poop">
