@@ -7,7 +7,6 @@ import {
   formatDurationMinutes,
   formatRelativeSince,
   formatTime,
-  isOverFourHours,
 } from "../lib/time";
 import { BabyEvent, BabyProfile, EventType, PoopColor } from "../types";
 
@@ -110,23 +109,6 @@ function formatElapsedTitle(lastFeedAt: string | null, now: Date): string {
   return formatDurationMinutes(elapsedMinutes);
 }
 
-function formatSleepElapsed(startIso: string | null, now: Date): string {
-  if (!startIso) {
-    return "수면 기록 없음";
-  }
-
-  const elapsedMinutes = getElapsedMinutes(startIso, now) ?? 0;
-  return `${formatDurationMinutes(elapsedMinutes)}째 수면 중`;
-}
-
-function formatSleepStartTime(startIso: string | null): string {
-  if (!startIso) {
-    return "시작 시각 없음";
-  }
-
-  return `${formatTime(startIso)} 시작`;
-}
-
 function getFeedProgress(lastFeedAt: string | null, intervalMinutes: number, now: Date): number {
   const elapsedMinutes = getElapsedMinutes(lastFeedAt, now);
 
@@ -201,40 +183,14 @@ export function SummaryCards({
   onQuickAdd,
 }: SummaryCardsProps) {
   const [now, setNow] = useState(new Date());
-  const warning = isOverFourHours(summary.lastFeedAt);
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
-  const currentStatus = summary.activeSleepStartedAt
-    ? "수면 중"
-    : warning
-      ? "배고픔 주의"
-      : summary.todayDiaperCount === 0
-        ? "기저귀 확인 필요"
-        : "평온";
-  const rhythmCopy = summary.activeSleepStartedAt
-    ? "평균보다 조금 길게 자고 있는지 지켜봐 주세요"
-    : summary.latestFeedGapMinutes
-      ? summary.latestFeedGapMinutes >= 120 && summary.latestFeedGapMinutes <= 240
-        ? "오늘은 수유 간격이 일정해요"
-        : "수유 간격이 평소와 조금 달라요"
-      : "기록이 쌓이면 오늘 리듬을 더 정확히 보여드려요";
-  const sleepStateTitle = summary.activeSleepStartedAt
-    ? formatSleepElapsed(summary.activeSleepStartedAt, now)
-    : formatElapsedTitle(summary.lastFeedAt, now);
-  const sleepStateDescription = summary.activeSleepStartedAt
-    ? formatSleepStartTime(summary.activeSleepStartedAt)
-    : summary.lastFeedAt
-      ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
-      : "수유 기록을 남기면 다음 예측이 표시됩니다.";
+  const warning = feedStatus === "overdue";
+  const lastFeedTitle = formatElapsedTitle(summary.lastFeedAt, now);
+  const lastFeedDescription = summary.lastFeedAt
+    ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
+    : "수유 기록을 남기면 다음 예측이 표시됩니다.";
   const nextFeedCopy = formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now);
-  const sleepCardTone = summary.activeSleepStartedAt ? "sleeping" : feedStatus;
-  const insightTone = summary.activeSleepStartedAt
-    ? feedStatus === "overdue"
-      ? "warn"
-      : "good"
-    : feedStatus === "overdue"
-      ? "warn"
-      : "neutral";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -260,19 +216,18 @@ export function SummaryCards({
         {warning ? (
           <p className="hero-copy hero-warning">
             <span aria-hidden="true">!</span>
-            수유기록이 4시간 넘게 없습니다.
+            수유기록이 {formatDurationMinutes(feedIntervalMinutes)} 기준을 넘었습니다.
           </p>
         ) : (
           <p className="hero-copy">오늘의 돌봄 기록을 한 화면에서 확인할 수 있습니다.</p>
         )}
-        <div className={`status-card ${sleepCardTone}`}>
+        <div className={`status-card ${feedStatus}`}>
           <div className="status-card-section status-current">
             <div className="status-card-heading">
-              <span>현재 상태</span>
-              <span className={`status-pill ${summary.activeSleepStartedAt ? "sleeping" : feedStatus}`}>{currentStatus}</span>
+              <span>마지막 수유</span>
             </div>
-            <strong>{sleepStateTitle}</strong>
-            <small>{sleepStateDescription}</small>
+            <strong>{lastFeedTitle}</strong>
+            <small>{lastFeedDescription}</small>
           </div>
 
           <div className="status-card-section status-next">
@@ -301,11 +256,6 @@ export function SummaryCards({
                 <option value={330}>5시간 30분</option>
               </select>
             </div>
-          </div>
-
-          <div className={`status-callout ${insightTone}`}>
-            <span aria-hidden="true">●</span>
-            <p className="rhythm-copy">{rhythmCopy}</p>
           </div>
         </div>
         <div className="summary-grid today-summary-grid">

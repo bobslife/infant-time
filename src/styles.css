@@ -414,10 +414,6 @@ button {
   backdrop-filter: blur(14px);
 }
 
-.status-card.sleeping {
-  border-color: rgba(99, 102, 241, 0.18);
-}
-
 .status-card.soon {
   border-color: rgba(217, 119, 6, 0.2);
 }
@@ -440,24 +436,6 @@ button {
   color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 900;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  font-size: 0.72rem;
-  font-weight: 900;
-}
-
-.status-pill.sleeping {
-  background: #e0e7ff;
-  color: #4f46e5;
 }
 
 .status-card-section strong {
@@ -502,61 +480,6 @@ button {
   color: var(--color-text-soft);
   font-size: 0.88rem;
   font-weight: 700;
-}
-
-.status-callout {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: #f8fafc;
-}
-
-.status-callout span {
-  margin-top: 2px;
-  font-size: 0.65rem;
-  line-height: 1;
-}
-
-.status-callout p {
-  margin: 0;
-  color: #334155;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.status-callout.good {
-  background: #ecfdf5;
-}
-
-.status-callout.good span,
-.status-callout.good p {
-  color: #047857;
-}
-
-.status-callout.neutral {
-  background: #f8fafc;
-}
-
-.status-callout.neutral span,
-.status-callout.neutral p {
-  color: #475569;
-}
-
-.status-callout.warn {
-  background: #fffbeb;
-}
-
-.status-callout.warn span,
-.status-callout.warn p {
-  color: #b45309;
-}
-
-.rhythm-copy {
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
 }
 
 .feed-progress {
