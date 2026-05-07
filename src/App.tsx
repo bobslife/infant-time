@@ -6,6 +6,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { OfflineFallbackScreen } from "./components/OfflineFallbackScreen";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
+import { SupportPage } from "./components/SupportPage";
 import { QuickEntrySheet } from "./components/quick-entry/QuickEntrySheet";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
@@ -33,6 +34,10 @@ function getFeedIntervalStorageKey(babyId: string) {
 export function App() {
   if (window.location.pathname === "/privacy") {
     return <PrivacyPolicy />;
+  }
+
+  if (window.location.pathname === "/support") {
+    return <SupportPage />;
   }
 
   const {

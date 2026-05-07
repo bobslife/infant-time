@@ -145,6 +145,7 @@ export function LoginScreen({
         <footer className="auth-footer">
           <span>Infant Time</span>
           <a href="/privacy">개인정보처리방침</a>
+          <a href="/support">고객지원</a>
         </footer>
       </section>
     </main>

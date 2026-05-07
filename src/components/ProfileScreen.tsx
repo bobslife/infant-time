@@ -201,6 +201,9 @@ export function ProfileScreen({
         <a className="ghost-button full-width policy-link" href="/privacy">
           개인정보처리방침
         </a>
+        <a className="ghost-button full-width policy-link" href="/support">
+          고객지원
+        </a>
         <button className="ghost-button full-width" type="button" onClick={onSignOut}>
           로그아웃
         </button>
