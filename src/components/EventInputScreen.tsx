@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
 import {
@@ -143,6 +143,7 @@ export function EventInputScreen({
   const [showDetails, setShowDetails] = useState(Boolean(editingEvent));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  const submitLockRef = useRef(false);
 
   const ongoingSleep = useMemo(
     () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
@@ -295,6 +296,10 @@ export function EventInputScreen({
       return "이유식 종류를 입력해 주세요";
     }
 
+    if (input.eventType === "memo" && !input.note?.trim()) {
+      return "메모를 입력해 주세요";
+    }
+
     if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
       return "종료 시간이 시작 시간보다 빨라요";
     }
@@ -303,12 +308,17 @@ export function EventInputScreen({
   }
 
   async function submitQuick(input: CreateEventInput, message: string) {
+    if (submitLockRef.current) {
+      return;
+    }
+
     const errorMessage = validateInput(input);
     if (errorMessage) {
       showSavedToast(errorMessage);
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -325,12 +335,21 @@ export function EventInputScreen({
       setEndedAtFromDateTime("");
       showSavedToast(message);
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (editingEvent?.eventType === "sleep" && !endedAt) {
+      const current = toLocalDateTimeInputValue();
+      setEndedAtFromDateTime(current);
+      await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
+      return;
+    }
+
     await submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요");
   }
 
@@ -342,8 +361,8 @@ export function EventInputScreen({
     if (editingEvent) {
       if (editingEvent.eventType === "sleep" && !endedAt) {
         const current = toLocalDateTimeInputValue();
-        await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
         setEndedAtFromDateTime(current);
+        await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
         return;
       }
 
@@ -351,6 +370,11 @@ export function EventInputScreen({
       return;
     }
 
+    if (submitLockRef.current) {
+      return;
+    }
+
+    submitLockRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -388,6 +412,7 @@ export function EventInputScreen({
       triggerHaptic();
       showSavedToast("수면 시작 저장");
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   }
@@ -411,10 +436,19 @@ export function EventInputScreen({
           : `${formatTime(occurredAt)} 시작`
         : "재우기 시작하면 시간이 자동 기록돼요.";
   const shouldForceShowDetails = eventType === "sleep" || isEditingSleep;
+  const shouldShowDetailPanel = eventType === "sleep";
+  const saveButtonLabel = isSubmitting
+    ? "저장 중..."
+    : editingEvent
+      ? "수정하기"
+      : eventType === "memo"
+        ? "메모 저장"
+        : "바로 기록하기";
 
   return (
     <section className="screen-stack action-screen">
       <section className="panel action-type-panel">
+        {editingEvent ? <p className="editing-mode-copy">기록 수정 중 · 다른 항목을 누르면 새 기록으로 전환돼요.</p> : null}
         <div className="event-type-grid">
           {eventOptions.map((option) => (
             <ActivityShortcut
@@ -616,7 +650,7 @@ export function EventInputScreen({
         <div className="quick-button-row">
           {eventType === "feed" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickFeed()}>
-              {editingEvent ? "수유 수정하기" : "수유 기록하기"}
+              {isSubmitting ? "저장 중..." : editingEvent ? "수정하기" : "수유 기록하기"}
             </button>
           ) : null}
           {eventType === "sleep" && !isEditingSleep ? (
@@ -624,16 +658,16 @@ export function EventInputScreen({
               {ongoingSleep ? "깨어남" : "수면 시작"}
             </button>
           ) : null}
-          {eventType !== "feed" && eventType !== "sleep" && eventType !== "memo" ? (
+          {eventType !== "feed" && eventType !== "sleep" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요")}>
-              {editingEvent ? "수정하기" : "바로 기록하기"}
+              {saveButtonLabel}
             </button>
           ) : null}
         </div>
 
       </section>
 
-      {showDetails || shouldForceShowDetails ? (
+      {(showDetails || shouldForceShowDetails) && shouldShowDetailPanel ? (
         <section className="panel">
           <form className="entry-form" onSubmit={handleSubmit}>
             {eventType === "sleep" ? (
@@ -657,7 +691,7 @@ export function EventInputScreen({
               </div>
             ) : null}
             <button className="primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "저장 중..." : eventType === "memo" ? "메모 저장" : editingEvent ? "수정" : "저장"}
+              {isSubmitting ? "저장 중..." : editingEvent ? (endedAt ? "수면 수정하기" : "수면 종료 저장") : "저장"}
             </button>
           </form>
         </section>

@@ -1573,6 +1573,13 @@ button {
   gap: 12px;
 }
 
+.editing-mode-copy {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .quick-action-card {
   display: grid;
   gap: 16px;
