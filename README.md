@@ -217,3 +217,11 @@ Vite 설정에서 `NEXT_PUBLIC_*` 환경변수도 읽을 수 있게 열어두었
 - AdSense는 승인을 받은 도메인에서만 실제 광고가 정상 표시됩니다.
 - iOS/Android 앱으로 패키징할 경우 WebView 안의 AdSense보다 네이티브 AdMob 배너를 별도로 검토해야 합니다.
 - 광고는 앱의 핵심 기록 UX보다 우선하지 않습니다.
+
+## AdMob app-ads.txt 설정
+
+- 파일 위치: `public/app-ads.txt`
+- 공개 URL: `https://infant-time.vercel.app/app-ads.txt`
+- AdMob Publisher ID: `pub-7377226666674587`
+- 배포 후 AdMob에서 `업데이트 확인`을 다시 실행해야 할 수 있습니다.
+- Google 반영에는 시간이 걸릴 수 있습니다.
