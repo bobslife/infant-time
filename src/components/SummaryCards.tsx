@@ -56,6 +56,8 @@ const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "memo", icon: "/icons/action.svg", label: "메모" },
 ];
 
+const feedIntervalPresets = [180, 210, 240, 270, 300];
+
 function getTodayCount(events: BabyEvent[], type: EventType): number {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -138,6 +140,14 @@ function formatFeedCountdown(lastFeedAt: string | null, intervalMinutes: number,
   return `${formatDurationMinutes(diffMinutes)} 후 수유 예정`;
 }
 
+function formatFeedIntervalPreset(minutes: number): string {
+  if (minutes % 60 === 0) {
+    return `${minutes / 60}시간`;
+  }
+
+  return `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
+}
+
 function getFeedStatus(lastFeedAt: string | null, intervalMinutes: number, now: Date) {
   if (!lastFeedAt) {
     return "empty";
@@ -191,6 +201,9 @@ export function SummaryCards({
     ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
     : "수유 기록을 남기면 다음 예측이 표시됩니다.";
   const nextFeedCopy = formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now);
+  const visibleFeedIntervalPresets = feedIntervalPresets.includes(feedIntervalMinutes)
+    ? feedIntervalPresets
+    : [...feedIntervalPresets, feedIntervalMinutes].sort((left, right) => left - right);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -240,21 +253,18 @@ export function SummaryCards({
               <i style={{ width: `${feedProgress}%` }} />
             </div>
             <small className="status-progress-label">평균 수유 간격 기준</small>
-            <div className="status-meta">
-              <select
-                aria-label="수유 텀"
-                value={feedIntervalMinutes}
-                onChange={(event) => onFeedIntervalChange(Number(event.target.value))}
-              >
-                <option value={120}>2시간</option>
-                <option value={150}>2시간 30분</option>
-                <option value={180}>3시간</option>
-                <option value={210}>3시간 30분</option>
-                <option value={240}>4시간</option>
-                <option value={270}>4시간 30분</option>
-                <option value={300}>5시간</option>
-                <option value={330}>5시간 30분</option>
-              </select>
+            <div className="feed-interval-chips" aria-label="수유 간격 기준">
+              {visibleFeedIntervalPresets.map((minutes) => (
+                <button
+                  aria-pressed={feedIntervalMinutes === minutes}
+                  className={feedIntervalMinutes === minutes ? "active" : ""}
+                  key={minutes}
+                  type="button"
+                  onClick={() => onFeedIntervalChange(minutes)}
+                >
+                  {formatFeedIntervalPreset(minutes)}
+                </button>
+              ))}
             </div>
           </div>
         </div>
