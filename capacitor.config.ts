@@ -4,7 +4,7 @@ const serverUrl = process.env.CAP_SERVER_URL ?? "https://infant-time.vercel.app"
 
 const config: CapacitorConfig = {
   appId: "com.infanttime.app",
-  appName: "Infant Time",
+  appName: "앙팡타임",
   webDir: "dist",
 };
 
