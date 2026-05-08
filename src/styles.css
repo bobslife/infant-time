@@ -177,7 +177,8 @@ button {
   width: 300px;
   height: 300px;
   justify-self: center;
-  object-fit: contain;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .auth-footer {
