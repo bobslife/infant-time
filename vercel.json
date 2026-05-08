@@ -1,6 +1,22 @@
 {
   "rewrites": [
     {
+      "source": "/app-ads.txt",
+      "destination": "/app-ads.txt"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "/robots.txt"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/support",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
