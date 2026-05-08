@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDurationMinutes, formatTime, toLocalDateTimeInputValue } from "../../lib/time";
 import {
   BabyEvent,
@@ -50,6 +50,29 @@ function getSleepDuration(startIso: string, now: Date): string {
   return formatDurationMinutes(minutes);
 }
 
+function buildSleepEndInput(event: BabyEvent, endedAt: string): UpdateEventInput {
+  return {
+    id: event.id,
+    babyId: event.babyId,
+    eventType: "sleep",
+    occurredAt: toLocalDateTimeInputValue(new Date(event.occurredAt)),
+    endedAt,
+    amountMl: event.amountMl ?? null,
+    diaperType: event.diaperType ?? null,
+    poopAmount: event.poopAmount ?? null,
+    poopColor: event.poopColor ?? null,
+    medicineName: event.medicineName ?? null,
+    medicineDose: event.medicineDose ?? null,
+    medicineNextAt: event.medicineNextAt ? toLocalDateTimeInputValue(new Date(event.medicineNextAt)) : null,
+    temperatureC: event.temperatureC ?? null,
+    temperatureLocation: event.temperatureLocation ?? null,
+    mealName: event.mealName ?? null,
+    mealAmountG: event.mealAmountG ?? null,
+    mealReaction: event.mealReaction ?? null,
+    note: event.note,
+  };
+}
+
 export function QuickEntrySheet({
   baby,
   eventType,
@@ -70,11 +93,13 @@ export function QuickEntrySheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  const submitLockRef = useRef(false);
 
-  const ongoingSleep = useMemo(
-    () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
+  const ongoingSleepEvents = useMemo(
+    () => events.filter((event) => event.eventType === "sleep" && !event.endedAt),
     [events],
   );
+  const ongoingSleep = ongoingSleepEvents[0] ?? null;
   const feedEvents = useMemo(
     () => events.filter((event) => event.eventType === "feed").slice(0, 5),
     [events],
@@ -146,6 +171,10 @@ export function QuickEntrySheet({
   }
 
   async function handleSave() {
+    if (submitLockRef.current) {
+      return;
+    }
+
     if (eventType === "temperature" && (temperatureC < 34 || temperatureC > 43)) {
       setToastMessage("체온을 34~43도 사이로 입력해 주세요");
       return;
@@ -161,31 +190,16 @@ export function QuickEntrySheet({
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
 
     try {
       if (eventType === "sleep" && ongoingSleep) {
-        await onUpdateEvent({
-          id: ongoingSleep.id,
-          babyId: baby.id,
-          eventType: "sleep",
-          occurredAt: toLocalDateTimeInputValue(new Date(ongoingSleep.occurredAt)),
-          endedAt: toLocalDateTimeInputValue(),
-          amountMl: null,
-          diaperType: null,
-          poopAmount: null,
-          poopColor: null,
-          medicineName: null,
-          medicineDose: null,
-          medicineNextAt: null,
-          temperatureC: null,
-          temperatureLocation: null,
-          mealName: null,
-          mealAmountG: null,
-          mealReaction: null,
-          note: ongoingSleep.note,
-        });
-        setToastMessage("수면 종료 저장");
+        const endedAt = toLocalDateTimeInputValue();
+        await Promise.all(
+          ongoingSleepEvents.map((sleepEvent) => onUpdateEvent(buildSleepEndInput(sleepEvent, endedAt))),
+        );
+        setToastMessage(ongoingSleepEvents.length > 1 ? "진행 중 수면을 모두 종료했어요" : "수면 종료 저장");
       } else {
         await onSubmit(buildInput());
         setToastMessage(eventType === "sleep" ? "수면 시작 저장" : "저장했어요");
@@ -194,6 +208,7 @@ export function QuickEntrySheet({
       triggerHaptic();
       window.setTimeout(onClose, 520);
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   }

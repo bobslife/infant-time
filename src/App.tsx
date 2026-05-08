@@ -6,9 +6,11 @@ import { LoginScreen } from "./components/LoginScreen";
 import { OfflineFallbackScreen } from "./components/OfflineFallbackScreen";
 import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
+import { RequiredUpdateScreen } from "./components/RequiredUpdateScreen";
 import { SupportPage } from "./components/SupportPage";
 import { QuickEntrySheet } from "./components/quick-entry/QuickEntrySheet";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
+import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
 import { BabyEvent, EventType } from "./types";
 
@@ -78,6 +80,7 @@ export function App() {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
   const pullActiveRef = useRef(false);
+  const appUpdate = useAppUpdateGate();
 
   useEffect(() => {
     if (!user) {
@@ -237,10 +240,19 @@ export function App() {
     })();
   }
 
+  if (appUpdate.isRequired) {
+    return (
+      <RequiredUpdateScreen
+        currentVersion={appUpdate.currentVersion}
+        updateUrl={appUpdate.updateUrl}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <main className="loading-shell" aria-label="Infant Time">
-        <img className="loading-logo" src="/infant-time-log.png" alt="Infant Time" />
+        <img className="loading-logo" src="/infant-time-logo.png" alt="Infant Time" />
       </main>
     );
   }

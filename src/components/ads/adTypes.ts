@@ -5,7 +5,7 @@ export type AdPlacement =
   | "growth-bottom"
   | "profile-bottom";
 
-export type AdMode = "mock" | "adsense" | "sponsor" | "off";
+export type AdMode = "mock" | "adsense" | "admob" | "sponsor" | "off";
 
 export interface SponsorAd {
   id: string;
