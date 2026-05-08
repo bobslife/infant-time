@@ -7,6 +7,13 @@ export default defineConfig(() => {
 
   return {
     envPrefix: ["VITE_", "NEXT_PUBLIC_"],
+    resolve: {
+      alias: isCapacitorBuild
+        ? {
+            "virtual:pwa-register": "/src/lib/pwa/registerStub.ts",
+          }
+        : {},
+    },
     plugins: [
       react(),
       ...(isCapacitorBuild
