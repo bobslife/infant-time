@@ -83,6 +83,10 @@ export function App() {
   const appUpdate = useAppUpdateGate();
 
   useEffect(() => {
+    void import("./components/GrowthScreen").catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       return;
     }

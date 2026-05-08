@@ -2201,6 +2201,18 @@ button {
   width: 100%;
 }
 
+.growth-date-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 .growth-latest-grid div {
   display: grid;
   gap: 5px;

@@ -48,7 +48,7 @@ function getEnv(key: keyof ImportMetaEnv): string {
 }
 
 function getMode(): AdMode {
-  const rawMode = getEnv("VITE_AD_MODE") || getEnv("NEXT_PUBLIC_AD_MODE") || "mock";
+  const rawMode = (getEnv("VITE_AD_MODE") || getEnv("NEXT_PUBLIC_AD_MODE") || "mock").trim().toLowerCase();
 
   if (rawMode === "adsense" || rawMode === "admob" || rawMode === "sponsor" || rawMode === "off") {
     return rawMode;
