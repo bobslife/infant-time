@@ -531,6 +531,13 @@ button {
   font-size: 1.72rem;
 }
 
+.status-next .next-feed-copy {
+  min-width: 0;
+  font-size: clamp(1.02rem, 4.8vw, 1.38rem);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
 .status-progress-label {
   color: var(--color-text-muted);
   font-size: 0.78rem;

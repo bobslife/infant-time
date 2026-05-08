@@ -235,7 +235,7 @@ export function SummaryCards({
               <span>다음 수유 예측</span>
               <small>{formatDurationMinutes(feedIntervalMinutes)} 기준</small>
             </div>
-            <strong>{nextFeedCopy}</strong>
+            <strong className="next-feed-copy">{nextFeedCopy}</strong>
             <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
               <i style={{ width: `${feedProgress}%` }} />
             </div>
