@@ -2206,11 +2206,15 @@ button {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+  height: 52px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   -webkit-appearance: none;
   appearance: none;
+  line-height: 52px;
+  padding: 0 14px;
 }
 
 .growth-latest-grid div {
