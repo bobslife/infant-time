@@ -30,6 +30,10 @@ const PULL_FRICTION = 0.45;
 const GrowthScreen = lazy(() =>
   import("./components/GrowthScreen").then((module) => ({ default: module.GrowthScreen })),
 );
+const rawAdMode = String(import.meta.env.VITE_AD_MODE ?? import.meta.env.NEXT_PUBLIC_AD_MODE ?? "mock")
+  .trim()
+  .toLowerCase();
+const isAdMobMode = rawAdMode === "admob";
 
 function getFeedIntervalStorageKey(babyId: string) {
   return `infant-time-feed-interval-${babyId}`;
@@ -301,7 +305,7 @@ export function App() {
 
   return (
     <main
-      className={`app-shell${isRefreshing ? " refreshing" : ""}`}
+      className={`app-shell${isAdMobMode ? " app-shell-admob" : ""}${isRefreshing ? " refreshing" : ""}`}
       onTouchCancel={handleTouchEnd}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
