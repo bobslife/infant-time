@@ -8,7 +8,6 @@ import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { RequiredUpdateScreen } from "./components/RequiredUpdateScreen";
 import { SupportPage } from "./components/SupportPage";
-import { QuickEntrySheet } from "./components/quick-entry/QuickEntrySheet";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
@@ -71,12 +70,12 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
-  const [quickEntryType, setQuickEntryType] = useState<EventType | null>(null);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
   const pullActiveRef = useRef(false);
@@ -95,6 +94,15 @@ export function App() {
     setEditingEvent(null);
     setInputEventType("feed");
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!saveToastMessage) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setSaveToastMessage(null), 1000);
+    return () => window.clearTimeout(timer);
+  }, [saveToastMessage]);
 
   useEffect(() => {
     function handleOnline() {
@@ -136,31 +144,41 @@ export function App() {
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
     await addEvent(input);
+    completeEventSave();
   }
 
   async function handleUpdateEventFromInput(input: Parameters<typeof updateEvent>[0]) {
     await updateEvent(input);
     setEditingEvent(null);
+    completeEventSave();
+  }
+
+  function completeEventSave() {
+    setEditingEvent(null);
     setActiveTab("home");
+    setSaveToastMessage("저장이 완료되었습니다.");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function handleEditEvent(event: BabyEvent) {
     setEditingEvent(event);
     setInputEventType(event.eventType === "pee" || event.eventType === "poop" ? "diaper" : event.eventType);
-    setQuickEntryType(null);
     setActiveTab("input");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function handleStartNewEvent(eventType: EventType) {
     setEditingEvent(null);
     setInputEventType(eventType);
-    setQuickEntryType(null);
     setActiveTab("input");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function handleQuickAdd(eventType: EventType) {
     setEditingEvent(null);
-    setQuickEntryType(eventType);
+    setInputEventType(eventType);
+    setActiveTab("input");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function handleTabChange(tab: AppTab) {
@@ -297,6 +315,7 @@ export function App() {
       >
         {isRefreshing ? "새로고침 중..." : pullDistance >= PULL_REFRESH_THRESHOLD ? "놓으면 새로고침" : "당겨서 새로고침"}
       </div>
+      {saveToastMessage ? <div className="app-save-toast">{saveToastMessage}</div> : null}
       <div className="page-frame">
         {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
         {activeTab === "home" ? (
@@ -358,14 +377,6 @@ export function App() {
           </section>
         ) : null}
       </div>
-      <QuickEntrySheet
-        baby={baby}
-        eventType={quickEntryType}
-        events={events}
-        onClose={() => setQuickEntryType(null)}
-        onSubmit={handleAddEvent}
-        onUpdateEvent={updateEvent}
-      />
       <nav className="bottom-tabs" aria-label="주요 메뉴">
         {tabs.map((tab) => (
           <button

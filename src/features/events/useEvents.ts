@@ -43,6 +43,8 @@ import {
   UpdateBabyInput,
 } from "../../types";
 
+const overnightSleepNormalizationLocks = new Set<string>();
+
 export interface EventSummary {
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
@@ -188,74 +190,77 @@ export function useEvents() {
 
   const normalizeOvernightSleep = useCallback(
     async (nextUser: AppUser, nextBaby: BabyProfile, nextEvents: BabyEvent[]) => {
-      const activeSleep = nextEvents.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
-
-      if (!activeSleep) {
-        return nextEvents;
-      }
-
       const todayStart = startOfToday();
-      const activeSleepStartedAt = new Date(activeSleep.occurredAt).getTime();
+      const midnightIso = todayStart.toISOString();
+      const lockKey = `${nextBaby.id}:${midnightIso}`;
+      const openSleeps = nextEvents.filter((event) => event.eventType === "sleep" && !event.endedAt);
+      const overnightSleeps = openSleeps.filter(
+        (event) => new Date(event.occurredAt).getTime() < todayStart.getTime(),
+      );
 
-      if (activeSleepStartedAt >= todayStart.getTime()) {
+      if (overnightSleeps.length === 0) {
         return nextEvents;
       }
 
-      const midnightIso = todayStart.toISOString();
-      const createInput: CreateEventInput = {
-        babyId: nextBaby.id,
-        eventType: "sleep",
-        occurredAt: midnightIso,
-        note: activeSleep.note,
-      };
-      const updateInput: UpdateEventInput = {
-        id: activeSleep.id,
-        babyId: activeSleep.babyId,
-        eventType: activeSleep.eventType,
-        occurredAt: activeSleep.occurredAt,
-        endedAt: midnightIso,
-        amountMl: activeSleep.amountMl,
-        diaperType: activeSleep.diaperType,
-        poopAmount: activeSleep.poopAmount,
-        poopColor: activeSleep.poopColor,
-        medicineName: activeSleep.medicineName,
-        medicineDose: activeSleep.medicineDose,
-        medicineNextAt: activeSleep.medicineNextAt,
-        temperatureC: activeSleep.temperatureC,
-        temperatureLocation: activeSleep.temperatureLocation,
-        mealName: activeSleep.mealName,
-        mealAmountG: activeSleep.mealAmountG,
-        mealReaction: activeSleep.mealReaction,
-        note: activeSleep.note,
-      };
+      const midnightOpenSleep =
+        openSleeps.find((event) => new Date(event.occurredAt).getTime() === todayStart.getTime()) ?? null;
 
-      const createdSleep =
-        client && !nextUser.isLocal
-          ? await createSupabaseEvent(client, nextUser.id, createInput)
-          : await createLocalEvent(createInput);
+      if (overnightSleepNormalizationLocks.has(lockKey)) {
+        return nextEvents;
+      }
+
+      overnightSleepNormalizationLocks.add(lockKey);
+
+      const closeInputs: UpdateEventInput[] = overnightSleeps.map((sleep) => ({
+        id: sleep.id,
+        babyId: sleep.babyId,
+        eventType: sleep.eventType,
+        occurredAt: sleep.occurredAt,
+        endedAt: midnightIso,
+        amountMl: sleep.amountMl,
+        diaperType: sleep.diaperType,
+        poopAmount: sleep.poopAmount,
+        poopColor: sleep.poopColor,
+        medicineName: sleep.medicineName,
+        medicineDose: sleep.medicineDose,
+        medicineNextAt: sleep.medicineNextAt,
+        temperatureC: sleep.temperatureC,
+        temperatureLocation: sleep.temperatureLocation,
+        mealName: sleep.mealName,
+        mealAmountG: sleep.mealAmountG,
+        mealReaction: sleep.mealReaction,
+        note: sleep.note,
+      }));
 
       try {
-        const closedSleep =
-          client && !nextUser.isLocal
-            ? await updateSupabaseEvent(client, updateInput)
-            : await updateLocalEvent(updateInput);
+        const closedSleeps = await Promise.all(
+          closeInputs.map((input) =>
+            client && !nextUser.isLocal
+              ? updateSupabaseEvent(client, input)
+              : updateLocalEvent(input),
+          ),
+        );
+        const closedSleepMap = new Map(closedSleeps.map((sleep) => [sleep.id, sleep]));
+        const nextNormalizedEvents = nextEvents.map((event) => closedSleepMap.get(event.id) ?? event);
 
-        return sortDescending([
-          createdSleep,
-          ...nextEvents.map((event) => (event.id === closedSleep.id ? closedSleep : event)),
-        ]);
-      } catch (error) {
-        try {
-          if (client && !nextUser.isLocal) {
-            await deleteSupabaseEvent(client, createdSleep.id);
-          } else {
-            await deleteLocalEvent(createdSleep.id);
-          }
-        } catch {
-          // Best effort rollback if the second write fails.
+        if (midnightOpenSleep) {
+          return sortDescending(nextNormalizedEvents);
         }
 
-        throw error;
+        const createInput: CreateEventInput = {
+          babyId: nextBaby.id,
+          eventType: "sleep",
+          occurredAt: midnightIso,
+          note: overnightSleeps[0]?.note,
+        };
+        const createdSleep =
+          client && !nextUser.isLocal
+            ? await createSupabaseEvent(client, nextUser.id, createInput)
+            : await createLocalEvent(createInput);
+
+        return sortDescending([createdSleep, ...nextNormalizedEvents]);
+      } finally {
+        overnightSleepNormalizationLocks.delete(lockKey);
       }
     },
     [client],

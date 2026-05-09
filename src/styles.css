@@ -535,6 +535,7 @@ button {
 
 .today-summary-grid {
   margin-top: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .status-badge {
@@ -635,12 +636,10 @@ button {
 }
 
 .feed-interval-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
   padding: 2px 0 4px;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 
 .feed-interval-chips::-webkit-scrollbar {
@@ -648,24 +647,23 @@ button {
 }
 
 .feed-interval-chips button {
-  flex: 0 0 auto;
-  min-height: 34px;
-  border: 1px solid rgba(49, 130, 246, 0.12);
-  border-radius: 999px;
-  padding: 0 12px;
-  background: rgba(255, 255, 255, 0.68);
+  min-height: 46px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 0 2px;
+  background: var(--color-surface-soft);
   color: var(--color-text-soft);
   font-size: 0.82rem;
-  font-weight: 900;
-  box-shadow: 0 6px 14px rgba(25, 31, 40, 0.04);
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  font-weight: 800;
+  box-shadow: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
 .feed-interval-chips button.active {
-  border-color: rgba(49, 130, 246, 0.22);
-  background: var(--color-blue-strong);
-  color: #fff;
-  box-shadow: 0 10px 18px rgba(49, 130, 246, 0.18);
+  border-color: rgba(49, 130, 246, 0.26);
+  background: var(--color-blue);
+  color: #1b64da;
+  box-shadow: none;
 }
 
 .feed-interval-chips button:active {
@@ -769,6 +767,47 @@ button {
   color: var(--color-text-muted);
   font-size: 0.88rem;
   overflow-wrap: anywhere;
+}
+
+.today-summary-grid .metric-card {
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.74);
+  box-shadow: 0 4px 10px rgba(25, 31, 40, 0.05);
+}
+
+.today-summary-grid .metric-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 92px;
+}
+
+.today-summary-grid .metric-card > span {
+  line-height: 1.2;
+}
+
+.today-summary-grid .metric-value {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.today-summary-grid .metric-value strong {
+  margin-top: 0;
+  font-size: clamp(1.03rem, 3.5vw, 1.18rem);
+  line-height: 1.15;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.today-summary-grid .metric-card small {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  line-height: 1.25;
 }
 
 .compact small {
@@ -1926,6 +1965,46 @@ button {
   box-shadow: 0 14px 28px rgba(25, 31, 40, 0.22);
 }
 
+.app-save-toast {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 18px;
+  left: 18px;
+  z-index: 60;
+  width: min(360px, calc(100% - 36px));
+  margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 8px;
+  padding: 13px 16px;
+  background: rgba(25, 31, 40, 0.94);
+  color: #fff;
+  font-size: 0.94rem;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 16px 32px rgba(25, 31, 40, 0.22);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+  animation: app-save-toast-drop 1000ms ease both;
+}
+
+@keyframes app-save-toast-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+
+  16%,
+  76% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
 .slider-block,
 .choice-block {
   display: grid;
@@ -1964,8 +2043,8 @@ button {
 
 .quick-chip-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
 }
 
 .quick-chip-row button,
@@ -1977,6 +2056,12 @@ button {
   background: var(--color-surface-soft);
   color: var(--color-text-soft);
   font-weight: 700;
+}
+
+.quick-chip-row button {
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding-inline: 2px;
 }
 
 .quick-chip-row button.active,
@@ -2352,7 +2437,7 @@ button {
 
 .home-quick-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2735,6 +2820,10 @@ button {
     gap: 10px;
   }
 
+  .today-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .compact {
     padding: 15px;
   }
@@ -2834,6 +2923,10 @@ button {
 
   .summary-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .today-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .bottom-tabs {

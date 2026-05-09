@@ -34,7 +34,7 @@ const eventOptions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "meal", icon: "/icons/action.svg", label: "이유식" },
 ];
 
-const feedQuickAmounts = [60, 80, 100, 120, 140];
+const feedQuickAmounts = [70, 100, 130, 170, 200, 230];
 
 const diaperOptions: Array<{ value: DiaperType; label: string }> = [
   { value: "wet", label: "소변" },
@@ -149,6 +149,10 @@ export function EventInputScreen({
     () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
     [events],
   );
+  const latestFeedAmount = useMemo(
+    () => events.find((event) => event.eventType === "feed" && event.amountMl !== null)?.amountMl ?? 70,
+    [events],
+  );
 
   const feedEvents = useMemo(
     () => events.filter((event) => event.eventType === "feed").slice(0, 5),
@@ -184,7 +188,7 @@ export function EventInputScreen({
       setEndedAt("");
       setEndedDate("");
       setEndedTime("");
-      setAmountMl(120);
+      setAmountMl(initialEventType === "feed" ? latestFeedAmount : 120);
       setDiaperType("wet");
       setPoopAmount("normal");
       setPoopColor("ocher");
@@ -225,7 +229,7 @@ export function EventInputScreen({
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.eventType === "memo" ? editingEvent.note ?? "" : "");
     setShowDetails(normalizedType === "sleep" || Boolean(editingEvent));
-  }, [editingEvent, initialEventType]);
+  }, [editingEvent, initialEventType, latestFeedAmount]);
 
   function showSavedToast(message: string) {
     setToastMessage(message);
