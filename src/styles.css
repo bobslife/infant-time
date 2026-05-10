@@ -219,7 +219,28 @@ button {
 }
 
 .app-shell {
+  --home-accent-bg: #dcecff;
+  --home-accent-text: #1b64da;
+  --home-accent-border: rgba(49, 130, 246, 0.26);
+  --home-accent-strong: #3182f6;
+  --home-tab-icon-filter: brightness(0) saturate(100%) invert(34%) sepia(96%) saturate(2422%) hue-rotate(207deg) brightness(91%) contrast(88%);
   padding: 14px 14px calc(96px + env(safe-area-inset-bottom));
+}
+
+.app-shell.app-shell-girl {
+  --home-accent-bg: #ffe3ef;
+  --home-accent-text: #cf4f7e;
+  --home-accent-border: rgba(236, 72, 153, 0.28);
+  --home-accent-strong: #ec4899;
+  --home-tab-icon-filter: brightness(0) saturate(100%) invert(54%) sepia(79%) saturate(1249%) hue-rotate(304deg) brightness(93%) contrast(91%);
+}
+
+.app-shell.app-shell-boy {
+  --home-accent-bg: #dcecff;
+  --home-accent-text: #1b64da;
+  --home-accent-border: rgba(49, 130, 246, 0.26);
+  --home-accent-strong: #3182f6;
+  --home-tab-icon-filter: brightness(0) saturate(100%) invert(34%) sepia(96%) saturate(2422%) hue-rotate(207deg) brightness(91%) contrast(88%);
 }
 
 .app-shell.app-shell-admob {
@@ -615,7 +636,7 @@ button {
 }
 
 .status-next strong {
-  color: var(--color-blue-strong);
+  color: var(--home-accent-strong);
   font-size: 1.72rem;
 }
 
@@ -664,9 +685,9 @@ button {
 }
 
 .feed-interval-chips button.active {
-  border-color: rgba(49, 130, 246, 0.26);
-  background: var(--color-blue);
-  color: #1b64da;
+  border-color: var(--home-accent-border);
+  background: var(--home-accent-bg);
+  color: var(--home-accent-text);
   box-shadow: none;
 }
 
@@ -679,16 +700,8 @@ button {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: var(--color-blue-strong);
+  background: var(--home-accent-strong);
   transition: width 500ms ease;
-}
-
-.status-card.soon .feed-progress i {
-  background: var(--color-yellow-strong);
-}
-
-.status-card.overdue .feed-progress i {
-  background: var(--color-pink-strong);
 }
 
 .metric-card,
@@ -1733,37 +1746,61 @@ button {
 }
 
 .quick-action-card {
+  --action-accent-bg: #dcecff;
+  --action-accent-text: #1b64da;
+  --action-accent-border: rgba(49, 130, 246, 0.26);
+  --action-accent-shadow: rgba(49, 130, 246, 0.14);
   display: grid;
   gap: 16px;
   overflow: hidden;
 }
 
 .quick-action-card.feed {
-  border-color: rgba(49, 130, 246, 0.22);
+  --action-accent-bg: #dcecff;
+  --action-accent-text: #1f5ec9;
+  --action-accent-border: rgba(59, 130, 246, 0.28);
+  --action-accent-shadow: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.22);
 }
 
 .quick-action-card.sleep {
+  --action-accent-bg: #f0e8ff;
+  --action-accent-text: #6d4ac9;
+  --action-accent-border: rgba(139, 92, 246, 0.28);
+  --action-accent-shadow: rgba(139, 92, 246, 0.14);
   border-color: rgba(139, 92, 246, 0.22);
 }
 
-.quick-action-card.pee {
-  border-color: rgba(255, 216, 77, 0.46);
-}
-
-.quick-action-card.poop {
-  border-color: rgba(124, 74, 35, 0.18);
+.quick-action-card.diaper {
+  --action-accent-bg: #fff6cc;
+  --action-accent-text: #9a7000;
+  --action-accent-border: rgba(234, 179, 8, 0.3);
+  --action-accent-shadow: rgba(234, 179, 8, 0.14);
+  border-color: rgba(234, 179, 8, 0.2);
 }
 
 .quick-action-card.medicine {
-  border-color: rgba(22, 163, 74, 0.22);
+  --action-accent-bg: #e7f8ee;
+  --action-accent-text: #1f7d4f;
+  --action-accent-border: rgba(34, 197, 94, 0.28);
+  --action-accent-shadow: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.22);
 }
 
 .quick-action-card.temperature {
-  border-color: rgba(20, 184, 166, 0.24);
+  --action-accent-bg: #e5eaff;
+  --action-accent-text: #3748a3;
+  --action-accent-border: rgba(79, 70, 229, 0.28);
+  --action-accent-shadow: rgba(79, 70, 229, 0.14);
+  border-color: rgba(79, 70, 229, 0.22);
 }
 
 .quick-action-card.meal {
-  border-color: rgba(217, 159, 0, 0.22);
+  --action-accent-bg: #ffe8d6;
+  --action-accent-text: #b45a1b;
+  --action-accent-border: rgba(249, 115, 22, 0.28);
+  --action-accent-shadow: rgba(249, 115, 22, 0.14);
+  border-color: rgba(249, 115, 22, 0.2);
 }
 
 .quick-status {
@@ -1910,36 +1947,9 @@ button {
 .quick-save-button {
   min-height: 64px;
   font-size: 1.05rem;
-}
-
-.quick-action-card.sleep .quick-save-button {
-  background: #7c3aed;
-  box-shadow: 0 12px 20px rgba(124, 58, 237, 0.18);
-}
-
-.quick-action-card.pee .quick-save-button {
-  background: #d99f00;
-  box-shadow: 0 12px 20px rgba(217, 159, 0, 0.16);
-}
-
-.quick-action-card.poop .quick-save-button {
-  background: #8a5a32;
-  box-shadow: 0 12px 20px rgba(138, 90, 50, 0.16);
-}
-
-.quick-action-card.medicine .quick-save-button {
-  background: #16a34a;
-  box-shadow: 0 12px 20px rgba(22, 163, 74, 0.16);
-}
-
-.quick-action-card.temperature .quick-save-button {
-  background: #0f766e;
-  box-shadow: 0 12px 20px rgba(15, 118, 110, 0.16);
-}
-
-.quick-action-card.meal .quick-save-button {
-  background: #d99f00;
-  box-shadow: 0 12px 20px rgba(217, 159, 0, 0.16);
+  background: var(--action-accent-bg);
+  color: var(--action-accent-text);
+  box-shadow: 0 12px 20px var(--action-accent-shadow);
 }
 
 .detail-toggle {
@@ -2071,9 +2081,9 @@ button {
 .quick-chip-row button.active,
 .choice-grid button.active,
 .color-grid button.active {
-  border-color: rgba(49, 130, 246, 0.26);
-  background: var(--color-blue);
-  color: #1b64da;
+  border-color: var(--action-accent-border);
+  background: var(--action-accent-bg);
+  color: var(--action-accent-text);
 }
 
 .color-grid {
@@ -2098,7 +2108,7 @@ button {
 
 .color-grid button.active {
   border-width: 3px;
-  border-color: var(--color-blue-strong);
+  border-color: var(--action-accent-text);
 }
 
 .ocher {
@@ -2150,11 +2160,25 @@ button {
 }
 
 .profile-panel {
+  display: grid;
+  gap: 14px;
   overflow: hidden;
 }
 
 .profile-baby-name {
   font-size: 1.7rem;
+}
+
+.profile-heading-main {
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .profile-baby-meta {
@@ -2165,6 +2189,67 @@ button {
   color: var(--color-text-muted);
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.profile-switch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.profile-switch-button img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.profile-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.profile-edit-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #7b8694;
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.profile-inline-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(25, 31, 40, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.profile-inline-editor span {
+  display: block;
+  color: var(--color-text-soft);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.profile-inline-editor small {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.profile-switch-inside {
+  width: fit-content;
+  margin-top: 2px;
 }
 
 .gender-chip {
@@ -2718,10 +2803,14 @@ button {
     color 160ms ease;
 }
 
-.bottom-tabs button.tab-home.active,
+.bottom-tabs button.tab-home.active {
+  background: var(--home-accent-bg);
+  color: var(--home-accent-text);
+}
+
 .bottom-tabs button.tab-profile.active {
-  background: #dcebff;
-  color: #1b64da;
+  background: #ffe8d6;
+  color: #b45a1b;
 }
 
 .bottom-tabs button.tab-input.active {
@@ -2730,8 +2819,8 @@ button {
 }
 
 .bottom-tabs button.tab-analysis.active {
-  background: #ffe2ea;
-  color: #d94d73;
+  background: #f0e8ff;
+  color: #6d4ac9;
 }
 
 .bottom-tabs button.tab-growth.active {
@@ -2757,7 +2846,11 @@ button {
 
 .bottom-tabs button.tab-home.active img,
 .bottom-tabs button.tab-profile.active img {
-  filter: brightness(0) saturate(100%) invert(34%) sepia(96%) saturate(2422%) hue-rotate(207deg) brightness(91%) contrast(88%);
+  filter: var(--home-tab-icon-filter);
+}
+
+.bottom-tabs button.tab-profile.active img {
+  filter: brightness(0) saturate(100%) invert(49%) sepia(89%) saturate(1117%) hue-rotate(352deg) brightness(95%) contrast(90%);
 }
 
 .bottom-tabs button.tab-input.active img {
@@ -2765,7 +2858,7 @@ button {
 }
 
 .bottom-tabs button.tab-analysis.active img {
-  filter: brightness(0) saturate(100%) invert(45%) sepia(68%) saturate(1005%) hue-rotate(303deg) brightness(95%) contrast(81%);
+  filter: brightness(0) saturate(100%) invert(36%) sepia(62%) saturate(1149%) hue-rotate(231deg) brightness(93%) contrast(87%);
 }
 
 .bottom-tabs button.tab-growth.active img {

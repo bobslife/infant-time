@@ -33,6 +33,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [addMode, setAddMode] = useState<"closed" | "create" | "join">("closed");
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState(new Date().toISOString().slice(0, 10));
@@ -94,6 +95,7 @@ export function ProfileScreen({
         birthDate: baby.birthDate,
         gender: nextGender,
       });
+      setIsProfileEditOpen(false);
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -118,18 +120,22 @@ export function ProfileScreen({
     <section className="screen-stack">
       <section className="panel profile-panel">
         <div className="section-heading">
-          <div>
+          <div className="profile-heading-main">
             <p className="eyebrow">아기 프로필</p>
-            <h2 className="profile-baby-name">{baby.name}</h2>
+            <div className="profile-name-row">
+              <h2 className="profile-baby-name">{baby.name}</h2>
+              <button
+                className="profile-edit-button"
+                type="button"
+                onClick={() => setIsProfileEditOpen((current) => !current)}
+              >
+                {isProfileEditOpen ? "수정 닫기" : "프로필 수정"}
+              </button>
+            </div>
             <p className="profile-baby-meta">
               {formatAge(baby.birthDate)}
-              <span aria-hidden="true">·</span>
-              <span className={`gender-chip gender-${selectedGender.value}`}>{selectedGender.label}</span>
             </p>
           </div>
-          <button className="ghost-button compact-button" type="button" onClick={() => setIsPickerOpen(true)}>
-            프로필 수정
-          </button>
         </div>
         <div className="profile-list">
           <div>
@@ -145,38 +151,35 @@ export function ProfileScreen({
             <strong>{baby.inviteCode}</strong>
           </div>
         </div>
+        {isProfileEditOpen ? (
+          <div className="profile-inline-editor">
+            <div>
+              <span>성별 수정</span>
+              <small>선택하면 바로 반영됩니다.</small>
+            </div>
+            <div className="gender-switch compact-gender-switch" role="radiogroup" aria-label="아기 성별">
+              {genderOptions.map((option) => (
+                <button
+                  className={`gender-${option.value}${baby.gender === option.value ? " active" : ""}`}
+                  disabled={isUpdatingProfile}
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={baby.gender === option.value}
+                  onClick={() => void handleGenderChange(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <button className="profile-switch-button profile-switch-inside" type="button" onClick={() => setIsPickerOpen(true)}>
+              <img src="/icons/switch.svg" alt="" aria-hidden="true" />
+              <span>아이 변경</span>
+            </button>
+          </div>
+        ) : null}
       </section>
       <AdBanner placement="profile-bottom" />
-      <section className="panel">
-        <div className="section-heading compact-heading">
-          <div>
-            <p className="eyebrow">아기 설정</p>
-            <h2>설정</h2>
-          </div>
-        </div>
-        <div className="profile-setting-row">
-          <div>
-            <span>성별</span>
-            <strong>{selectedGender.label}</strong>
-            <small>선택하면 바로 반영돼요.</small>
-          </div>
-          <div className="gender-switch compact-gender-switch" role="radiogroup" aria-label="아기 성별">
-            {genderOptions.map((option) => (
-              <button
-                className={`gender-${option.value}${baby.gender === option.value ? " active" : ""}`}
-                disabled={isUpdatingProfile}
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={baby.gender === option.value}
-                onClick={() => void handleGenderChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
       <section className="panel">
         <div className="section-heading compact-heading">
           <div>

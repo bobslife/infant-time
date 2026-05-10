@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
 import {
@@ -140,13 +140,16 @@ export function EventInputScreen({
   const [mealReaction, setMealReaction] = useState<MealReaction>("good");
   const [memoText, setMemoText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showDetails, setShowDetails] = useState(Boolean(editingEvent));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
   const submitLockRef = useRef(false);
 
   const ongoingSleep = useMemo(
     () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
+    [events],
+  );
+  const latestSleepEventId = useMemo(
+    () => events.find((event) => event.eventType === "sleep")?.id ?? null,
     [events],
   );
   const latestFeedAmount = useMemo(
@@ -181,13 +184,21 @@ export function EventInputScreen({
   useEffect(() => {
     if (!editingEvent) {
       const current = toLocalDateTimeInputValue();
-      setEventType(normalizeEventType(initialEventType));
+      const normalizedInitialType = normalizeEventType(initialEventType);
+      const defaultSleepStart = ongoingSleep ? toInputDateTime(ongoingSleep.occurredAt) : current;
+      const defaultSleepEnd = normalizedInitialType === "sleep" && ongoingSleep ? current : "";
+      setEventType(normalizedInitialType);
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
-      setEndedAt("");
-      setEndedDate("");
-      setEndedTime("");
+      if (normalizedInitialType === "sleep") {
+        setOccurredAt(defaultSleepStart);
+        setQuickDate(toInputDate(defaultSleepStart));
+        setQuickTime(toInputTime(defaultSleepStart));
+        setEndedAtFromDateTime(defaultSleepEnd);
+      } else {
+        setEndedAtFromDateTime("");
+      }
       setAmountMl(initialEventType === "feed" ? latestFeedAmount : 120);
       setDiaperType("wet");
       setPoopAmount("normal");
@@ -201,7 +212,6 @@ export function EventInputScreen({
       setMealAmountG(80);
       setMealReaction("good");
       setMemoText("");
-      setShowDetails(false);
       return;
     }
 
@@ -228,8 +238,7 @@ export function EventInputScreen({
     setMealAmountG(editingEvent.mealAmountG ?? 80);
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.eventType === "memo" ? editingEvent.note ?? "" : "");
-    setShowDetails(normalizedType === "sleep" || Boolean(editingEvent));
-  }, [editingEvent, initialEventType, latestFeedAmount]);
+  }, [editingEvent, initialEventType, latestFeedAmount, ongoingSleep]);
 
   function showSavedToast(message: string) {
     setToastMessage(message);
@@ -344,85 +353,37 @@ export function EventInputScreen({
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (editingEvent?.eventType === "sleep" && !endedAt) {
-      const current = toLocalDateTimeInputValue();
-      setEndedAtFromDateTime(current);
-      await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
-      return;
-    }
-
-    await submitQuick(buildCurrentInput(), editingEvent ? "수정했어요" : "저장했어요");
-  }
-
   async function handleQuickFeed() {
     await submitQuick(buildCurrentInput(), editingEvent ? "수유 기록 수정" : `수유 ${amountMl}ml 저장`);
   }
 
-  async function handleSleepAction() {
+  async function handleSleepSave() {
+    const input = buildCurrentInput();
+
     if (editingEvent) {
       if (editingEvent.eventType === "sleep" && !endedAt) {
         const current = toLocalDateTimeInputValue();
         setEndedAtFromDateTime(current);
-        await submitQuick({ ...buildCurrentInput(), endedAt: current }, "수면 종료 저장");
+        await submitQuick({ ...input, endedAt: current }, "수면 종료 저장");
         return;
       }
 
-      await submitQuick(buildCurrentInput(), "수면 기록 수정");
+      await submitQuick(input, endedAt ? "수면 수정 저장" : "수면 종료 저장");
       return;
     }
 
-    if (submitLockRef.current) {
+    if (ongoingSleep) {
+      await submitQuick(input, "수면 종료 저장");
       return;
     }
 
-    submitLockRef.current = true;
-    setIsSubmitting(true);
-
-    try {
-      if (ongoingSleep) {
-        await onUpdateEvent({
-          id: ongoingSleep.id,
-          babyId: baby.id,
-          eventType: "sleep",
-          occurredAt: toInputDateTime(ongoingSleep.occurredAt),
-          endedAt: toLocalDateTimeInputValue(),
-          amountMl: null,
-          diaperType: null,
-          poopAmount: null,
-          poopColor: null,
-          medicineName: null,
-          note: ongoingSleep.note,
-        });
-        triggerHaptic();
-        showSavedToast("수면 종료 저장");
-        return;
-      }
-
-      await onSubmit({
-        babyId: baby.id,
-        eventType: "sleep",
-        occurredAt,
-        endedAt: null,
-        amountMl: null,
-        diaperType: null,
-        poopAmount: null,
-        poopColor: null,
-        medicineName: null,
-        note: undefined,
-      });
-      triggerHaptic();
-      showSavedToast("수면 시작 저장");
-    } finally {
-      submitLockRef.current = false;
-      setIsSubmitting(false);
-    }
+    await submitQuick(input, "수면 시작 저장");
   }
 
   const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
   const isEditingSleep = editingEvent?.eventType === "sleep";
+  const isEditingLatestSleep =
+    isEditingSleep && latestSleepEventId !== null && editingEvent.id === latestSleepEventId;
   const sleepStatusTitle =
     eventType === "sleep" && ongoingSleep && !editingEvent
       ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
@@ -439,8 +400,6 @@ export function EventInputScreen({
           ? `${formatTime(occurredAt)} 시작 · ${formatTime(endedAt)} 종료`
           : `${formatTime(occurredAt)} 시작`
         : "재우기 시작하면 시간이 자동 기록돼요.";
-  const shouldForceShowDetails = eventType === "sleep" || isEditingSleep;
-  const shouldShowDetailPanel = eventType === "sleep";
   const saveButtonLabel = isSubmitting
     ? "저장 중..."
     : editingEvent
@@ -448,6 +407,15 @@ export function EventInputScreen({
       : eventType === "memo"
         ? "메모 저장"
         : "바로 기록하기";
+  const sleepSaveButtonLabel = isSubmitting
+    ? "저장 중..."
+    : isEditingSleep && !isEditingLatestSleep
+      ? "수면 기록 수정"
+      : ongoingSleep || (isEditingSleep && !endedAt)
+        ? "수면 종료"
+        : isEditingSleep
+          ? "수면 기록 수정"
+          : "수면 시작";
 
   return (
     <section className="screen-stack action-screen">
@@ -467,6 +435,15 @@ export function EventInputScreen({
                   return;
                 }
 
+                if (option.type === "sleep") {
+                  const current = toLocalDateTimeInputValue();
+                  const defaultSleepStart = ongoingSleep ? toInputDateTime(ongoingSleep.occurredAt) : current;
+                  setOccurredAt(defaultSleepStart);
+                  setQuickDate(toInputDate(defaultSleepStart));
+                  setQuickTime(toInputTime(defaultSleepStart));
+                  setEndedAtFromDateTime(ongoingSleep ? current : "");
+                }
+
                 setEventType(option.type);
               }}
             />
@@ -476,7 +453,6 @@ export function EventInputScreen({
 
       <section className={`panel quick-action-card ${eventType}`}>
         <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
-          <span>현재 상태</span>
           {eventType === "feed" ? (
             <>
               <strong>{amountMl}ml</strong>
@@ -638,7 +614,26 @@ export function EventInputScreen({
           </div>
         ) : null}
 
-        {eventType !== "sleep" ? (
+        {eventType === "sleep" ? (
+          <div className="sleep-time-editor" aria-label="수면 시간 입력">
+            <label>
+              <span>시작 날짜</span>
+              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
+            </label>
+            <label>
+              <span>시작 시간</span>
+              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
+            </label>
+            <label>
+              <span>종료 날짜</span>
+              <input type="date" value={endedDate} onChange={(event) => handleEndedDateChange(event.target.value)} />
+            </label>
+            <label>
+              <span>종료 시간</span>
+              <input type="time" value={endedTime} onChange={(event) => handleEndedTimeChange(event.target.value)} />
+            </label>
+          </div>
+        ) : (
           <div className="quick-time-card" aria-label="기록 시간">
             <label>
               <span>날짜</span>
@@ -649,7 +644,7 @@ export function EventInputScreen({
               <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
             </label>
           </div>
-        ) : null}
+        )}
 
         <div className="quick-button-row">
           {eventType === "feed" ? (
@@ -657,9 +652,9 @@ export function EventInputScreen({
               {isSubmitting ? "저장 중..." : editingEvent ? "수정하기" : "수유 기록하기"}
             </button>
           ) : null}
-          {eventType === "sleep" && !isEditingSleep ? (
-            <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepAction()}>
-              {ongoingSleep ? "깨어남" : "수면 시작"}
+          {eventType === "sleep" ? (
+            <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleSleepSave()}>
+              {sleepSaveButtonLabel}
             </button>
           ) : null}
           {eventType !== "feed" && eventType !== "sleep" ? (
@@ -670,36 +665,6 @@ export function EventInputScreen({
         </div>
 
       </section>
-
-      {(showDetails || shouldForceShowDetails) && shouldShowDetailPanel ? (
-        <section className="panel">
-          <form className="entry-form" onSubmit={handleSubmit}>
-            {eventType === "sleep" ? (
-              <div className="sleep-time-editor" aria-label="수면 시간 수정">
-                <label>
-                  <span>시작 날짜</span>
-                  <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
-                </label>
-                <label>
-                  <span>시작 시간</span>
-                  <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
-                </label>
-                <label>
-                  <span>종료 날짜</span>
-                  <input type="date" value={endedDate} onChange={(event) => handleEndedDateChange(event.target.value)} />
-                </label>
-                <label>
-                  <span>종료 시간</span>
-                  <input type="time" value={endedTime} onChange={(event) => handleEndedTimeChange(event.target.value)} />
-                </label>
-              </div>
-            ) : null}
-            <button className="primary-button" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "저장 중..." : editingEvent ? (endedAt ? "수면 수정하기" : "수면 종료 저장") : "저장"}
-            </button>
-          </form>
-        </section>
-      ) : null}
 
       {toastMessage ? <div className="toast-message">{toastMessage}</div> : null}
       <AdBanner placement="activity-bottom" />

@@ -303,9 +303,11 @@ export function App() {
     return <BabySetup errorMessage={errorMessage} onSubmit={createBaby} onJoin={joinBaby} />;
   }
 
+  const genderThemeClass = baby.gender === "girl" ? "app-shell-girl" : "app-shell-boy";
+
   return (
     <main
-      className={`app-shell${isAdMobMode ? " app-shell-admob" : ""}${isRefreshing ? " refreshing" : ""}`}
+      className={`app-shell ${genderThemeClass}${isAdMobMode ? " app-shell-admob" : ""}${isRefreshing ? " refreshing" : ""}`}
       onTouchCancel={handleTouchEnd}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
