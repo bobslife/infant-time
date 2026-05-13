@@ -49,12 +49,12 @@ const defaultProfileImages: Record<BabyProfile["gender"], string> = {
 const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
   { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
+  { type: "meal", icon: "/icons/babyfood.svg", label: "이유식" },
   { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
   { type: "play", icon: "/icons/play.svg", label: "놀이" },
   { type: "bath", icon: "/icons/bath.svg", label: "목욕" },
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
-  { type: "meal", icon: "/icons/babyfood.svg", label: "이유식" },
   { type: "memo", icon: "/icons/memo.svg", label: "메모" },
 ];
 

@@ -1,5 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { DailyEventSummary } from "../features/events/useEvents";
 import { formatDurationMinutes, formatTime } from "../lib/time";
 import { BabyEvent } from "../types";
@@ -24,12 +23,31 @@ interface PatternVisual {
   priority: number;
 }
 
-interface RhythmSlot {
+type RhythmRingKey = "sleep" | "feed" | "diaper" | "secondary";
+
+interface RhythmRing {
+  key: RhythmRingKey;
+  label: string;
+  radius: number;
+  strokeWidth: number;
+  color: string;
+  emptyColor: string;
+}
+
+interface RhythmSegment {
+  id: string;
   key: PatternTypeKey;
   label: string;
   color: string;
-  value: number;
-  priority: number;
+  softColor: string;
+  ringKey: RhythmRingKey;
+  radius: number;
+  strokeWidth: number;
+  startMinute: number;
+  endMinute: number;
+  title: string;
+  detail: string;
+  laneOffset: number;
 }
 
 interface RhythmEvent {
@@ -38,6 +56,10 @@ interface RhythmEvent {
   label: string;
   color: string;
   softColor: string;
+  detail: string;
+  ringKey: RhythmRingKey;
+  radius: number;
+  strokeWidth: number;
   startMinute: number;
   endMinute: number;
   lane: number;
@@ -64,8 +86,66 @@ const rhythmTypes: Record<PatternTypeKey, PatternVisual> = {
   memo: { key: "memo", label: "메모", color: "#94A3B8", softColor: "#F1F5F9", priority: 30 },
 };
 
-const RHYTHM_SLOT_MINUTES = 30;
-const RHYTHM_SLOT_COUNT = 1440 / RHYTHM_SLOT_MINUTES;
+const rhythmRings: Record<RhythmRingKey, RhythmRing> = {
+  sleep: {
+    key: "sleep",
+    label: "수면",
+    radius: 124,
+    strokeWidth: 20,
+    color: rhythmTypes.sleep.color,
+    emptyColor: rhythmTypes.empty.color,
+  },
+  feed: {
+    key: "feed",
+    label: "수유",
+    radius: 98,
+    strokeWidth: 16,
+    color: rhythmTypes.feed.color,
+    emptyColor: rhythmTypes.empty.color,
+  },
+  diaper: {
+    key: "diaper",
+    label: "기저귀",
+    radius: 76,
+    strokeWidth: 12,
+    color: rhythmTypes.diaper.color,
+    emptyColor: rhythmTypes.empty.color,
+  },
+  secondary: {
+    key: "secondary",
+    label: "세부 기록",
+    radius: 52,
+    strokeWidth: 8,
+    color: rhythmTypes.memo.color,
+    emptyColor: rhythmTypes.empty.color,
+  },
+};
+
+const secondaryLaneOffsets: Record<PatternTypeKey, number> = {
+  empty: 0,
+  feed: 0,
+  sleep: 0,
+  diaper: 0,
+  medicine: -12,
+  temperature: -6,
+  meal: 0,
+  play: 6,
+  bath: 12,
+  memo: 18,
+};
+
+const eventMinimumDurations: Record<PatternTypeKey, number> = {
+  empty: 10,
+  feed: 18,
+  sleep: 20,
+  diaper: 10,
+  medicine: 10,
+  temperature: 8,
+  meal: 14,
+  play: 20,
+  bath: 12,
+  memo: 8,
+};
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
@@ -86,7 +166,16 @@ function getEventsForDate(events: BabyEvent[], dateKey: string): BabyEvent[] {
 
   return events.filter((event) => {
     const occurred = new Date(event.occurredAt).getTime();
-    return occurred >= start.getTime() && occurred < end.getTime();
+    if (occurred >= start.getTime() && occurred < end.getTime()) {
+      return true;
+    }
+
+    if (!event.endedAt) {
+      return false;
+    }
+
+    const endedAt = new Date(event.endedAt).getTime();
+    return occurred < end.getTime() && endedAt > start.getTime();
   });
 }
 
@@ -106,78 +195,161 @@ function getPatternType(event: BabyEvent): PatternVisual {
   return rhythmTypes.memo;
 }
 
-function getMinuteOfDay(value: string): number {
-  const date = new Date(value);
-  return date.getHours() * 60 + date.getMinutes();
+function getDateRange(dateKey: string): { start: Date; end: Date } {
+  const start = new Date(`${dateKey}T00:00:00`);
+  const end = addDays(start, 1);
+  return { start, end };
 }
 
-function getRhythmEventRange(event: BabyEvent): { startMinute: number; endMinute: number } {
-  const startMinute = getMinuteOfDay(event.occurredAt);
-  const hasDuration = (event.eventType === "sleep" || event.eventType === "play") && event.endedAt;
-  const rawEndMinute = hasDuration ? getMinuteOfDay(event.endedAt as string) : startMinute + RHYTHM_SLOT_MINUTES;
-  const endMinute = rawEndMinute <= startMinute && hasDuration ? 1440 : rawEndMinute;
+function getMinimumDurationMinutes(event: BabyEvent): number {
+  return eventMinimumDurations[getPatternType(event).key];
+}
+
+function getVisibleRangeForDate(
+  event: BabyEvent,
+  startTime: number,
+  endTime: number,
+): { startMinute: number; endMinute: number } | null {
+  const eventStart = new Date(event.occurredAt).getTime();
+  const rawEnd =
+    event.endedAt && (event.eventType === "sleep" || event.eventType === "play")
+      ? new Date(event.endedAt).getTime()
+      : eventStart + getMinimumDurationMinutes(event) * 60000;
+
+  const visibleStart = Math.max(eventStart, startTime);
+  const visibleEnd = Math.min(rawEnd, endTime);
+
+  if (visibleEnd <= visibleStart) {
+    return null;
+  }
 
   return {
-    startMinute: Math.max(0, Math.min(1439, startMinute)),
-    endMinute: Math.max(startMinute + RHYTHM_SLOT_MINUTES, Math.min(1440, endMinute)),
+    startMinute: Math.max(0, Math.min(1439, Math.floor((visibleStart - startTime) / 60000))),
+    endMinute: Math.max(
+      1,
+      Math.min(1440, Math.ceil((visibleEnd - startTime) / 60000)),
+    ),
   };
 }
 
-function buildRhythmSlots(events: BabyEvent[]): RhythmSlot[] {
-  const slots: RhythmSlot[] = Array.from({ length: RHYTHM_SLOT_COUNT }, () => ({
-    key: "empty",
-    label: rhythmTypes.empty.label,
-    color: rhythmTypes.empty.color,
-    value: 1,
-    priority: rhythmTypes.empty.priority,
-  }));
+function buildRhythmEvents(events: BabyEvent[], _dateKey: string): RhythmEvent[] {
+  const { start, end } = getDateRange(_dateKey);
+  const startTime = start.getTime();
+  const endTime = end.getTime();
 
-  events
-    .slice()
-    .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime())
-    .forEach((event) => {
-      const type = getPatternType(event);
-      const range = getRhythmEventRange(event);
-      const startSlot = Math.floor(range.startMinute / RHYTHM_SLOT_MINUTES);
-      const endSlot = Math.max(startSlot + 1, Math.ceil(range.endMinute / RHYTHM_SLOT_MINUTES));
-
-      for (let slotIndex = startSlot; slotIndex < Math.min(RHYTHM_SLOT_COUNT, endSlot); slotIndex += 1) {
-        if (type.priority >= slots[slotIndex].priority) {
-          slots[slotIndex] = {
-            key: type.key,
-            label: type.label,
-            color: type.color,
-            value: 1,
-            priority: type.priority,
-          };
-        }
-      }
-    });
-
-  return slots;
-}
-
-function buildRhythmEvents(events: BabyEvent[]): RhythmEvent[] {
   return events
     .slice()
     .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime())
-    .map((event, index) => {
+    .flatMap((event, index) => {
       const type = getPatternType(event);
-      const range = getRhythmEventRange(event);
-      const duration = Math.max(RHYTHM_SLOT_MINUTES, range.endMinute - range.startMinute);
+      const range = getVisibleRangeForDate(event, startTime, endTime);
 
-      return {
+      if (!range) {
+        return [];
+      }
+
+      const duration = Math.max(1, range.endMinute - range.startMinute);
+      const isPrimary = type.key === "sleep" || type.key === "feed" || type.key === "diaper";
+      const ringKey: RhythmRingKey =
+        type.key === "sleep"
+          ? "sleep"
+          : type.key === "feed"
+            ? "feed"
+            : type.key === "diaper"
+              ? "diaper"
+              : "secondary";
+      const ring = rhythmRings[ringKey];
+      const laneOffset = isPrimary ? 0 : secondaryLaneOffsets[type.key];
+      const radius = ring.radius + laneOffset;
+      const strokeWidth = isPrimary ? ring.strokeWidth : 5;
+      const detail = buildEventDetail(event, type.key, duration);
+      const title = `${formatTime(event.occurredAt)} ${detail}`;
+
+      return [{
         id: event.id,
         key: type.key,
         label: type.label,
         color: type.color,
         softColor: type.softColor,
+        detail,
+        ringKey,
+        radius,
+        strokeWidth,
         startMinute: range.startMinute,
         endMinute: range.endMinute,
         lane: index % 3,
-        title: `${formatTime(event.occurredAt)} ${type.label}${duration > RHYTHM_SLOT_MINUTES ? ` ${formatDurationMinutes(duration)}` : ""}`,
-      };
+        title,
+      }];
     });
+}
+
+function buildEventDetail(event: BabyEvent, typeKey: PatternTypeKey, durationMinutes: number): string {
+  switch (typeKey) {
+    case "feed":
+      return `${event.amountMl ?? 0}ml`;
+    case "sleep":
+      return `${formatDurationMinutes(durationMinutes)} 수면`;
+    case "diaper":
+      return event.diaperType === "dirty"
+        ? "대변"
+        : event.diaperType === "both"
+          ? "둘다"
+          : "소변";
+    case "medicine":
+      return event.medicineName?.trim()
+        ? event.medicineDose?.trim()
+          ? `${event.medicineName.trim()} · ${event.medicineDose.trim()}`
+          : event.medicineName.trim()
+        : "약";
+    case "temperature":
+      return `${(event.temperatureC ?? 0).toFixed(1)}도`;
+    case "meal":
+      return event.mealName?.trim()
+        ? event.mealAmountG
+          ? `${event.mealName.trim()} · ${event.mealAmountG}g`
+          : event.mealName.trim()
+        : "이유식";
+    case "play":
+      return event.note?.trim()
+        ? `${event.note.trim()} · ${formatDurationMinutes(durationMinutes)}`
+        : `${formatDurationMinutes(durationMinutes)} 놀이`;
+    case "bath":
+      return "목욕";
+    case "memo":
+      return event.note?.trim() || "메모";
+    default:
+      return `${typeKey}`;
+  }
+}
+
+function polarToCartesian(centerX: number, centerY: number, radius: number, angleDegrees: number) {
+  const angleInRadians = ((angleDegrees - 90) * Math.PI) / 180;
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function describeArc(centerX: number, centerY: number, radius: number, startMinute: number, endMinute: number): string {
+  const startAngle = (startMinute / 1440) * 360;
+  const endAngle = (endMinute / 1440) * 360;
+  const start = polarToCartesian(centerX, centerY, radius, endAngle);
+  const end = polarToCartesian(centerX, centerY, radius, startAngle);
+  const largeArcFlag = endMinute - startMinute > 720 ? 1 : 0;
+
+  return [
+    "M",
+    start.x,
+    start.y,
+    "A",
+    radius,
+    radius,
+    0,
+    largeArcFlag,
+    0,
+    end.x,
+    end.y,
+  ].join(" ");
 }
 
 function getDurationMinutes(events: BabyEvent[], type: "sleep" | "play", now: Date): number {
@@ -230,7 +402,7 @@ function getRhythmInsight(events: BabyEvent[], summary: DailyEventSummary, now: 
 
 export function PatternCards({ events, selectedDate, summary, onDateChange }: PatternCardsProps) {
   const [now, setNow] = useState(new Date());
-  const selectedEvents = getEventsForDate(events, selectedDate);
+  const selectedEvents = useMemo(() => getEventsForDate(events, selectedDate), [events, selectedDate]);
   const todayKey = toDateKey(now);
   const isTodaySelected = selectedDate === todayKey;
   const displaySummary = isTodaySelected
@@ -240,19 +412,22 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
         playMinutes: getDurationMinutes(selectedEvents, "play", now),
       }
     : summary;
-  const rhythmSlots = buildRhythmSlots(selectedEvents);
-  const rhythmEvents = buildRhythmEvents(selectedEvents);
-  const activeTypes = Array.from(
-    new Map(
-      rhythmEvents.map((event) => [
-        event.key,
-        {
-          key: event.key,
-          label: event.label,
-          color: event.color,
-        },
-      ]),
-    ).values(),
+  const rhythmSegments = useMemo(() => buildRhythmEvents(selectedEvents, selectedDate), [selectedDate, selectedEvents]);
+  const activeTypes = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          rhythmSegments.map((event) => [
+            event.key,
+            {
+              key: event.key,
+              label: event.label,
+              color: event.color,
+            },
+          ]),
+        ).values(),
+      ),
+    [rhythmSegments],
   );
   const totalPatternCount = selectedEvents.length;
   const patternInsight = getRhythmInsight(selectedEvents, displaySummary, now);
@@ -277,37 +452,43 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
       </section>
 
       <section className="panel pattern-hero-card">
-        <div className="pattern-hero-heading">
-          <span>{selectedDate}</span>
-        </div>
-
         <div className={`rhythm-clock-shell${selectedEvents.length === 0 ? " empty" : ""}`} key={`clock-${selectedDate}`}>
-          <ResponsiveContainer width="100%" height={310}>
-            <PieChart>
-              <Pie
-                animationDuration={760}
-                animationEasing="ease-out"
-                cx="50%"
-                cy="50%"
-                data={rhythmSlots}
-                dataKey="value"
-                endAngle={-270}
-                innerRadius="66%"
-                isAnimationActive
-                nameKey="label"
-                outerRadius="92%"
-                paddingAngle={0.35}
-                startAngle={90}
-                stroke="rgba(255,255,255,0.74)"
-                strokeWidth={1}
-              >
-                {rhythmSlots.map((slot, index) => (
-                  <Cell fill={slot.color} key={`${slot.key}-${index}`} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(_, name) => [name === rhythmTypes.empty.label ? "기록 없음" : "기록됨", name]} />
-            </PieChart>
-          </ResponsiveContainer>
+          <svg className="rhythm-radial-chart" viewBox="0 0 320 320" role="img" aria-label="24시간 원형 리듬 차트">
+            {Object.values(rhythmRings).map((ring) => (
+              <circle
+                className="rhythm-ring-base"
+                cx="160"
+                cy="160"
+                fill="none"
+                key={ring.key}
+                r={ring.radius}
+                stroke={ring.emptyColor}
+                strokeWidth={ring.strokeWidth}
+              />
+            ))}
+
+            {rhythmSegments.map((segment, index) => {
+              const path = describeArc(160, 160, segment.radius, segment.startMinute, segment.endMinute);
+
+              return (
+                <path
+                  className={`rhythm-segment rhythm-${segment.ringKey}`}
+                  d={path}
+                  fill="none"
+                  aria-label={segment.title}
+                  key={segment.id}
+                  stroke={segment.color}
+                  strokeLinecap="round"
+                  strokeWidth={segment.strokeWidth}
+                  style={{ animationDelay: `${index * 28}ms` } as CSSProperties}
+                >
+                  <title>{segment.title}</title>
+                </path>
+              );
+            })}
+
+            <circle className="rhythm-center-disk" cx="160" cy="160" r="38" />
+          </svg>
           <div className="rhythm-clock-center">
             <span>{selectedEvents.length === 0 ? "비어 있는 하루" : "오늘 리듬"}</span>
             <strong>{totalPatternCount}개 기록</strong>
@@ -343,12 +524,16 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
             <h3>시간대별 리듬</h3>
           </div>
         </div>
-        <div className={`rhythm-timeline${rhythmEvents.length === 0 ? " empty" : ""}`} key={`timeline-${selectedDate}`}>
+        <div className={`rhythm-timeline${rhythmSegments.length === 0 ? " empty" : ""}`} key={`timeline-${selectedDate}`}>
+          {/*
+            timeline data comes from the same selected day range as the radial chart,
+            so tap targets stay aligned across views.
+          */}
           <div className="rhythm-timeline-track">
-            {rhythmEvents.length === 0 ? (
+            {rhythmSegments.length === 0 ? (
               <span className="rhythm-empty-pill">첫 기록을 남기면 하루 리듬이 표시됩니다.</span>
             ) : null}
-            {rhythmEvents.map((event) => {
+            {rhythmSegments.map((event) => {
               const left = (event.startMinute / 1440) * 100;
               const width = Math.max(5, ((event.endMinute - event.startMinute) / 1440) * 100);
 

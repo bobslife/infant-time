@@ -1148,9 +1148,47 @@ button {
 .rhythm-clock-shell {
   position: relative;
   width: min(100%, 320px);
-  min-height: 310px;
+  min-height: 320px;
   margin: 0 auto;
   animation: rhythmFadeIn 420ms ease both;
+}
+
+.rhythm-radial-chart {
+  display: block;
+  width: 100%;
+  height: 320px;
+}
+
+.rhythm-ring-base {
+  opacity: 0.96;
+}
+
+.rhythm-segment {
+  opacity: 0.94;
+  pointer-events: stroke;
+  transition:
+    opacity 180ms ease,
+    filter 180ms ease;
+  animation: rhythmSegmentFade 420ms ease both;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.rhythm-segment:hover,
+.rhythm-segment.active {
+  opacity: 1;
+  filter: drop-shadow(0 4px 10px rgba(25, 31, 40, 0.18));
+}
+
+.rhythm-segment.rhythm-secondary {
+  opacity: 0.9;
+}
+
+.rhythm-center-disk {
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-width: 1;
+  filter: drop-shadow(0 8px 18px rgba(25, 31, 40, 0.06));
 }
 
 .rhythm-clock-shell.empty {
@@ -1369,6 +1407,16 @@ button {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes rhythmSegmentFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.94;
   }
 }
 
@@ -3137,7 +3185,7 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 24px 24px 18px 18px;
   background: rgba(255, 255, 255, 0.96);
-  padding: 14px;
+  padding: 14px 14px calc(14px + 132px + env(safe-area-inset-bottom));
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
 }
 
@@ -3394,6 +3442,10 @@ button {
   .rhythm-clock-shell {
     width: min(100%, 300px);
     min-height: 300px;
+  }
+
+  .rhythm-radial-chart {
+    height: 300px;
   }
 
   .analysis-metric {
