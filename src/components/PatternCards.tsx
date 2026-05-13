@@ -15,12 +15,50 @@ type PatternTypeKey =
   | "bath"
   | "memo";
 
+type TimeBucket = "dawn" | "morning" | "afternoon" | "evening";
+
+type RhythmInsightType = "positive" | "attention" | "neutral" | "empty";
+
+type RhythmInsightRelatedType =
+  | "feeding"
+  | "sleep"
+  | "diaper"
+  | "meal"
+  | "play"
+  | "medicine"
+  | "temperature";
+
 interface PatternVisual {
   key: PatternTypeKey;
   label: string;
   color: string;
   softColor: string;
   priority: number;
+}
+
+interface RhythmInsight {
+  type: RhythmInsightType;
+  title: string;
+  description: string;
+  priority: number;
+  relatedTypes: RhythmInsightRelatedType[];
+}
+
+interface DayRhythmStats {
+  feedings: BabyEvent[];
+  sleeps: BabyEvent[];
+  diapers: BabyEvent[];
+  meals: BabyEvent[];
+  playRecords: BabyEvent[];
+  medicines: BabyEvent[];
+  temperatures: BabyEvent[];
+  totalFeedMl: number;
+  totalSleepMinutes: number;
+  playMinutes: number;
+  averageFeedIntervalMinutes: number | null;
+  feedIntervalStandardDeviation: number | null;
+  longestFeedGapMinutes: number | null;
+  longestSleepMinutes: number;
 }
 
 type RhythmRingKey = "sleep" | "feed" | "diaper" | "secondary";
@@ -362,42 +400,434 @@ function getDurationMinutes(events: BabyEvent[], type: "sleep" | "play", now: Da
     }, 0);
 }
 
-function getRhythmInsight(events: BabyEvent[], summary: DailyEventSummary, now: Date): string {
+function getTimeBucket(date: Date): TimeBucket {
+  const hour = date.getHours();
+
+  if (hour < 6) {
+    return "dawn";
+  }
+
+  if (hour < 12) {
+    return "morning";
+  }
+
+  if (hour < 18) {
+    return "afternoon";
+  }
+
+  return "evening";
+}
+
+function countByTimeBucket(records: BabyEvent[]): Record<TimeBucket, number> {
+  return records.reduce<Record<TimeBucket, number>>(
+    (counts, record) => {
+      counts[getTimeBucket(new Date(record.occurredAt))] += 1;
+      return counts;
+    },
+    { dawn: 0, morning: 0, afternoon: 0, evening: 0 },
+  );
+}
+
+function getAverageInterval(records: BabyEvent[]): number | null {
+  const intervals = getIntervals(records);
+
+  if (intervals.length === 0) {
+    return null;
+  }
+
+  return Math.round(intervals.reduce((total, interval) => total + interval, 0) / intervals.length);
+}
+
+function getIntervals(records: BabyEvent[]): number[] {
+  const sorted = records
+    .slice()
+    .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime());
+
+  return sorted.slice(1).map((record, index) =>
+    Math.max(
+      0,
+      Math.round((new Date(record.occurredAt).getTime() - new Date(sorted[index].occurredAt).getTime()) / 60000),
+    ),
+  );
+}
+
+function getStandardDeviation(values: number[]): number | null {
+  if (values.length < 2) {
+    return null;
+  }
+
+  const average = values.reduce((total, value) => total + value, 0) / values.length;
+  const variance = values.reduce((total, value) => total + (value - average) ** 2, 0) / values.length;
+  return Math.round(Math.sqrt(variance));
+}
+
+function getVisibleDurationMinutes(event: BabyEvent, dateKey: string, now: Date): number {
+  const { start, end } = getDateRange(dateKey);
+  const eventStart = new Date(event.occurredAt).getTime();
+  const eventEnd = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
+  const visibleStart = Math.max(eventStart, start.getTime());
+  const visibleEnd = Math.min(eventEnd, end.getTime());
+
+  return Math.max(0, Math.round((visibleEnd - visibleStart) / 60000));
+}
+
+function getTotalSleepMinutes(sleeps: BabyEvent[], dateKey: string, now: Date): number {
+  return sleeps.reduce((total, sleep) => total + getVisibleDurationMinutes(sleep, dateKey, now), 0);
+}
+
+function getLongestSleepMinutes(sleeps: BabyEvent[], dateKey: string, now: Date): number {
+  return sleeps.reduce((longest, sleep) => Math.max(longest, getVisibleDurationMinutes(sleep, dateKey, now)), 0);
+}
+
+function getRecentAverage(values: number[]): number | null {
+  const meaningfulValues = values.filter((value) => value > 0);
+
+  if (meaningfulValues.length === 0) {
+    return null;
+  }
+
+  return meaningfulValues.reduce((total, value) => total + value, 0) / meaningfulValues.length;
+}
+
+function comparePercent(today: number, average: number | null): number | null {
+  if (!average || average <= 0) {
+    return null;
+  }
+
+  return Math.round(((today - average) / average) * 100);
+}
+
+function getStatsForDate(events: BabyEvent[], dateKey: string, now: Date): DayRhythmStats {
+  const dayEvents = getEventsForDate(events, dateKey);
+  const feedings = dayEvents.filter((event) => event.eventType === "feed");
+  const sleeps = dayEvents.filter((event) => event.eventType === "sleep");
+  const diapers = dayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType));
+  const meals = dayEvents.filter((event) => event.eventType === "meal");
+  const playRecords = dayEvents.filter((event) => event.eventType === "play");
+  const medicines = dayEvents.filter((event) => event.eventType === "medicine");
+  const temperatures = dayEvents.filter((event) => event.eventType === "temperature");
+  const feedIntervals = getIntervals(feedings);
+
+  return {
+    feedings,
+    sleeps,
+    diapers,
+    meals,
+    playRecords,
+    medicines,
+    temperatures,
+    totalFeedMl: feedings.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    totalSleepMinutes: getTotalSleepMinutes(sleeps, dateKey, now),
+    playMinutes: playRecords.reduce((total, event) => total + getVisibleDurationMinutes(event, dateKey, now), 0),
+    averageFeedIntervalMinutes: getAverageInterval(feedings),
+    feedIntervalStandardDeviation: getStandardDeviation(feedIntervals),
+    longestFeedGapMinutes: feedIntervals.length > 0 ? Math.max(...feedIntervals) : null,
+    longestSleepMinutes: getLongestSleepMinutes(sleeps, dateKey, now),
+  };
+}
+
+function getRecentDayStats(events: BabyEvent[], selectedDate: string, now: Date, days = 7): DayRhythmStats[] {
+  const selected = new Date(`${selectedDate}T00:00:00`);
+
+  return Array.from({ length: days }, (_, index) => {
+    const date = addDays(selected, -(index + 1));
+    return getStatsForDate(events, toDateKey(date), now);
+  });
+}
+
+function getSleepMinutesByTimeBucket(sleeps: BabyEvent[], dateKey: string, now: Date): Record<TimeBucket, number> {
+  const { start } = getDateRange(dateKey);
+
+  return sleeps.reduce<Record<TimeBucket, number>>(
+    (totals, sleep) => {
+      const visibleMinutes = getVisibleDurationMinutes(sleep, dateKey, now);
+      const bucket = getTimeBucket(new Date(Math.max(new Date(sleep.occurredAt).getTime(), start.getTime())));
+      totals[bucket] += visibleMinutes;
+      return totals;
+    },
+    { dawn: 0, morning: 0, afternoon: 0, evening: 0 },
+  );
+}
+
+function getDominantEventType(events: BabyEvent[]): { label: string; ratio: number } | null {
   if (events.length === 0) {
-    return "첫 기록을 남기면 하루 리듬이 표시됩니다.";
+    return null;
   }
 
-  const morningFeeds = events.filter((event) => {
-    const hour = new Date(event.occurredAt).getHours();
-    return event.eventType === "feed" && hour >= 6 && hour < 12;
-  }).length;
-  if (morningFeeds >= 2) {
-    return "오전 시간대 수유가 집중되어 있어요.";
+  const counts = events.reduce<Map<PatternTypeKey, number>>((map, event) => {
+    const key = getPatternType(event).key;
+    map.set(key, (map.get(key) ?? 0) + 1);
+    return map;
+  }, new Map());
+  const [key, count] = Array.from(counts.entries()).sort((left, right) => right[1] - left[1])[0];
+
+  return {
+    label: rhythmTypes[key].label,
+    ratio: count / events.length,
+  };
+}
+
+function getRhythmInsight(events: BabyEvent[], allEvents: BabyEvent[], selectedDate: string, now: Date): RhythmInsight {
+  const stats = getStatsForDate(allEvents, selectedDate, now);
+  const recentStats = getRecentDayStats(allEvents, selectedDate, now);
+  const recentAverageFeedMl = getRecentAverage(recentStats.map((day) => day.totalFeedMl));
+  const recentAverageSleepMinutes = getRecentAverage(recentStats.map((day) => day.totalSleepMinutes));
+  const feedMlDiffPercent = comparePercent(stats.totalFeedMl, recentAverageFeedMl);
+  const sleepDiffPercent = comparePercent(stats.totalSleepMinutes, recentAverageSleepMinutes);
+  const feedingBuckets = countByTimeBucket(stats.feedings);
+  const activityBuckets = countByTimeBucket([...stats.meals, ...stats.playRecords]);
+  const sleepBuckets = getSleepMinutesByTimeBucket(stats.sleeps, selectedDate, now);
+  const candidates: RhythmInsight[] = [];
+
+  if (events.length === 0) {
+    candidates.push({
+      type: "empty",
+      title: "아직 기록이 없어요",
+      description: "첫 기록을 남기면 하루 리듬을 확인할 수 있어요.",
+      priority: 100,
+      relatedTypes: [],
+    });
   }
 
-  const nightSleepMinutes = events
-    .filter((event) => event.eventType === "sleep")
-    .reduce((total, event) => {
-      const startHour = new Date(event.occurredAt).getHours();
-      return startHour < 6 || startHour >= 21 ? total + getDurationMinutes([event], "sleep", now) : total;
-    }, 0);
-  if (nightSleepMinutes >= 180) {
-    return "새벽과 밤 수면 리듬이 길게 이어지고 있어요.";
+  if (stats.feedings.length === 0) {
+    candidates.push({
+      type: "empty",
+      title: "아직 수유 기록이 없어요",
+      description: "첫 수유를 기록하면 오늘의 수유 리듬을 확인할 수 있어요.",
+      priority: 90,
+      relatedTypes: ["feeding"],
+    });
   }
 
-  const afternoonActivity = events.filter((event) => {
-    const hour = new Date(event.occurredAt).getHours();
-    return (event.eventType === "play" || event.eventType === "meal") && hour >= 12 && hour < 18;
-  }).length;
-  if (afternoonActivity === 0 && events.length >= 3) {
-    return "오후 활동 기록이 적어요.";
+  if (stats.feedings.length === 0 && stats.sleeps.length === 0 && events.length >= 2) {
+    candidates.push({
+      type: "attention",
+      title: "수유와 수면 기록이 아직 적어요",
+      description: "기록상 핵심 리듬이 비어 있어요. 빠진 기록이 있는지 확인해 보세요.",
+      priority: 88,
+      relatedTypes: ["feeding", "sleep"],
+    });
   }
 
-  if (summary.playMinutes > 0) {
-    return `놀이 시간이 ${formatDurationMinutes(summary.playMinutes)} 기록됐어요.`;
+  if (recentAverageFeedMl && stats.totalFeedMl < recentAverageFeedMl * 0.7) {
+    candidates.push({
+      type: "attention",
+      title: "오늘 수유량이 평소보다 적어요",
+      description: `기록상 최근 평균보다 약 ${Math.abs(feedMlDiffPercent ?? 0)}% 적게 기록됐어요. 추가 수유가 있었는지 확인해 보세요.`,
+      priority: 85,
+      relatedTypes: ["feeding"],
+    });
   }
 
-  return "기록이 쌓일수록 아기의 하루 반복성이 더 선명해집니다.";
+  if (recentAverageSleepMinutes && stats.totalSleepMinutes < recentAverageSleepMinutes * 0.7) {
+    const diffMinutes = Math.max(0, Math.round(recentAverageSleepMinutes - stats.totalSleepMinutes));
+    candidates.push({
+      type: "attention",
+      title: "오늘 수면 시간이 평소보다 짧아요",
+      description: `기록상 최근 평균보다 약 ${formatDurationMinutes(diffMinutes)} 적게 잠든 것으로 보여요.`,
+      priority: 80,
+      relatedTypes: ["sleep"],
+    });
+  }
+
+  if (stats.averageFeedIntervalMinutes && stats.longestFeedGapMinutes && stats.longestFeedGapMinutes >= stats.averageFeedIntervalMinutes * 1.5) {
+    candidates.push({
+      type: "attention",
+      title: "수유 간격이 길어진 구간이 있어요",
+      description: "기록상 평소보다 긴 공백이 있어요. 빠진 기록이 있는지 확인해 보세요.",
+      priority: 75,
+      relatedTypes: ["feeding"],
+    });
+  }
+
+  if (stats.averageFeedIntervalMinutes && selectedDate === toDateKey(now) && stats.feedings.length > 0) {
+    const lastFeed = stats.feedings
+      .slice()
+      .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())[0];
+    const minutesSinceLastFeed = Math.round((now.getTime() - new Date(lastFeed.occurredAt).getTime()) / 60000);
+
+    if (minutesSinceLastFeed > stats.averageFeedIntervalMinutes + 30) {
+      candidates.push({
+        type: "attention",
+        title: "수유 간격이 길어진 구간이 있어요",
+        description: "마지막 수유 이후 기록상 공백이 길어졌어요. 빠진 기록이 있는지 확인해 보세요.",
+        priority: 74,
+        relatedTypes: ["feeding"],
+      });
+    }
+  }
+
+  if (stats.feedings.length >= 3 && recentAverageSleepMinutes && stats.totalSleepMinutes >= recentAverageSleepMinutes * 0.8 && (stats.feedIntervalStandardDeviation ?? Infinity) <= 45) {
+    candidates.push({
+      type: "positive",
+      title: "오늘 리듬이 안정적으로 기록됐어요",
+      description: "수유와 수면이 비교적 고르게 기록되어 하루 흐름을 파악하기 좋아요.",
+      priority: 60,
+      relatedTypes: ["feeding", "sleep"],
+    });
+  }
+
+  if (stats.feedings.length > 0 && stats.sleeps.length > 0 && stats.diapers.length > 0) {
+    candidates.push({
+      type: "positive",
+      title: "오늘 기록이 균형 있게 쌓였어요",
+      description: "수유·수면·기저귀 기록이 함께 남아 있어 하루 리듬을 보기 좋아요.",
+      priority: 58,
+      relatedTypes: ["feeding", "sleep", "diaper"],
+    });
+  }
+
+  if (stats.diapers.length === 0 && events.length >= 3) {
+    candidates.push({
+      type: "neutral",
+      title: "기저귀 기록이 아직 없어요",
+      description: "수유와 함께 기저귀 기록을 남기면 하루 상태를 더 잘 볼 수 있어요.",
+      priority: 55,
+      relatedTypes: ["diaper"],
+    });
+  }
+
+  if (stats.sleeps.length === 0 && events.length >= 2) {
+    candidates.push({
+      type: "neutral",
+      title: "아직 수면 기록이 없어요",
+      description: "수면 시작과 종료를 남기면 오늘의 수면 리듬을 확인할 수 있어요.",
+      priority: 50,
+      relatedTypes: ["sleep"],
+    });
+  }
+
+  if (recentAverageFeedMl && stats.totalFeedMl > recentAverageFeedMl * 1.3) {
+    candidates.push({
+      type: "neutral",
+      title: "오늘 수유량이 평소보다 많아요",
+      description: `최근 평균보다 약 ${Math.abs(feedMlDiffPercent ?? 0)}% 많이 기록됐어요. 성장기나 컨디션 변화가 있을 수 있어요.`,
+      priority: 45,
+      relatedTypes: ["feeding"],
+    });
+  }
+
+  if (recentAverageSleepMinutes && stats.totalSleepMinutes > recentAverageSleepMinutes * 1.3) {
+    candidates.push({
+      type: "neutral",
+      title: "오늘은 수면 시간이 길어요",
+      description: "최근 평균보다 수면 시간이 길게 기록됐어요. 컨디션 회복 중일 수 있어요.",
+      priority: 45,
+      relatedTypes: ["sleep"],
+    });
+  }
+
+  if (stats.totalSleepMinutes >= 240 && sleepBuckets.dawn + sleepBuckets.evening >= stats.totalSleepMinutes * 0.6) {
+    candidates.push({
+      type: "positive",
+      title: "밤 시간대 수면 리듬이 좋아요",
+      description: "오늘 수면의 대부분이 밤과 새벽 시간대에 기록됐어요.",
+      priority: 43,
+      relatedTypes: ["sleep"],
+    });
+  }
+
+  if (stats.longestSleepMinutes >= 180) {
+    candidates.push({
+      type: "positive",
+      title: "긴 수면 구간이 기록됐어요",
+      description: `오늘은 ${formatDurationMinutes(stats.longestSleepMinutes)} 동안 이어진 수면이 있어요.`,
+      priority: 42,
+      relatedTypes: ["sleep"],
+    });
+  }
+
+  if (stats.feedings.length >= 3 && (stats.feedIntervalStandardDeviation ?? Infinity) <= 45) {
+    candidates.push({
+      type: "positive",
+      title: "수유 간격이 안정적이에요",
+      description: "오늘은 비교적 일정한 간격으로 수유가 기록됐어요.",
+      priority: 40,
+      relatedTypes: ["feeding"],
+    });
+  }
+
+  const hasPoop = stats.diapers.some((event) => event.diaperType === "dirty" || event.diaperType === "both" || event.eventType === "poop");
+  if (!hasPoop && stats.feedings.length >= 2) {
+    candidates.push({
+      type: "neutral",
+      title: "오늘 대변 기록은 아직 없어요",
+      description: "수유 기록은 있지만 대변 기록은 없어요. 필요하면 기저귀 기록을 확인해 보세요.",
+      priority: 38,
+      relatedTypes: ["diaper", "feeding"],
+    });
+  }
+
+  if (stats.feedings.length > 0 && feedingBuckets.morning >= 2 && feedingBuckets.morning >= stats.feedings.length * 0.5) {
+    candidates.push({
+      type: "neutral",
+      title: "오전 시간대 수유가 집중되어 있어요",
+      description: "오늘 수유 기록의 절반 이상이 오전에 모여 있어요.",
+      priority: 35,
+      relatedTypes: ["feeding"],
+    });
+  }
+
+  const dominantType = getDominantEventType(events);
+  if (dominantType && dominantType.ratio >= 0.7 && events.length >= 4) {
+    candidates.push({
+      type: "neutral",
+      title: "특정 기록에 집중되어 있어요",
+      description: `오늘은 ${dominantType.label} 기록이 대부분을 차지해요. 다른 기록도 함께 남기면 리듬을 더 잘 볼 수 있어요.`,
+      priority: 35,
+      relatedTypes: [],
+    });
+  }
+
+  if (stats.diapers.length >= 4) {
+    candidates.push({
+      type: "positive",
+      title: "기저귀 기록이 충분히 쌓였어요",
+      description: "오늘 기저귀 기록이 여러 번 남아 있어 하루 상태를 확인하기 좋아요.",
+      priority: 30,
+      relatedTypes: ["diaper"],
+    });
+  }
+
+  if (events.length >= 4 && activityBuckets.afternoon === 0) {
+    candidates.push({
+      type: "neutral",
+      title: "오후 활동 기록이 적어요",
+      description: "오후 시간대의 놀이·이유식 기록이 아직 적어요.",
+      priority: 25,
+      relatedTypes: ["meal", "play"],
+    });
+  }
+
+  if (stats.meals.length > 0) {
+    candidates.push({
+      type: "positive",
+      title: "이유식 기록이 남아 있어요",
+      description: "오늘 이유식 기록이 있어 식사 흐름도 함께 확인할 수 있어요.",
+      priority: 22,
+      relatedTypes: ["meal"],
+    });
+  }
+
+  if (stats.playMinutes > 0) {
+    candidates.push({
+      type: "positive",
+      title: "놀이 시간이 기록됐어요",
+      description: `오늘 ${formatDurationMinutes(stats.playMinutes)} 동안 놀이 시간이 남아 있어요.`,
+      priority: 20,
+      relatedTypes: ["play"],
+    });
+  }
+
+  candidates.push({
+    type: "neutral",
+    title: "기록이 쌓일수록 리듬이 선명해져요",
+    description: "수유, 수면, 기저귀 기록을 함께 남기면 하루 반복성을 더 쉽게 볼 수 있어요.",
+    priority: 0,
+    relatedTypes: [],
+  });
+
+  return candidates.sort((left, right) => right.priority - left.priority)[0];
 }
 
 export function PatternCards({ events, selectedDate, summary, onDateChange }: PatternCardsProps) {
@@ -430,7 +860,7 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
     [rhythmSegments],
   );
   const totalPatternCount = selectedEvents.length;
-  const patternInsight = getRhythmInsight(selectedEvents, displaySummary, now);
+  const patternInsight = getRhythmInsight(selectedEvents, events, selectedDate, now);
   const latestPlay = selectedEvents
     .filter((event) => event.eventType === "play" && event.note?.trim())
     .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())[0];
@@ -511,9 +941,10 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
           ))}
         </div>
 
-        <div className="rhythm-insight-card">
+        <div className={`rhythm-insight-card ${patternInsight.type}`}>
           <span>Insight</span>
-          <strong>{patternInsight}</strong>
+          <strong>{patternInsight.title}</strong>
+          <small>{patternInsight.description}</small>
         </div>
       </section>
 

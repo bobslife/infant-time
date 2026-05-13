@@ -1265,16 +1265,41 @@ button {
   gap: 7px;
   border-radius: 18px;
   padding: 14px;
-  background: linear-gradient(135deg, #fff7d6 0%, #fff 65%);
-  border: 1px solid rgba(245, 158, 11, 0.16);
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #1d4ed8;
+}
+
+.rhythm-insight-card.positive {
+  background: #f0fdf4;
+  border-color: #dcfce7;
+  color: #15803d;
+}
+
+.rhythm-insight-card.attention {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  color: #b45309;
+}
+
+.rhythm-insight-card.neutral {
+  background: #eff6ff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.rhythm-insight-card.empty {
+  background: #f8fafc;
+  border-color: #f1f5f9;
+  color: #475569;
 }
 
 .rhythm-insight-card span {
   width: fit-content;
   border-radius: 999px;
   padding: 4px 8px;
-  background: rgba(245, 158, 11, 0.13);
-  color: #9f7000;
+  background: rgba(255, 255, 255, 0.72);
+  color: currentColor;
   font-size: 0.72rem;
   font-weight: 950;
 }
@@ -1283,6 +1308,13 @@ button {
   color: #111827;
   font-size: 1rem;
   line-height: 1.4;
+}
+
+.rhythm-insight-card small {
+  color: currentColor;
+  font-size: 0.8rem;
+  font-weight: 850;
+  line-height: 1.45;
 }
 
 .rhythm-legend {
