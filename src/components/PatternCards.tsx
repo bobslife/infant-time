@@ -502,11 +502,6 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
           </div>
         </div>
 
-        <div className="rhythm-insight-card">
-          <span>Insight</span>
-          <strong>{patternInsight}</strong>
-        </div>
-
         <div className="rhythm-legend" aria-label="기록 유형 범례">
           {(activeTypes.length > 0 ? activeTypes : [{ key: "empty", label: "빈 시간", color: rhythmTypes.empty.color }]).map((item) => (
             <span key={item.key}>
@@ -515,14 +510,16 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
             </span>
           ))}
         </div>
+
+        <div className="rhythm-insight-card">
+          <span>Insight</span>
+          <strong>{patternInsight}</strong>
+        </div>
       </section>
 
       <section className="panel rhythm-timeline-card">
         <div className="chart-heading">
-          <div>
-            <p className="eyebrow">실제 흐름</p>
-            <h3>시간대별 리듬</h3>
-          </div>
+          <h3>시간대별 리듬</h3>
         </div>
         <div className={`rhythm-timeline${rhythmSegments.length === 0 ? " empty" : ""}`} key={`timeline-${selectedDate}`}>
           {/*
