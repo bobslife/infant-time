@@ -55,7 +55,6 @@ const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "bath", icon: "/icons/bath.svg", label: "목욕" },
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
-  { type: "memo", icon: "/icons/memo.svg", label: "메모" },
 ];
 
 const feedIntervalPresets = [180, 210, 240, 270, 300];

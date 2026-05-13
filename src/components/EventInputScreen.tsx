@@ -228,7 +228,7 @@ export function EventInputScreen({
     setMealName(editingEvent.mealName ?? "");
     setMealAmountG(editingEvent.mealAmountG ?? 80);
     setMealReaction(editingEvent.mealReaction ?? "good");
-    setMemoText(editingEvent.eventType === "memo" || editingEvent.eventType === "play" ? editingEvent.note ?? "" : "");
+    setMemoText(editingEvent.note ?? "");
   }, [editingEvent, initialEventType, latestFeedAmount, ongoingSleep]);
 
   function showSavedToast(message: string) {
@@ -283,7 +283,7 @@ export function EventInputScreen({
       mealName: eventType === "meal" ? mealName.trim() : null,
       mealAmountG: eventType === "meal" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
-      note: eventType === "memo" || eventType === "play" ? memoText.trim() || undefined : editingEvent?.note ?? undefined,
+      note: memoText.trim() || undefined,
     };
   }
 
@@ -349,6 +349,7 @@ export function EventInputScreen({
       setQuickDate(toInputDate(current));
       setQuickTime(toInputTime(current));
       setEndedAtFromDateTime("");
+      setMemoText("");
       showSavedToast(message);
     } finally {
       submitLockRef.current = false;
@@ -608,6 +609,20 @@ export function EventInputScreen({
                 value={memoText}
                 onChange={(event) => setMemoText(event.target.value)}
                 placeholder="예: 터미타임, 모빌 보기, 책 읽기"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType !== "memo" && eventType !== "play" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>메모</span>
+              <textarea
+                rows={2}
+                value={memoText}
+                onChange={(event) => setMemoText(event.target.value)}
+                placeholder="필요하면 짧게 남겨요"
               />
             </label>
           </div>

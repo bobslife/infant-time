@@ -122,7 +122,7 @@ function eventDetail(event: BabyEvent): string {
   }
 
   if (event.eventType === "memo") {
-    return event.note?.trim() || "메모";
+    return "메모";
   }
 
   if (event.eventType === "bath") {
@@ -130,19 +130,29 @@ function eventDetail(event: BabyEvent): string {
   }
 
   if (event.eventType === "play") {
-    const minutes = event.endedAt
-      ? Math.max(
-          0,
-          Math.round(
-            (new Date(event.endedAt).getTime() - new Date(event.occurredAt).getTime()) / 60000,
-          ),
-        )
-      : 0;
-    const duration = minutes > 0 ? ` ${formatDurationMinutes(minutes)}` : "";
-    return `놀이 · ${event.note?.trim() || "내용 미입력"}${duration}`;
+    return getPlayDurationLabel(event);
   }
 
   return "기록";
+}
+
+function getPlayDurationLabel(event: BabyEvent): string {
+  if (event.eventType !== "play") {
+    return "";
+  }
+
+  if (!event.endedAt) {
+    return "진행 중";
+  }
+
+  const minutes = Math.max(
+    0,
+    Math.round(
+      (new Date(event.endedAt).getTime() - new Date(event.occurredAt).getTime()) / 60000,
+    ),
+  );
+
+  return formatDurationMinutes(minutes);
 }
 
 function eventIcon(event: BabyEvent): string {
@@ -327,6 +337,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     <div className="event-copy">
                       <strong>{eventLabels[event.eventType]}</strong>
                       <span>{eventDetail(event)}</span>
+                      {event.note?.trim() ? <small>{event.note.trim()}</small> : null}
                     </div>
                   </article>
                 </div>
