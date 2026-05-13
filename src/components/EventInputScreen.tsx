@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdBanner } from "./ads/AdBanner";
-import { ActivityShortcut } from "./activity/ActivityShortcut";
 import {
   BabyEvent,
   BabyProfile,
@@ -22,17 +21,7 @@ interface EventInputScreenProps {
   initialEventType?: EventType;
   onSubmit: (input: CreateEventInput) => Promise<void>;
   onUpdateEvent: (input: UpdateEventInput) => Promise<void>;
-  onStartNewEvent: (eventType: EventType) => void;
 }
-
-const eventOptions: Array<{ type: EventType; icon: string; label: string }> = [
-  { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
-  { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
-  { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
-  { type: "medicine", icon: "/icons/pill.svg", label: "약" },
-  { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
-  { type: "meal", icon: "/icons/action.svg", label: "이유식" },
-];
 
 const feedQuickAmounts = [70, 100, 130, 170, 200, 230];
 
@@ -115,7 +104,6 @@ export function EventInputScreen({
   initialEventType = "feed",
   onSubmit,
   onUpdateEvent,
-  onStartNewEvent,
 }: EventInputScreenProps) {
   const initialOccurredAt = editingEvent ? toInputDateTime(editingEvent.occurredAt) : toLocalDateTimeInputValue();
   const initialEndedAt = editingEvent?.endedAt ? toInputDateTime(editingEvent.endedAt) : "";
@@ -212,6 +200,9 @@ export function EventInputScreen({
       setMealAmountG(80);
       setMealReaction("good");
       setMemoText("");
+      if (normalizedInitialType === "play") {
+        setEndedAtFromDateTime("");
+      }
       return;
     }
 
@@ -237,7 +228,7 @@ export function EventInputScreen({
     setMealName(editingEvent.mealName ?? "");
     setMealAmountG(editingEvent.mealAmountG ?? 80);
     setMealReaction(editingEvent.mealReaction ?? "good");
-    setMemoText(editingEvent.eventType === "memo" ? editingEvent.note ?? "" : "");
+    setMemoText(editingEvent.eventType === "memo" || editingEvent.eventType === "play" ? editingEvent.note ?? "" : "");
   }, [editingEvent, initialEventType, latestFeedAmount, ongoingSleep]);
 
   function showSavedToast(message: string) {
@@ -279,7 +270,7 @@ export function EventInputScreen({
       babyId: baby.id,
       eventType,
       occurredAt,
-      endedAt: eventType === "sleep" && endedAt ? endedAt : null,
+      endedAt: (eventType === "sleep" || eventType === "play") && endedAt ? endedAt : null,
       amountMl: eventType === "feed" ? amountMl : null,
       diaperType: eventType === "diaper" ? diaperType : null,
       poopAmount: hasPoopDetail ? poopAmount : null,
@@ -292,7 +283,7 @@ export function EventInputScreen({
       mealName: eventType === "meal" ? mealName.trim() : null,
       mealAmountG: eventType === "meal" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
-      note: eventType === "memo" ? memoText.trim() || undefined : editingEvent?.note ?? undefined,
+      note: eventType === "memo" || eventType === "play" ? memoText.trim() || undefined : editingEvent?.note ?? undefined,
     };
   }
 
@@ -313,7 +304,19 @@ export function EventInputScreen({
       return "메모를 입력해 주세요";
     }
 
+    if (input.eventType === "play" && !input.note?.trim()) {
+      return "놀이 내용을 입력해 주세요";
+    }
+
+    if (input.eventType === "play" && !input.endedAt) {
+      return "놀이 종료 시간을 입력해 주세요";
+    }
+
     if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
+      return "종료 시간이 시작 시간보다 빨라요";
+    }
+
+    if (input.eventType === "play" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
       return "종료 시간이 시작 시간보다 빨라요";
     }
 
@@ -406,6 +409,8 @@ export function EventInputScreen({
       ? "수정하기"
       : eventType === "memo"
         ? "메모 저장"
+        : eventType === "play"
+          ? "놀이 저장"
         : "바로 기록하기";
   const sleepSaveButtonLabel = isSubmitting
     ? "저장 중..."
@@ -419,38 +424,6 @@ export function EventInputScreen({
 
   return (
     <section className="screen-stack action-screen">
-      <section className="panel action-type-panel">
-        {editingEvent ? <p className="editing-mode-copy">기록 수정 중 · 다른 항목을 누르면 새 기록으로 전환돼요.</p> : null}
-        <div className="event-type-grid">
-          {eventOptions.map((option) => (
-            <ActivityShortcut
-              active={eventType === option.type}
-              icon={option.icon}
-              key={option.type}
-              label={option.label}
-              variant="nav"
-              onClick={() => {
-                if (editingEvent) {
-                  onStartNewEvent(option.type);
-                  return;
-                }
-
-                if (option.type === "sleep") {
-                  const current = toLocalDateTimeInputValue();
-                  const defaultSleepStart = ongoingSleep ? toInputDateTime(ongoingSleep.occurredAt) : current;
-                  setOccurredAt(defaultSleepStart);
-                  setQuickDate(toInputDate(defaultSleepStart));
-                  setQuickTime(toInputTime(defaultSleepStart));
-                  setEndedAtFromDateTime(ongoingSleep ? current : "");
-                }
-
-                setEventType(option.type);
-              }}
-            />
-          ))}
-        </div>
-      </section>
-
       <section className={`panel quick-action-card ${eventType}`}>
         <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
           {eventType === "feed" ? (
@@ -496,6 +469,18 @@ export function EventInputScreen({
             <>
               <strong>메모</strong>
               <small>홈에서 남긴 메모를 수정할 수 있어요.</small>
+            </>
+          ) : null}
+          {eventType === "bath" ? (
+            <>
+              <strong>목욕</strong>
+              <small>목욕한 날짜와 시간을 기록해요.</small>
+            </>
+          ) : null}
+          {eventType === "play" ? (
+            <>
+              <strong>놀이</strong>
+              <small>놀이 시간과 내용을 함께 남겨요.</small>
             </>
           ) : null}
         </div>
@@ -614,8 +599,22 @@ export function EventInputScreen({
           </div>
         ) : null}
 
-        {eventType === "sleep" ? (
-          <div className="sleep-time-editor" aria-label="수면 시간 입력">
+        {eventType === "play" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>무엇을 하고 놀았나요?</span>
+              <textarea
+                rows={3}
+                value={memoText}
+                onChange={(event) => setMemoText(event.target.value)}
+                placeholder="예: 터미타임, 모빌 보기, 책 읽기"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType === "sleep" || eventType === "play" ? (
+          <div className="sleep-time-editor" aria-label={eventType === "play" ? "놀이 시간 입력" : "수면 시간 입력"}>
             <label>
               <span>시작 날짜</span>
               <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />

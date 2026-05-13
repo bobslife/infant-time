@@ -13,11 +13,11 @@ import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
 import { BabyEvent, EventType } from "./types";
 
-type AppTab = "home" | "input" | "analysis" | "growth" | "profile";
+type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
 
 const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "home", icon: "/icons/home.svg", label: "홈" },
-  { id: "input", icon: "/icons/action.svg", label: "활동" },
+  { id: "pattern", icon: "/icons/pattern.svg", label: "패턴" },
   { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
   { id: "growth", icon: "/icons/grow-up.svg", label: "성장" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
@@ -29,6 +29,9 @@ const MAX_PULL_DISTANCE = 112;
 const PULL_FRICTION = 0.45;
 const GrowthScreen = lazy(() =>
   import("./components/GrowthScreen").then((module) => ({ default: module.GrowthScreen })),
+);
+const PatternCards = lazy(() =>
+  import("./components/PatternCards").then((module) => ({ default: module.PatternCards })),
 );
 const rawAdMode = String(import.meta.env.VITE_AD_MODE ?? import.meta.env.NEXT_PUBLIC_AD_MODE ?? "mock")
   .trim()
@@ -74,6 +77,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
+  const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
@@ -97,6 +101,7 @@ export function App() {
     setActiveTab("home");
     setEditingEvent(null);
     setInputEventType("feed");
+    setIsInputModalOpen(false);
   }, [user?.id]);
 
   useEffect(() => {
@@ -159,7 +164,7 @@ export function App() {
 
   function completeEventSave() {
     setEditingEvent(null);
-    setActiveTab("home");
+    setIsInputModalOpen(false);
     setSaveToastMessage("저장이 완료되었습니다.");
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
@@ -167,35 +172,24 @@ export function App() {
   function handleEditEvent(event: BabyEvent) {
     setEditingEvent(event);
     setInputEventType(event.eventType === "pee" || event.eventType === "poop" ? "diaper" : event.eventType);
-    setActiveTab("input");
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }
-
-  function handleStartNewEvent(eventType: EventType) {
-    setEditingEvent(null);
-    setInputEventType(eventType);
-    setActiveTab("input");
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    setIsInputModalOpen(true);
   }
 
   function handleQuickAdd(eventType: EventType) {
     setEditingEvent(null);
     setInputEventType(eventType);
-    setActiveTab("input");
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    setIsInputModalOpen(true);
   }
 
   function handleTabChange(tab: AppTab) {
-    if (tab !== "input") {
-      setEditingEvent(null);
-    }
-
-    if (tab === "input") {
-      setInputEventType("feed");
-    }
-
+    setEditingEvent(null);
     setActiveTab(tab);
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  function closeInputModal() {
+    setEditingEvent(null);
+    setIsInputModalOpen(false);
   }
 
   function resetPullState() {
@@ -337,19 +331,6 @@ export function App() {
             <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
           </section>
         ) : null}
-        {activeTab === "input" ? (
-          <section className="screen-stack">
-            <EventInputScreen
-              baby={baby}
-              editingEvent={editingEvent}
-              events={events}
-              initialEventType={inputEventType}
-              onSubmit={handleAddEvent}
-              onUpdateEvent={handleUpdateEventFromInput}
-              onStartNewEvent={handleStartNewEvent}
-            />
-          </section>
-        ) : null}
         {activeTab === "analysis" ? (
           <section className="screen-stack">
             <AnalysisCards
@@ -358,6 +339,18 @@ export function App() {
               summary={buildDailySummary(events, analysisDate)}
               onDateChange={setAnalysisDate}
             />
+          </section>
+        ) : null}
+        {activeTab === "pattern" ? (
+          <section className="screen-stack">
+            <Suspense fallback={<p className="empty-copy">패턴을 불러오는 중입니다.</p>}>
+              <PatternCards
+                events={events}
+                selectedDate={analysisDate}
+                summary={buildDailySummary(events, analysisDate)}
+                onDateChange={setAnalysisDate}
+              />
+            </Suspense>
           </section>
         ) : null}
         {activeTab === "growth" ? (
@@ -383,6 +376,30 @@ export function App() {
           </section>
         ) : null}
       </div>
+      {isInputModalOpen ? (
+        <div className="input-modal-backdrop" role="presentation" onMouseDown={closeInputModal}>
+          <section
+            aria-label={editingEvent ? "기록 수정" : "빠른 기록"}
+            aria-modal="true"
+            className="input-modal-panel"
+            role="dialog"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="input-modal-header">
+              <strong>{editingEvent ? "기록 수정" : "바로 남기기"}</strong>
+              <button type="button" onClick={closeInputModal}>닫기</button>
+            </div>
+            <EventInputScreen
+              baby={baby}
+              editingEvent={editingEvent}
+              events={events}
+              initialEventType={inputEventType}
+              onSubmit={handleAddEvent}
+              onUpdateEvent={handleUpdateEventFromInput}
+            />
+          </section>
+        </div>
+      ) : null}
       <nav className="bottom-tabs" aria-label="주요 메뉴">
         {tabs.map((tab) => (
           <button

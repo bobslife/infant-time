@@ -50,10 +50,12 @@ const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
   { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
   { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
   { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
+  { type: "play", icon: "/icons/play.svg", label: "놀이" },
+  { type: "bath", icon: "/icons/bath.svg", label: "목욕" },
   { type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
-  { type: "meal", icon: "/icons/action.svg", label: "이유식" },
-  { type: "memo", icon: "/icons/action.svg", label: "메모" },
+  { type: "meal", icon: "/icons/babyfood.svg", label: "이유식" },
+  { type: "memo", icon: "/icons/memo.svg", label: "메모" },
 ];
 
 const feedIntervalPresets = [180, 210, 240, 270, 300];
@@ -86,7 +88,7 @@ function getQuickBadge(events: BabyEvent[], type: EventType, now: Date): string 
   }
 
   const todayCount = getTodayCount(events, type);
-  if (todayCount > 0 && (type === "diaper" || type === "medicine" || type === "temperature" || type === "meal")) {
+  if (todayCount > 0 && (type === "diaper" || type === "medicine" || type === "temperature" || type === "meal" || type === "bath" || type === "play")) {
     return `오늘 ${todayCount}회`;
   }
 
@@ -193,6 +195,7 @@ export function SummaryCards({
   onQuickAdd,
 }: SummaryCardsProps) {
   const [now, setNow] = useState(new Date());
+  const [isExpandedSummaryOpen, setIsExpandedSummaryOpen] = useState(false);
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
   const warning = feedStatus === "overdue";
@@ -268,7 +271,7 @@ export function SummaryCards({
             </div>
           </div>
         </div>
-        <div className="summary-grid today-summary-grid">
+        <div className="summary-grid today-primary-summary-grid">
           <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
             <span>수유량</span>
             <div className="metric-value">
@@ -283,35 +286,66 @@ export function SummaryCards({
               <small>{summary.todaySleepCount}회</small>
             </div>
           </button>
-          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
-            <span>기저귀</span>
-            <div className="metric-value">
-              <strong>{summary.todayDiaperCount}회</strong>
-              <small>오늘 기록</small>
-            </div>
-          </button>
-          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("medicine")}>
-            <span>약</span>
-            <div className="metric-value">
-              <strong>{summary.todayMedicineCount}회</strong>
-              <small>복용 기록</small>
-            </div>
-          </button>
-          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("temperature")}>
-            <span>체온</span>
-            <div className="metric-value">
-              <strong>{summary.latestTemperatureC ? `${summary.latestTemperatureC.toFixed(1)}도` : "-"}</strong>
-              <small>{summary.todayTemperatureCount}회</small>
-            </div>
-          </button>
-          <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("meal")}>
-            <span>이유식</span>
-            <div className="metric-value">
-              <strong>{summary.todayMealCount}회</strong>
-              <small>식사 기록</small>
-            </div>
-          </button>
         </div>
+        <div className="summary-toggle-row">
+          <div className="summary-toggle-copy">
+            <button
+              aria-expanded={isExpandedSummaryOpen}
+              className="summary-toggle-button"
+              type="button"
+              onClick={() => setIsExpandedSummaryOpen((current) => !current)}
+            >
+              {isExpandedSummaryOpen ? "추가 기록 숨기기 ▲" : "추가 기록 보기 ▼"}
+            </button>
+            <span>기저귀 · 약 · 체온 · 놀이 · 목욕 · 이유식</span>
+          </div>
+        </div>
+        {isExpandedSummaryOpen ? (
+          <div className="summary-grid today-summary-grid today-extra-summary-grid">
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
+              <span>기저귀</span>
+              <div className="metric-value">
+                <strong>{summary.todayDiaperCount}회</strong>
+                <small>오늘 기록</small>
+              </div>
+            </button>
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("medicine")}>
+              <span>약</span>
+              <div className="metric-value">
+                <strong>{summary.todayMedicineCount}회</strong>
+                <small>복용 기록</small>
+              </div>
+            </button>
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("temperature")}>
+              <span>체온</span>
+              <div className="metric-value">
+                <strong>{summary.latestTemperatureC ? `${summary.latestTemperatureC.toFixed(1)}도` : "-"}</strong>
+                <small>{summary.todayTemperatureCount}회</small>
+              </div>
+            </button>
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("play")}>
+              <span>놀이</span>
+              <div className="metric-value">
+                <strong>{formatDurationMinutes(summary.todayPlayMinutes)}</strong>
+                <small>{summary.todayPlayCount}회</small>
+              </div>
+            </button>
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("bath")}>
+              <span>목욕</span>
+              <div className="metric-value">
+                <strong>{summary.todayBathCount}회</strong>
+                <small>오늘 기록</small>
+              </div>
+            </button>
+            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("meal")}>
+              <span>이유식</span>
+              <div className="metric-value">
+                <strong>{summary.todayMealCount}회</strong>
+                <small>식사 기록</small>
+              </div>
+            </button>
+          </div>
+        ) : null}
       </section>
       <AdBanner placement="home-bottom" />
       <section className="panel home-quick-section" aria-label="빠른 기록">
@@ -389,6 +423,16 @@ function getEventsForDate(events: BabyEvent[], dateKey: string): BabyEvent[] {
 function getSleepMinutes(events: BabyEvent[], now: Date): number {
   return events
     .filter((event) => event.eventType === "sleep")
+    .reduce((total, event) => {
+      const start = new Date(event.occurredAt).getTime();
+      const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
+      return total + Math.max(0, Math.round((end - start) / 60000));
+    }, 0);
+}
+
+function getPlayMinutes(events: BabyEvent[], now: Date): number {
+  return events
+    .filter((event) => event.eventType === "play")
     .reduce((total, event) => {
       const start = new Date(event.occurredAt).getTime();
       const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
@@ -674,6 +718,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     ? {
         ...summary,
         sleepMinutes: getSleepMinutes(selectedEvents, now),
+        playMinutes: getPlayMinutes(selectedEvents, now),
       }
     : summary;
   const insight = getInsight(displaySummary, averageInterval, sevenDaySleepAverage);

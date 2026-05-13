@@ -61,6 +61,9 @@ export interface EventSummary {
   todayMedicineCount: number;
   todayTemperatureCount: number;
   todayMealCount: number;
+  todayBathCount: number;
+  todayPlayCount: number;
+  todayPlayMinutes: number;
   latestTemperatureC: number | null;
   activeSleepStartedAt: string | null;
   latestFeedGapMinutes: number | null;
@@ -77,6 +80,9 @@ export interface DailyEventSummary {
   medicineCount: number;
   temperatureCount: number;
   mealCount: number;
+  bathCount: number;
+  playCount: number;
+  playMinutes: number;
 }
 
 function sortDescending(events: BabyEvent[]) {
@@ -97,6 +103,13 @@ function getSleepDurationMinutes(event: BabyEvent, now = new Date()): number {
   return Math.max(0, Math.round((end - start) / 60000));
 }
 
+function getEventDurationMinutes(event: BabyEvent, now = new Date()): number {
+  const start = new Date(event.occurredAt).getTime();
+  const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
+
+  return Math.max(0, Math.round((end - start) / 60000));
+}
+
 export function buildDailySummary(events: BabyEvent[], date: string): DailyEventSummary {
   const targetStart = new Date(`${date}T00:00:00`);
   const targetEnd = new Date(targetStart);
@@ -109,6 +122,7 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
 
   const feedEvents = dayEvents.filter((event) => event.eventType === "feed");
   const sleepEvents = dayEvents.filter((event) => event.eventType === "sleep");
+  const playEvents = dayEvents.filter((event) => event.eventType === "play");
 
   return {
     feedCount: feedEvents.length,
@@ -121,6 +135,9 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
     medicineCount: dayEvents.filter((event) => event.eventType === "medicine").length,
     temperatureCount: dayEvents.filter((event) => event.eventType === "temperature").length,
     mealCount: dayEvents.filter((event) => event.eventType === "meal").length,
+    bathCount: dayEvents.filter((event) => event.eventType === "bath").length,
+    playCount: playEvents.length,
+    playMinutes: playEvents.reduce((total, event) => total + getEventDurationMinutes(event), 0),
   };
 }
 
@@ -134,6 +151,7 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   const todayFeedEvents = todayEvents.filter((event) => event.eventType === "feed");
   const poopEvents = events.filter((event) => event.eventType === "poop");
   const sleepEvents = todayEvents.filter((event) => event.eventType === "sleep");
+  const playEvents = todayEvents.filter((event) => event.eventType === "play");
   const activeSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
   const temperatureEvents = events.filter((event) => event.eventType === "temperature");
 
@@ -168,6 +186,9 @@ function buildSummary(events: BabyEvent[]): EventSummary {
     todayMedicineCount: todayEvents.filter((event) => event.eventType === "medicine").length,
     todayTemperatureCount: todayEvents.filter((event) => event.eventType === "temperature").length,
     todayMealCount: todayEvents.filter((event) => event.eventType === "meal").length,
+    todayBathCount: todayEvents.filter((event) => event.eventType === "bath").length,
+    todayPlayCount: playEvents.length,
+    todayPlayMinutes: playEvents.reduce((total, event) => total + getEventDurationMinutes(event), 0),
     latestTemperatureC: temperatureEvents[0]?.temperatureC ?? null,
     activeSleepStartedAt: activeSleep?.occurredAt ?? null,
     latestFeedGapMinutes,
@@ -625,7 +646,7 @@ export function useEvents() {
     setErrorMessage(null);
 
     try {
-      const shouldAutoCloseSleep = input.eventType === "feed" || input.eventType === "diaper" || input.eventType === "medicine" || input.eventType === "meal";
+      const shouldAutoCloseSleep = input.eventType === "feed" || input.eventType === "diaper" || input.eventType === "medicine" || input.eventType === "meal" || input.eventType === "bath" || input.eventType === "play";
       let autoClosedSleepId: string | null = null;
       let autoClosedSleepEndedAt: string | null = null;
 

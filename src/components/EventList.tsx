@@ -18,6 +18,8 @@ const eventLabels: Record<BabyEvent["eventType"], string> = {
   temperature: "체온",
   meal: "이유식",
   memo: "메모",
+  bath: "목욕",
+  play: "놀이",
 };
 
 const eventIcons: Record<BabyEvent["eventType"], string> = {
@@ -28,8 +30,10 @@ const eventIcons: Record<BabyEvent["eventType"], string> = {
   diaper: "/icons/diaper.svg",
   medicine: "/icons/pill.svg",
   temperature: "/icons/thermometer.svg",
-  meal: "/icons/action.svg",
-  memo: "/icons/action.svg",
+  meal: "/icons/babyfood.svg",
+  memo: "/icons/memo.svg",
+  bath: "/icons/bath.svg",
+  play: "/icons/play.svg",
 };
 
 const DATE_PAGE_SIZE = 7;
@@ -121,6 +125,23 @@ function eventDetail(event: BabyEvent): string {
     return event.note?.trim() || "메모";
   }
 
+  if (event.eventType === "bath") {
+    return "목욕";
+  }
+
+  if (event.eventType === "play") {
+    const minutes = event.endedAt
+      ? Math.max(
+          0,
+          Math.round(
+            (new Date(event.endedAt).getTime() - new Date(event.occurredAt).getTime()) / 60000,
+          ),
+        )
+      : 0;
+    const duration = minutes > 0 ? ` ${formatDurationMinutes(minutes)}` : "";
+    return `놀이 · ${event.note?.trim() || "내용 미입력"}${duration}`;
+  }
+
   return "기록";
 }
 
@@ -179,17 +200,19 @@ function groupEventsByDate(events: BabyEvent[]) {
     const feedTotalMl = groupEvents
       .filter((event) => event.eventType === "feed")
       .reduce((total, event) => total + (event.amountMl ?? 0), 0);
-    const diaperCount = groupEvents.filter(
-      (event) => event.eventType === "diaper" || event.eventType === "pee" || event.eventType === "poop",
-    ).length;
-    const medicineCount = groupEvents.filter((event) => event.eventType === "medicine").length;
+    const sleepMinutes = groupEvents
+      .filter((event) => event.eventType === "sleep")
+      .reduce((total, event) => {
+        const start = new Date(event.occurredAt).getTime();
+        const end = event.endedAt ? new Date(event.endedAt).getTime() : new Date().getTime();
+        return total + Math.max(0, Math.round((end - start) / 60000));
+      }, 0);
 
     return {
       dateKey,
       events: groupEvents,
       feedTotalMl,
-      diaperCount,
-      medicineCount,
+      sleepMinutes,
     };
   });
 }
@@ -279,7 +302,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
             <div className="event-date-heading">
               <strong>{formatDateHeader(group.dateKey)}</strong>
               <span>
-                총 수유량 {group.feedTotalMl}ml · 기저귀 {group.diaperCount}회 · 약 {group.medicineCount}회
+                총 수유량 {group.feedTotalMl}ml · 수면 {formatDurationMinutes(group.sleepMinutes)}
               </span>
             </div>
             <div className="event-date-list">

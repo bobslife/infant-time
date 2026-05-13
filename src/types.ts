@@ -7,7 +7,9 @@ export type EventType =
   | "meal"
   | "memo"
   | "pee"
-  | "poop";
+  | "poop"
+  | "bath"
+  | "play";
 
 export type DiaperType = "wet" | "dirty" | "both";
 
