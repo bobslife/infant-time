@@ -114,6 +114,22 @@ export function App() {
   }, [saveToastMessage]);
 
   useEffect(() => {
+    if (!isInputModalOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "contain";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [isInputModalOpen]);
+
+  useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
     }

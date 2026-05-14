@@ -357,6 +357,36 @@ export function EventInputScreen({
     }
   }
 
+  async function updateExistingEvent(input: CreateEventInput, eventId: string, message: string) {
+    if (submitLockRef.current) {
+      return;
+    }
+
+    const errorMessage = validateInput(input);
+    if (errorMessage) {
+      showSavedToast(errorMessage);
+      return;
+    }
+
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      await onUpdateEvent({ ...input, id: eventId });
+      triggerHaptic();
+      const current = toLocalDateTimeInputValue();
+      setOccurredAt(current);
+      setQuickDate(toInputDate(current));
+      setQuickTime(toInputTime(current));
+      setEndedAtFromDateTime("");
+      setMemoText("");
+      showSavedToast(message);
+    } finally {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleQuickFeed() {
     await submitQuick(buildCurrentInput(), editingEvent ? "수유 기록 수정" : `수유 ${amountMl}ml 저장`);
   }
@@ -377,7 +407,20 @@ export function EventInputScreen({
     }
 
     if (ongoingSleep) {
-      await submitQuick(input, "수면 종료 저장");
+      const current = toLocalDateTimeInputValue();
+      const sleepEnd = current;
+      setEndedAtFromDateTime(sleepEnd);
+      await updateExistingEvent(
+        {
+          ...input,
+          eventType: "sleep",
+          occurredAt: toInputDateTime(ongoingSleep.occurredAt),
+          endedAt: sleepEnd,
+          note: memoText.trim() || ongoingSleep.note,
+        },
+        ongoingSleep.id,
+        "수면 종료 저장",
+      );
       return;
     }
 
@@ -426,65 +469,66 @@ export function EventInputScreen({
   return (
     <section className="screen-stack action-screen">
       <section className={`panel quick-action-card ${eventType}`}>
-        <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
-          {eventType === "feed" ? (
-            <>
-              <strong>{amountMl}ml</strong>
-              <small>
-                {recentFeedAverage ? `최근 평균 ${recentFeedAverage}ml` : "빠른 버튼으로 수유량을 선택해요"}
-                {feedDiff !== null ? ` · 이전보다 ${Math.abs(feedDiff)}ml ${feedDiff >= 0 ? "많아요" : "적어요"}` : ""}
-              </small>
-            </>
-          ) : null}
-          {eventType === "sleep" ? (
-            <>
-              <strong>{sleepStatusTitle}</strong>
-              <small>{sleepStatusDescription}</small>
-            </>
-          ) : null}
-          {eventType === "diaper" ? (
-            <>
-              <strong>{diaperOptions.find((item) => item.value === diaperType)?.label}</strong>
-              <small>기저귀 상태를 한 번에 기록해요.</small>
-            </>
-          ) : null}
-          {eventType === "medicine" ? (
-            <>
-              <strong>약 복용</strong>
-              <small>약 이름, 용량, 다음 복용 예정까지 기록할 수 있어요.</small>
-            </>
-          ) : null}
-          {eventType === "temperature" ? (
-            <>
-              <strong>{temperatureC.toFixed(1)}도</strong>
-              <small>{temperatureC >= 38 ? "고열 경향" : temperatureC >= 37.5 ? "미열 경향" : "정상 범위 경향"}</small>
-            </>
-          ) : null}
-          {eventType === "meal" ? (
-            <>
-              <strong>{mealAmountG}g</strong>
-              <small>이유식 종류와 반응을 함께 남겨요.</small>
-            </>
-          ) : null}
-          {eventType === "memo" ? (
-            <>
-              <strong>메모</strong>
-              <small>홈에서 남긴 메모를 수정할 수 있어요.</small>
-            </>
-          ) : null}
-          {eventType === "bath" ? (
-            <>
-              <strong>목욕</strong>
-              <small>목욕한 날짜와 시간을 기록해요.</small>
-            </>
-          ) : null}
-          {eventType === "play" ? (
-            <>
-              <strong>놀이</strong>
-              <small>놀이 시간과 내용을 함께 남겨요.</small>
-            </>
-          ) : null}
-        </div>
+        <div className="quick-action-scroll">
+          <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
+            {eventType === "feed" ? (
+              <>
+                <strong>{amountMl}ml</strong>
+                <small>
+                  {recentFeedAverage ? `최근 평균 ${recentFeedAverage}ml` : "빠른 버튼으로 수유량을 선택해요"}
+                  {feedDiff !== null ? ` · 이전보다 ${Math.abs(feedDiff)}ml ${feedDiff >= 0 ? "많아요" : "적어요"}` : ""}
+                </small>
+              </>
+            ) : null}
+            {eventType === "sleep" ? (
+              <>
+                <strong>{sleepStatusTitle}</strong>
+                <small>{sleepStatusDescription}</small>
+              </>
+            ) : null}
+            {eventType === "diaper" ? (
+              <>
+                <strong>{diaperOptions.find((item) => item.value === diaperType)?.label}</strong>
+                <small>기저귀 상태를 한 번에 기록해요.</small>
+              </>
+            ) : null}
+            {eventType === "medicine" ? (
+              <>
+                <strong>약 복용</strong>
+                <small>약 이름, 용량, 다음 복용 예정까지 기록할 수 있어요.</small>
+              </>
+            ) : null}
+            {eventType === "temperature" ? (
+              <>
+                <strong>{temperatureC.toFixed(1)}도</strong>
+                <small>{temperatureC >= 38 ? "고열 경향" : temperatureC >= 37.5 ? "미열 경향" : "정상 범위 경향"}</small>
+              </>
+            ) : null}
+            {eventType === "meal" ? (
+              <>
+                <strong>{mealAmountG}g</strong>
+                <small>이유식 종류와 반응을 함께 남겨요.</small>
+              </>
+            ) : null}
+            {eventType === "memo" ? (
+              <>
+                <strong>메모</strong>
+                <small>홈에서 남긴 메모를 수정할 수 있어요.</small>
+              </>
+            ) : null}
+            {eventType === "bath" ? (
+              <>
+                <strong>목욕</strong>
+                <small>목욕한 날짜와 시간을 기록해요.</small>
+              </>
+            ) : null}
+            {eventType === "play" ? (
+              <>
+                <strong>놀이</strong>
+                <small>놀이 시간과 내용을 함께 남겨요.</small>
+              </>
+            ) : null}
+          </div>
 
         {eventType === "feed" ? (
           <>
@@ -659,6 +703,7 @@ export function EventInputScreen({
             </label>
           </div>
         )}
+        </div>
 
         <div className="quick-button-row">
           {eventType === "feed" ? (
