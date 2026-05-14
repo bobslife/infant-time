@@ -28,6 +28,12 @@
   box-sizing: border-box;
 }
 
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -39,12 +45,21 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
+  touch-action: manipulation;
 }
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .auth-shell,
