@@ -14,6 +14,7 @@ import {
   updateLocalBaby,
   updateLocalEvent,
 } from "../../lib/storage/localRepository";
+import { clearWidgetSummary, syncWidgetSummary } from "../../lib/widget/widgetBridge";
 import {
   createSupabaseBaby,
   createSupabaseEvent,
@@ -407,6 +408,15 @@ export function useEvents() {
   }, [client, loadForUser]);
 
   const summary = useMemo(() => buildSummary(events), [events]);
+
+  useEffect(() => {
+    if (!user || !baby) {
+      void clearWidgetSummary().catch(() => undefined);
+      return;
+    }
+
+    void syncWidgetSummary(summary, events).catch(() => undefined);
+  }, [baby, events, summary, user]);
 
   async function signUp(input: SignUpInput) {
     if (!client) {

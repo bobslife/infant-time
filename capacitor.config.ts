@@ -6,6 +6,11 @@ const config: CapacitorConfig = {
   appId: "com.infanttime.app",
   appName: "앙팡타임",
   webDir: "dist",
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
+  },
 };
 
 if (serverUrl) {

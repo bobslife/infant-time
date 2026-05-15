@@ -101,6 +101,57 @@ create table if not exists growth_records (
   created_at timestamptz not null default now()
 );
 
+create table if not exists push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  baby_id uuid references babies(id) on delete cascade,
+  platform text not null default 'ios' check (platform in ('ios')),
+  token text not null unique,
+  enabled boolean not null default true,
+  last_seen_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists feeding_reminder_settings (
+  baby_id uuid not null references babies(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  enabled boolean not null default true,
+  interval_minutes integer not null default 180 check (interval_minutes between 30 and 720),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (baby_id, user_id)
+);
+
+alter table feeding_reminder_settings add column if not exists interval_minutes integer;
+update feeding_reminder_settings set interval_minutes = 180 where interval_minutes is null;
+alter table feeding_reminder_settings alter column interval_minutes set default 180;
+alter table feeding_reminder_settings alter column interval_minutes set not null;
+alter table feeding_reminder_settings drop constraint if exists feeding_reminder_settings_interval_minutes_check;
+alter table feeding_reminder_settings add constraint feeding_reminder_settings_interval_minutes_check check (interval_minutes between 30 and 720);
+
+create table if not exists feeding_reminder_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  baby_id uuid not null references babies(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  push_token_id uuid not null references push_tokens(id) on delete cascade,
+  feed_event_id uuid not null references events(id) on delete cascade,
+  last_feed_occurred_at timestamptz not null,
+  average_interval_minutes integer not null check (average_interval_minutes between 30 and 720),
+  scheduled_for timestamptz not null,
+  sent_at timestamptz,
+  apns_id text,
+  status text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
+  error jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table feeding_reminder_deliveries alter column sent_at drop not null;
+alter table feeding_reminder_deliveries alter column sent_at drop default;
+alter table feeding_reminder_deliveries alter column status set default 'pending';
+alter table feeding_reminder_deliveries drop constraint if exists feeding_reminder_deliveries_status_check;
+alter table feeding_reminder_deliveries add constraint feeding_reminder_deliveries_status_check check (status in ('pending', 'sent', 'failed'));
+
 create index if not exists babies_owner_id_idx on babies(owner_id);
 create unique index if not exists babies_invite_code_key on babies(invite_code);
 create index if not exists baby_members_user_id_idx on baby_members(user_id);
@@ -109,6 +160,11 @@ create index if not exists events_user_id_idx on events(user_id);
 create index if not exists account_histories_user_id_idx on account_histories(user_id);
 create unique index if not exists account_histories_user_event_key on account_histories(user_id, event_type);
 create index if not exists growth_records_baby_id_measured_at_idx on growth_records(baby_id, measured_at desc);
+create index if not exists push_tokens_user_id_idx on push_tokens(user_id);
+create index if not exists push_tokens_baby_id_idx on push_tokens(baby_id);
+create index if not exists feeding_reminder_settings_user_id_idx on feeding_reminder_settings(user_id);
+create unique index if not exists feeding_reminder_deliveries_token_feed_key on feeding_reminder_deliveries(push_token_id, feed_event_id);
+create index if not exists feeding_reminder_deliveries_baby_sent_at_idx on feeding_reminder_deliveries(baby_id, sent_at desc);
 
 alter table profiles enable row level security;
 alter table babies enable row level security;
@@ -116,6 +172,9 @@ alter table baby_members enable row level security;
 alter table events enable row level security;
 alter table account_histories enable row level security;
 alter table growth_records enable row level security;
+alter table push_tokens enable row level security;
+alter table feeding_reminder_settings enable row level security;
+alter table feeding_reminder_deliveries enable row level security;
 
 drop policy if exists "profiles_select_own" on profiles;
 create policy "profiles_select_own"
@@ -354,6 +413,113 @@ using (
       )
   )
 );
+
+drop policy if exists "push_tokens_select_own" on push_tokens;
+create policy "push_tokens_select_own"
+on push_tokens for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "push_tokens_insert_own" on push_tokens;
+create policy "push_tokens_insert_own"
+on push_tokens for insert
+to authenticated
+with check (
+  user_id = auth.uid()
+  and (
+    baby_id is null
+    or exists (
+      select 1
+      from babies
+      where babies.id = push_tokens.baby_id
+        and (
+          babies.owner_id = auth.uid()
+          or exists (
+            select 1
+            from baby_members
+            where baby_members.baby_id = babies.id
+              and baby_members.user_id = auth.uid()
+          )
+        )
+    )
+  )
+);
+
+drop policy if exists "push_tokens_update_own" on push_tokens;
+create policy "push_tokens_update_own"
+on push_tokens for update
+to authenticated
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
+
+drop policy if exists "push_tokens_delete_own" on push_tokens;
+create policy "push_tokens_delete_own"
+on push_tokens for delete
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "feeding_reminder_settings_select_own" on feeding_reminder_settings;
+create policy "feeding_reminder_settings_select_own"
+on feeding_reminder_settings for select
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "feeding_reminder_settings_insert_own" on feeding_reminder_settings;
+create policy "feeding_reminder_settings_insert_own"
+on feeding_reminder_settings for insert
+to authenticated
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from babies
+    where babies.id = feeding_reminder_settings.baby_id
+      and (
+        babies.owner_id = auth.uid()
+        or exists (
+          select 1
+          from baby_members
+          where baby_members.baby_id = babies.id
+            and baby_members.user_id = auth.uid()
+        )
+      )
+  )
+);
+
+drop policy if exists "feeding_reminder_settings_update_own" on feeding_reminder_settings;
+create policy "feeding_reminder_settings_update_own"
+on feeding_reminder_settings for update
+to authenticated
+using (user_id = auth.uid())
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from babies
+    where babies.id = feeding_reminder_settings.baby_id
+      and (
+        babies.owner_id = auth.uid()
+        or exists (
+          select 1
+          from baby_members
+          where baby_members.baby_id = babies.id
+            and baby_members.user_id = auth.uid()
+        )
+      )
+  )
+);
+
+drop policy if exists "feeding_reminder_settings_delete_own" on feeding_reminder_settings;
+create policy "feeding_reminder_settings_delete_own"
+on feeding_reminder_settings for delete
+to authenticated
+using (user_id = auth.uid());
+
+drop policy if exists "feeding_reminder_deliveries_select_own" on feeding_reminder_deliveries;
+create policy "feeding_reminder_deliveries_select_own"
+on feeding_reminder_deliveries for select
+to authenticated
+using (user_id = auth.uid());
 
 drop trigger if exists profiles_log_sign_up on profiles;
 drop function if exists log_profile_sign_up();

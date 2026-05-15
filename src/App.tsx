@@ -11,6 +11,7 @@ import { SupportPage } from "./components/SupportPage";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
+import { saveFeedingReminderInterval } from "./lib/push/apns";
 import { BabyEvent, EventType } from "./types";
 
 type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
@@ -154,8 +155,15 @@ export function App() {
 
     const saved = window.localStorage.getItem(getFeedIntervalStorageKey(baby.id));
     const parsed = saved ? Number(saved) : DEFAULT_FEED_INTERVAL_MINUTES;
-    setFeedIntervalMinutes(Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FEED_INTERVAL_MINUTES);
-  }, [baby]);
+    const nextMinutes = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FEED_INTERVAL_MINUTES;
+    setFeedIntervalMinutes(nextMinutes);
+
+    if (user) {
+      void saveFeedingReminderInterval(user, baby, nextMinutes).catch((error) => {
+        console.warn("Failed to sync feeding reminder interval", error);
+      });
+    }
+  }, [baby, user]);
 
   function handleFeedIntervalChange(nextMinutes: number) {
     if (!baby) {
@@ -165,6 +173,12 @@ export function App() {
     const safeMinutes = Math.max(30, Math.min(720, nextMinutes));
     setFeedIntervalMinutes(safeMinutes);
     window.localStorage.setItem(getFeedIntervalStorageKey(baby.id), String(safeMinutes));
+
+    if (user) {
+      void saveFeedingReminderInterval(user, baby, safeMinutes).catch((error) => {
+        console.warn("Failed to save feeding reminder interval", error);
+      });
+    }
   }
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
