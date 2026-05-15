@@ -1,13 +1,19 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { EventSummary } from "../../features/events/useEvents";
-import type { BabyEvent } from "../../types";
+import type { BabyEvent, BabyProfile } from "../../types";
 import { formatTime } from "../time";
 
 type WidgetSummaryPayload = {
+  babyName: string;
+  babyBirthDate: string;
+  babyGender: BabyProfile["gender"];
+  feedIntervalMinutes: number;
   feedingMl: number;
   sleepMinutes: number;
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
+  activeSleepStartedAt: string | null;
+  awakeStartedAt: string | null;
   diaperCount: number;
   mealCount: number;
   playMinutes: number;
@@ -49,14 +55,30 @@ function getEventLabel(event: BabyEvent | null): string {
   return labelMap[event.eventType] ?? "기록";
 }
 
-export function buildWidgetSummary(summary: EventSummary, events: BabyEvent[]) {
+function getAwakeStartedAt(events: BabyEvent[]): string | null {
+  const lastFinishedSleep = events.find((event) => event.eventType === "sleep" && event.endedAt);
+  return lastFinishedSleep?.endedAt ?? null;
+}
+
+export function buildWidgetSummary(
+  summary: EventSummary,
+  events: BabyEvent[],
+  baby: BabyProfile,
+  feedIntervalMinutes: number,
+) {
   const latestEvent = events[0] ?? null;
 
   return {
+    babyName: baby.name,
+    babyBirthDate: baby.birthDate,
+    babyGender: baby.gender,
+    feedIntervalMinutes,
     feedingMl: summary.todayFeedTotalMl,
     sleepMinutes: summary.todaySleepMinutes,
     lastFeedAt: summary.lastFeedAt,
     lastFeedAmountMl: summary.lastFeedAmountMl,
+    activeSleepStartedAt: summary.activeSleepStartedAt,
+    awakeStartedAt: summary.activeSleepStartedAt ? null : getAwakeStartedAt(events),
     diaperCount: summary.todayDiaperCount,
     mealCount: summary.todayMealCount,
     playMinutes: summary.todayPlayMinutes,
@@ -68,17 +90,28 @@ export function buildWidgetSummary(summary: EventSummary, events: BabyEvent[]) {
   } satisfies WidgetSummaryPayload;
 }
 
-export async function syncWidgetSummary(summary: EventSummary, events: BabyEvent[]) {
+export async function syncWidgetSummary(
+  summary: EventSummary,
+  events: BabyEvent[],
+  baby: BabyProfile,
+  feedIntervalMinutes: number,
+) {
   if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
     return;
   }
 
-  const payload = buildWidgetSummary(summary, events);
+  const payload = buildWidgetSummary(summary, events, baby, feedIntervalMinutes);
   const signature = JSON.stringify({
+    babyName: payload.babyName,
+    babyBirthDate: payload.babyBirthDate,
+    babyGender: payload.babyGender,
+    feedIntervalMinutes: payload.feedIntervalMinutes,
     feedingMl: payload.feedingMl,
     sleepMinutes: payload.sleepMinutes,
     lastFeedAt: payload.lastFeedAt,
     lastFeedAmountMl: payload.lastFeedAmountMl,
+    activeSleepStartedAt: payload.activeSleepStartedAt,
+    awakeStartedAt: payload.awakeStartedAt,
     diaperCount: payload.diaperCount,
     mealCount: payload.mealCount,
     playMinutes: payload.playMinutes,

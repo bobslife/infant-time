@@ -11,7 +11,8 @@ import { SupportPage } from "./components/SupportPage";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
-import { saveFeedingReminderInterval } from "./lib/push/apns";
+import { loadFeedingReminderInterval, saveFeedingReminderInterval } from "./lib/push/apns";
+import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
 import { BabyEvent, EventType } from "./types";
 
 type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
@@ -81,6 +82,7 @@ export function App() {
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
+  const [isFeedIntervalReady, setIsFeedIntervalReady] = useState(false);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -150,20 +152,79 @@ export function App() {
 
   useEffect(() => {
     if (!baby) {
+      setFeedIntervalMinutes(DEFAULT_FEED_INTERVAL_MINUTES);
+      setIsFeedIntervalReady(false);
       return;
     }
 
+    let isCancelled = false;
     const saved = window.localStorage.getItem(getFeedIntervalStorageKey(baby.id));
-    const parsed = saved ? Number(saved) : DEFAULT_FEED_INTERVAL_MINUTES;
-    const nextMinutes = Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FEED_INTERVAL_MINUTES;
-    setFeedIntervalMinutes(nextMinutes);
+    const parsed = saved ? Number(saved) : NaN;
 
-    if (user) {
-      void saveFeedingReminderInterval(user, baby, nextMinutes).catch((error) => {
-        console.warn("Failed to sync feeding reminder interval", error);
-      });
+    if (Number.isFinite(parsed) && parsed > 0) {
+      const nextMinutes = Math.max(30, Math.min(720, Math.round(parsed)));
+      setFeedIntervalMinutes(nextMinutes);
+      setIsFeedIntervalReady(true);
+
+      if (user) {
+        void saveFeedingReminderInterval(user, baby, nextMinutes).catch((error) => {
+          console.warn("Failed to sync feeding reminder interval", error);
+        });
+      }
+
+      return () => {
+        isCancelled = true;
+      };
     }
+
+    setIsFeedIntervalReady(false);
+    void (async () => {
+      try {
+        const remoteMinutes = user ? await loadFeedingReminderInterval(user, baby) : null;
+        const nextMinutes = remoteMinutes ?? DEFAULT_FEED_INTERVAL_MINUTES;
+
+        if (isCancelled) {
+          return;
+        }
+
+        setFeedIntervalMinutes(nextMinutes);
+        setIsFeedIntervalReady(true);
+        window.localStorage.setItem(getFeedIntervalStorageKey(baby.id), String(nextMinutes));
+
+        if (user && remoteMinutes === null) {
+          void saveFeedingReminderInterval(user, baby, nextMinutes).catch((error) => {
+            console.warn("Failed to initialize feeding reminder interval", error);
+          });
+        }
+      } catch (error) {
+        console.warn("Failed to load feeding reminder interval", error);
+
+        if (isCancelled) {
+          return;
+        }
+
+        setFeedIntervalMinutes(DEFAULT_FEED_INTERVAL_MINUTES);
+        setIsFeedIntervalReady(true);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [baby, user]);
+
+  useEffect(() => {
+    if (!user || !baby) {
+      void clearWidgetSummary().catch(() => undefined);
+      return;
+    }
+
+    if (!isFeedIntervalReady) {
+      return;
+    }
+
+    void syncWidgetSummary(summary, events, baby, feedIntervalMinutes).catch(() => undefined);
+  }, [baby, events, feedIntervalMinutes, isFeedIntervalReady, summary, user]);
 
   function handleFeedIntervalChange(nextMinutes: number) {
     if (!baby) {
@@ -172,6 +233,7 @@ export function App() {
 
     const safeMinutes = Math.max(30, Math.min(720, nextMinutes));
     setFeedIntervalMinutes(safeMinutes);
+    setIsFeedIntervalReady(true);
     window.localStorage.setItem(getFeedIntervalStorageKey(baby.id), String(safeMinutes));
 
     if (user) {

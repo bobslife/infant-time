@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-const serverUrl = process.env.CAP_SERVER_URL ?? "https://infant-time.vercel.app";
+const serverUrl = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
   appId: "com.infanttime.app",

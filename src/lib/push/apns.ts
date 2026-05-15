@@ -154,6 +154,38 @@ export async function saveFeedingReminderInterval(
   }
 }
 
+export async function loadFeedingReminderInterval(
+  user: AppUser,
+  baby: BabyProfile,
+): Promise<number | null> {
+  if (user.isLocal) {
+    return null;
+  }
+
+  const client = getSupabaseClient();
+  if (!client) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from("feeding_reminder_settings")
+    .select("interval_minutes")
+    .eq("baby_id", baby.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const minutes = Number(data?.interval_minutes);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return null;
+  }
+
+  return Math.max(30, Math.min(720, Math.round(minutes)));
+}
+
 export async function runApnsPushSpike(user: AppUser, baby: BabyProfile): Promise<PushRegistrationResult> {
   const token = await registerApnsToken(user, baby);
   const client = getSupabaseClient();
