@@ -137,7 +137,11 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Legend />
+                <Legend
+                  align="right"
+                  wrapperStyle={{ fontSize: 11, fontWeight: 700, color: "#6b7280" }}
+                  iconSize={8}
+                />
                 <Line type="monotone" dataKey="weightKg" name="몸무게 kg" stroke="#3182f6" strokeWidth={2} connectNulls />
                 <Line type="monotone" dataKey="heightCm" name="키 cm" stroke="#16a34a" strokeWidth={2} connectNulls />
                 <Line type="monotone" dataKey="headCm" name="머리둘레 cm" stroke="#ff7aa2" strokeWidth={2} connectNulls />

@@ -2881,6 +2881,8 @@ button {
   display: grid;
   gap: 5px;
   min-width: 0;
+  justify-items: start;
+  text-align: left;
   padding: 14px;
   border-radius: 8px;
   background: #fff;
@@ -2903,6 +2905,7 @@ button {
   width: 100%;
   min-width: 0;
   height: 260px;
+  margin-top: 20px;
 }
 
 .activity-shortcut {
@@ -3209,6 +3212,33 @@ button {
   background: rgba(255, 255, 255, 0.96);
   padding: 18px;
   box-shadow: 0 18px 42px rgba(25, 31, 40, 0.18);
+}
+
+.baby-picker-modal-backdrop {
+  z-index: 60;
+  place-items: start center;
+  padding: calc(8px + env(safe-area-inset-top)) 12px calc(132px + env(safe-area-inset-bottom));
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(4px);
+}
+
+.app-shell-admob .baby-picker-modal-backdrop {
+  padding-bottom: calc(154px + env(safe-area-inset-bottom));
+}
+
+.baby-picker-modal-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 560px);
+  max-height: calc(100dvh - 8px - env(safe-area-inset-top) - 132px - env(safe-area-inset-bottom));
+  border-color: rgba(255, 255, 255, 0.58);
+  border-radius: 24px 24px 18px 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+}
+
+.app-shell-admob .baby-picker-modal-panel {
+  max-height: calc(100dvh - 8px - env(safe-area-inset-top) - 154px - env(safe-area-inset-bottom));
 }
 
 .baby-picker-list {

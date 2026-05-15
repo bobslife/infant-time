@@ -179,7 +179,7 @@ export function ProfileScreen({
           </div>
         ) : null}
       </section>
-      <AdBanner placement="profile-bottom" />
+      {!isPickerOpen ? <AdBanner placement="profile-bottom" /> : null}
       <section className="panel">
         <div className="section-heading compact-heading">
           <div>
@@ -267,9 +267,9 @@ export function ProfileScreen({
         </div>
       ) : null}
       {isPickerOpen ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setIsPickerOpen(false)}>
+        <div className="modal-backdrop baby-picker-modal-backdrop" role="presentation" onClick={() => setIsPickerOpen(false)}>
           <section
-            className="modal-panel"
+            className="modal-panel baby-picker-modal-panel"
             role="dialog"
             aria-modal="true"
             aria-label="아기 변경"
