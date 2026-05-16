@@ -120,7 +120,6 @@ export function EventInputScreen({
   const [poopColor, setPoopColor] = useState<PoopColor>("ocher");
   const [medicineName, setMedicineName] = useState("");
   const [medicineDose, setMedicineDose] = useState("");
-  const [medicineNextAt, setMedicineNextAt] = useState("");
   const [temperatureC, setTemperatureC] = useState<number | "">("");
   const [temperatureLocation, setTemperatureLocation] = useState<TemperatureLocation>("forehead");
   const [mealName, setMealName] = useState("");
@@ -193,7 +192,6 @@ export function EventInputScreen({
       setPoopColor("ocher");
       setMedicineName("");
       setMedicineDose("");
-      setMedicineNextAt("");
       setTemperatureC("");
       setTemperatureLocation("forehead");
       setMealName("");
@@ -222,7 +220,6 @@ export function EventInputScreen({
     setPoopColor(editingEvent.poopColor ?? "ocher");
     setMedicineName(editingEvent.medicineName ?? "");
     setMedicineDose(editingEvent.medicineDose ?? "");
-    setMedicineNextAt(editingEvent.medicineNextAt ? toInputDateTime(editingEvent.medicineNextAt) : "");
     setTemperatureC(editingEvent.temperatureC ?? "");
     setTemperatureLocation(editingEvent.temperatureLocation ?? "forehead");
     setMealName(editingEvent.mealName ?? "");
@@ -277,7 +274,7 @@ export function EventInputScreen({
       poopColor: hasPoopDetail ? poopColor : null,
       medicineName: eventType === "medicine" ? medicineName.trim() : null,
       medicineDose: eventType === "medicine" ? medicineDose.trim() || null : null,
-      medicineNextAt: eventType === "medicine" && medicineNextAt ? medicineNextAt : null,
+      medicineNextAt: null,
       temperatureC: eventType === "temperature" && temperatureC !== "" ? temperatureC : null,
       temperatureLocation: eventType === "temperature" ? temperatureLocation : null,
       mealName: eventType === "meal" ? mealName.trim() : null,
@@ -480,7 +477,7 @@ export function EventInputScreen({
             {eventType === "medicine" ? (
               <>
                 <strong>약 복용</strong>
-                <small>약 이름, 용량, 다음 복용 예정까지 기록할 수 있어요.</small>
+                <small>약 이름, 용량, 복용 시간을 기록할 수 있어요.</small>
               </>
             ) : null}
             {eventType === "temperature" ? (
@@ -540,6 +537,76 @@ export function EventInputScreen({
           </>
         ) : null}
 
+        {eventType === "medicine" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>약 이름</span>
+              <input value={medicineName} onChange={(event) => setMedicineName(event.target.value)} placeholder="예: 비타민 D" />
+            </label>
+            <label className="medicine-name-field">
+              <span>용량</span>
+              <input value={medicineDose} onChange={(event) => setMedicineDose(event.target.value)} placeholder="예: 1방울, 2.5ml" />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType === "temperature" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>체온</span>
+              <input
+                type="number"
+                step="0.1"
+                min="34"
+                max="43"
+                value={temperatureC}
+                onChange={(event) => setTemperatureC(event.target.value === "" ? "" : Number(event.target.value))}
+              />
+            </label>
+            <div className="choice-grid">
+              {temperatureLocations.map((option) => (
+                <button className={temperatureLocation === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setTemperatureLocation(option.value)}>
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {eventType === "diaper" || eventType === "meal" || eventType === "bath" || eventType === "medicine" || eventType === "temperature" || eventType === "feed" ? (
+          <div className="quick-time-card" aria-label="기록 시간">
+            <label>
+              <span>날짜</span>
+              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
+            </label>
+            <label>
+              <span>시간</span>
+              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType === "sleep" || eventType === "play" ? (
+          <div className="sleep-time-editor" aria-label={eventType === "play" ? "놀이 시간 입력" : "수면 시간 입력"}>
+            <label>
+              <span>시작 날짜</span>
+              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
+            </label>
+            <label>
+              <span>시작 시간</span>
+              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
+            </label>
+            <label>
+              <span>종료 날짜</span>
+              <input type="date" value={endedDate} onChange={(event) => handleEndedDateChange(event.target.value)} />
+            </label>
+            <label>
+              <span>종료 시간</span>
+              <input type="time" value={endedTime} onChange={(event) => handleEndedTimeChange(event.target.value)} />
+            </label>
+          </div>
+        ) : null}
+
         {eventType === "diaper" ? (
           <div className="quick-poop-row">
             <div className="choice-grid">
@@ -570,46 +637,6 @@ export function EventInputScreen({
           </div>
         ) : null}
 
-        {eventType === "medicine" ? (
-          <div className="stacked-fields">
-            <label className="medicine-name-field">
-              <span>약 이름</span>
-              <input value={medicineName} onChange={(event) => setMedicineName(event.target.value)} placeholder="예: 비타민 D" />
-            </label>
-            <label className="medicine-name-field">
-              <span>용량</span>
-              <input value={medicineDose} onChange={(event) => setMedicineDose(event.target.value)} placeholder="예: 1방울, 2.5ml" />
-            </label>
-            <label className="medicine-name-field">
-              <span>다음 복용 예정</span>
-              <input type="datetime-local" value={medicineNextAt} onChange={(event) => setMedicineNextAt(event.target.value)} />
-            </label>
-          </div>
-        ) : null}
-
-        {eventType === "temperature" ? (
-          <div className="stacked-fields">
-            <label className="medicine-name-field">
-              <span>체온</span>
-              <input
-                type="number"
-                step="0.1"
-                min="34"
-                max="43"
-                value={temperatureC}
-                onChange={(event) => setTemperatureC(event.target.value === "" ? "" : Number(event.target.value))}
-              />
-            </label>
-            <div className="choice-grid">
-              {temperatureLocations.map((option) => (
-                <button className={temperatureLocation === option.value ? "active" : ""} key={option.value} type="button" onClick={() => setTemperatureLocation(option.value)}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         {eventType === "meal" ? (
           <div className="stacked-fields">
             <label className="medicine-name-field">
@@ -636,20 +663,6 @@ export function EventInputScreen({
           </div>
         ) : null}
 
-        {eventType === "memo" ? (
-          <div className="stacked-fields">
-            <label className="medicine-name-field">
-              <span>메모</span>
-              <textarea
-                rows={4}
-                value={memoText}
-                onChange={(event) => setMemoText(event.target.value)}
-                placeholder="메모를 입력해 주세요"
-              />
-            </label>
-          </div>
-        ) : null}
-
         {eventType === "play" ? (
           <div className="stacked-fields">
             <label className="medicine-name-field">
@@ -659,6 +672,20 @@ export function EventInputScreen({
                 value={memoText}
                 onChange={(event) => setMemoText(event.target.value)}
                 placeholder="예: 터미타임, 모빌 보기, 책 읽기"
+              />
+            </label>
+          </div>
+        ) : null}
+
+        {eventType === "memo" ? (
+          <div className="stacked-fields">
+            <label className="medicine-name-field">
+              <span>메모</span>
+              <textarea
+                rows={4}
+                value={memoText}
+                onChange={(event) => setMemoText(event.target.value)}
+                placeholder="메모를 입력해 주세요"
               />
             </label>
           </div>
@@ -677,38 +704,6 @@ export function EventInputScreen({
             </label>
           </div>
         ) : null}
-
-        {eventType === "sleep" || eventType === "play" ? (
-          <div className="sleep-time-editor" aria-label={eventType === "play" ? "놀이 시간 입력" : "수면 시간 입력"}>
-            <label>
-              <span>시작 날짜</span>
-              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
-            </label>
-            <label>
-              <span>시작 시간</span>
-              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
-            </label>
-            <label>
-              <span>종료 날짜</span>
-              <input type="date" value={endedDate} onChange={(event) => handleEndedDateChange(event.target.value)} />
-            </label>
-            <label>
-              <span>종료 시간</span>
-              <input type="time" value={endedTime} onChange={(event) => handleEndedTimeChange(event.target.value)} />
-            </label>
-          </div>
-        ) : (
-          <div className="quick-time-card" aria-label="기록 시간">
-            <label>
-              <span>날짜</span>
-              <input type="date" value={quickDate} onChange={(event) => handleQuickDateChange(event.target.value)} />
-            </label>
-            <label>
-              <span>시간</span>
-              <input type="time" value={quickTime} onChange={(event) => handleQuickTimeChange(event.target.value)} />
-            </label>
-          </div>
-        )}
         </div>
 
         <div className="quick-button-row">

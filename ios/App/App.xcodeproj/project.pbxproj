@@ -402,7 +402,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.infanttime.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -428,7 +428,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.3;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.infanttime.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
@@ -448,7 +448,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/InfantTimeWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.infanttime.app.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -468,7 +468,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = App/InfantTimeWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.0.2;
+				MARKETING_VERSION = 1.0.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.infanttime.app.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

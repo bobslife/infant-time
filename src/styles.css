@@ -2358,7 +2358,7 @@ button {
 
 .medicine-name-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 10px;
   border-radius: 8px;
   background: var(--color-surface-soft);
@@ -2384,14 +2384,14 @@ button {
 
 .quick-time-card label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
 .sleep-time-editor label {
   display: grid;
   flex: 0 0 calc(50% - 5px);
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -2409,7 +2409,7 @@ button {
 .sleep-time-editor input {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  min-height: 58px;
   border: 1px solid rgba(25, 31, 40, 0.08);
   border-radius: 8px;
   padding: 0 10px;
@@ -2421,7 +2421,7 @@ button {
 }
 
 .medicine-name-field textarea {
-  min-height: 96px;
+  min-height: 58px;
   padding: 12px 10px;
   resize: vertical;
 }
@@ -3300,8 +3300,8 @@ button {
   display: flex;
   flex-direction: column;
   width: min(100%, 560px);
-  height: calc(100dvh - var(--input-modal-top-gap) - var(--input-modal-bottom-gap));
-  max-height: none;
+  height: 75dvh;
+  max-height: 75dvh;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 24px 24px 18px 18px;
@@ -3361,7 +3361,8 @@ button {
 .input-modal-panel .quick-action-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   overflow-y: auto;
   padding: 14px;

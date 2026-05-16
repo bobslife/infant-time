@@ -21,7 +21,7 @@ struct InfantTimeWidgetProvider: TimelineProvider {
     func placeholder(in context: Context) -> InfantTimeWidgetEntry {
         InfantTimeWidgetEntry(
             date: Date(),
-            babyName: "하준",
+            babyName: "아기천사",
             babyBirthDate: "2026-05-01",
             babyGender: .boy,
             feedIntervalMinutes: 180,
@@ -35,16 +35,20 @@ struct InfantTimeWidgetProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (InfantTimeWidgetEntry) -> Void) {
-        completion(loadEntry())
+        completion(loadEntry(date: Date()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<InfantTimeWidgetEntry>) -> Void) {
-        let entry = loadEntry()
-        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date()
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        let now = Date()
+        let entries = (0..<60).map { offset in
+            let entryDate = Calendar.current.date(byAdding: .minute, value: offset, to: now) ?? now
+            return loadEntry(date: entryDate)
+        }
+        let nextRefresh = Calendar.current.date(byAdding: .minute, value: 60, to: now) ?? now
+        completion(Timeline(entries: entries, policy: .after(nextRefresh)))
     }
 
-    private func loadEntry() -> InfantTimeWidgetEntry {
+    private func loadEntry(date: Date) -> InfantTimeWidgetEntry {
         let defaults = UserDefaults(suiteName: "group.com.infanttime.app")
         let summary = defaults?.dictionary(forKey: "todayWidgetSummary")
         let babyName = summary?["babyName"] as? String ?? defaults?.string(forKey: "babyName") ?? "앙팡타임"
@@ -59,7 +63,7 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let awakeStartedAtString = summary?["awakeStartedAt"] as? String ?? defaults?.string(forKey: "awakeStartedAt")
 
         return InfantTimeWidgetEntry(
-            date: Date(),
+            date: date,
             babyName: babyName,
             babyBirthDate: babyBirthDate,
             babyGender: babyGender,
@@ -395,6 +399,18 @@ private struct FeedingWidgetViewModel {
         Self.formatDuration(entry.feedIntervalMinutes)
     }
 
+    var widgetUpdateText: String {
+        "1분마다 업데이트"
+    }
+
+    var nextFeedDueAt: Date? {
+        guard let lastFeedAt = entry.lastFeedAt else {
+            return nil
+        }
+
+        return Calendar.current.date(byAdding: .minute, value: entry.feedIntervalMinutes, to: lastFeedAt)
+    }
+
     static func formatDuration(_ minutes: Int) -> String {
         if minutes < 60 {
             return "\(minutes)분"
@@ -547,22 +563,61 @@ private struct MainCountdown: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("다음 수유까지")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(WidgetTheme.secondaryText)
+            HStack(alignment: .top, spacing: 8) {
+                Text("다음 수유까지")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
 
-            Text(model.countdownText)
-                .font(.system(size: 31, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(model.urgencyColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
+                Spacer(minLength: 6)
 
-            Text(model.elapsedFeedText)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(WidgetTheme.secondaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(model.widgetUpdateText)
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(WidgetTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            if let nextFeedDueAt = model.nextFeedDueAt {
+                Text(nextFeedDueAt, style: .relative)
+                    .font(.system(size: 31, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(model.urgencyColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+
+                if let lastFeedAt = model.entry.lastFeedAt {
+                    HStack(spacing: 4) {
+                        Text("마지막 수유")
+                        Text(lastFeedAt, style: .relative)
+                    }
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                } else {
+                    Text("수유 기록 없음")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(WidgetTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            } else {
+                Text(model.countdownText)
+                    .font(.system(size: 31, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(model.urgencyColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+
+                Text(model.elapsedFeedText)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
         }
     }
 }

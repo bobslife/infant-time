@@ -13,6 +13,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let suiteName = "group.com.infanttime.app"
     private let summaryKey = "todayWidgetSummary"
+    private let lastReloadAtKey = "widgetLastReloadAt"
+    private let reloadThrottleInterval: TimeInterval = 60
 
     @objc func saveSummary(_ call: CAPPluginCall) {
         guard let summary = call.getObject("summary") else {
@@ -42,7 +44,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.set(summary["updatedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()), forKey: "todayWidgetUpdatedAt")
         defaults?.synchronize()
 
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadTimelinesIfNeeded(defaults: defaults)
         call.resolve()
     }
 
@@ -67,6 +69,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.removeObject(forKey: "lastEventLabel")
         defaults?.removeObject(forKey: "lastEventTime")
         defaults?.removeObject(forKey: "todayWidgetUpdatedAt")
+        defaults?.removeObject(forKey: lastReloadAtKey)
         defaults?.synchronize()
 
         WidgetCenter.shared.reloadAllTimelines()
@@ -81,5 +84,17 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
             result[pair.key] = pair.value
         }
+    }
+
+    private func reloadTimelinesIfNeeded(defaults: UserDefaults?) {
+        let now = Date()
+        let lastReloadAt = defaults?.object(forKey: lastReloadAtKey) as? Date
+        if let lastReloadAt, now.timeIntervalSince(lastReloadAt) < reloadThrottleInterval {
+            return
+        }
+
+        defaults?.set(now, forKey: lastReloadAtKey)
+        defaults?.synchronize()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
