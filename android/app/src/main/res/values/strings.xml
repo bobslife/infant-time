@@ -4,5 +4,5 @@
     <string name="title_activity_main">앙팡타임</string>
     <string name="package_name">com.infanttime.app</string>
     <string name="custom_url_scheme">com.infanttime.app</string>
-    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_app_id">ca-app-pub-7377226666674587~6759815233</string>
 </resources>
