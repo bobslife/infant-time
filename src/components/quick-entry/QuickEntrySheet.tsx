@@ -83,11 +83,11 @@ export function QuickEntrySheet({
 }: QuickEntrySheetProps) {
   const [amountMl, setAmountMl] = useState(120);
   const [diaperType, setDiaperType] = useState<DiaperType>("wet");
-  const [medicineName, setMedicineName] = useState("약");
+  const [medicineName, setMedicineName] = useState("");
   const [medicineDose, setMedicineDose] = useState("");
-  const [temperatureC, setTemperatureC] = useState(36.8);
-  const [mealName, setMealName] = useState("쌀미음");
-  const [mealAmountG, setMealAmountG] = useState(80);
+  const [temperatureC, setTemperatureC] = useState<number | "">("");
+  const [mealName, setMealName] = useState("");
+  const [mealAmountG, setMealAmountG] = useState<number | "">("");
   const [mealReaction] = useState<MealReaction>("good");
   const [memoText, setMemoText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,11 +121,11 @@ export function QuickEntrySheet({
 
     setAmountMl(120);
     setDiaperType("wet");
-    setMedicineName("약");
+    setMedicineName("");
     setMedicineDose("");
-    setTemperatureC(36.8);
-    setMealName("쌀미음");
-    setMealAmountG(80);
+    setTemperatureC("");
+    setMealName("");
+    setMealAmountG("");
     setMemoText("");
     setToastMessage(null);
   }, [eventType]);
@@ -158,13 +158,13 @@ export function QuickEntrySheet({
       diaperType: eventType === "diaper" ? diaperType : null,
       poopAmount: eventType === "diaper" && diaperType !== "wet" ? "normal" : null,
       poopColor: eventType === "diaper" && diaperType !== "wet" ? "ocher" : null,
-      medicineName: eventType === "medicine" ? medicineName.trim() || "약" : null,
+      medicineName: eventType === "medicine" ? medicineName.trim() || null : null,
       medicineDose: eventType === "medicine" ? medicineDose.trim() || null : null,
       medicineNextAt: null,
-      temperatureC: eventType === "temperature" ? temperatureC : null,
+      temperatureC: eventType === "temperature" && temperatureC !== "" ? temperatureC : null,
       temperatureLocation: eventType === "temperature" ? "forehead" : null,
-      mealName: eventType === "meal" ? mealName.trim() || "쌀미음" : null,
-      mealAmountG: eventType === "meal" ? mealAmountG : null,
+      mealName: eventType === "meal" ? mealName.trim() || null : null,
+      mealAmountG: eventType === "meal" && mealAmountG !== "" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
       note: eventType === "memo" ? memoText.trim() || undefined : undefined,
     };
@@ -175,18 +175,8 @@ export function QuickEntrySheet({
       return;
     }
 
-    if (eventType === "temperature" && (temperatureC < 34 || temperatureC > 43)) {
+    if (eventType === "temperature" && temperatureC !== "" && (temperatureC < 34 || temperatureC > 43)) {
       setToastMessage("체온을 34~43도 사이로 입력해 주세요");
-      return;
-    }
-
-    if (eventType === "meal" && mealAmountG <= 0) {
-      setToastMessage("이유식 양을 입력해 주세요");
-      return;
-    }
-
-    if (eventType === "memo" && !memoText.trim()) {
-      setToastMessage("메모 내용을 입력해 주세요");
       return;
     }
 
@@ -275,7 +265,7 @@ export function QuickEntrySheet({
         {eventType === "medicine" ? (
           <div className="stacked-fields">
             <p className="quick-entry-hint">
-              {lastMedicine ? `최근 복용 ${formatTime(lastMedicine.occurredAt)}` : "자주 먹는 약은 이름만 입력해도 바로 저장할 수 있어요."}
+              {lastMedicine ? `최근 복용 ${formatTime(lastMedicine.occurredAt)}` : "시간만 기록하거나 약 이름을 함께 남길 수 있어요."}
             </p>
             <label className="medicine-name-field">
               <span>약 이름</span>
@@ -299,7 +289,14 @@ export function QuickEntrySheet({
             </div>
             <label className="medicine-name-field">
               <span>체온</span>
-              <input type="number" step="0.1" min="34" max="43" value={temperatureC} onChange={(event) => setTemperatureC(Number(event.target.value))} />
+              <input
+                type="number"
+                step="0.1"
+                min="34"
+                max="43"
+                value={temperatureC}
+                onChange={(event) => setTemperatureC(event.target.value === "" ? "" : Number(event.target.value))}
+              />
             </label>
           </div>
         ) : null}
@@ -322,7 +319,13 @@ export function QuickEntrySheet({
             </div>
             <label className="medicine-name-field">
               <span>양(g)</span>
-              <input type="number" min="1" max="500" value={mealAmountG} onChange={(event) => setMealAmountG(Number(event.target.value))} />
+              <input
+                type="number"
+                min="1"
+                max="500"
+                value={mealAmountG}
+                onChange={(event) => setMealAmountG(event.target.value === "" ? "" : Number(event.target.value))}
+              />
             </label>
           </div>
         ) : null}

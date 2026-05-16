@@ -44,7 +44,7 @@ create table if not exists events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   baby_id uuid not null references babies(id) on delete cascade,
-  event_type text not null check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal', 'bath', 'play')),
+  event_type text not null check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal', 'memo', 'bath', 'play')),
   occurred_at timestamptz not null,
   ended_at timestamptz,
   amount_ml integer check (amount_ml is null or (amount_ml >= 0 and amount_ml <= 300)),
@@ -74,7 +74,7 @@ alter table events add column if not exists meal_name text;
 alter table events add column if not exists meal_amount_g integer;
 alter table events add column if not exists meal_reaction text;
 alter table events drop constraint if exists events_event_type_check;
-alter table events add constraint events_event_type_check check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal', 'bath', 'play'));
+alter table events add constraint events_event_type_check check (event_type in ('feed', 'sleep', 'pee', 'poop', 'diaper', 'medicine', 'temperature', 'meal', 'memo', 'bath', 'play'));
 alter table events drop constraint if exists events_diaper_type_check;
 alter table events add constraint events_diaper_type_check check (diaper_type is null or diaper_type in ('wet', 'dirty', 'both'));
 alter table events drop constraint if exists events_temperature_location_check;

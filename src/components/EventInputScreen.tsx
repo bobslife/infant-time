@@ -121,10 +121,10 @@ export function EventInputScreen({
   const [medicineName, setMedicineName] = useState("");
   const [medicineDose, setMedicineDose] = useState("");
   const [medicineNextAt, setMedicineNextAt] = useState("");
-  const [temperatureC, setTemperatureC] = useState(36.6);
+  const [temperatureC, setTemperatureC] = useState<number | "">("");
   const [temperatureLocation, setTemperatureLocation] = useState<TemperatureLocation>("forehead");
   const [mealName, setMealName] = useState("");
-  const [mealAmountG, setMealAmountG] = useState(80);
+  const [mealAmountG, setMealAmountG] = useState<number | "">("");
   const [mealReaction, setMealReaction] = useState<MealReaction>("good");
   const [memoText, setMemoText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -194,10 +194,10 @@ export function EventInputScreen({
       setMedicineName("");
       setMedicineDose("");
       setMedicineNextAt("");
-      setTemperatureC(36.6);
+      setTemperatureC("");
       setTemperatureLocation("forehead");
       setMealName("");
-      setMealAmountG(80);
+      setMealAmountG("");
       setMealReaction("good");
       setMemoText("");
       if (normalizedInitialType === "play") {
@@ -223,10 +223,10 @@ export function EventInputScreen({
     setMedicineName(editingEvent.medicineName ?? "");
     setMedicineDose(editingEvent.medicineDose ?? "");
     setMedicineNextAt(editingEvent.medicineNextAt ? toInputDateTime(editingEvent.medicineNextAt) : "");
-    setTemperatureC(editingEvent.temperatureC ?? 36.6);
+    setTemperatureC(editingEvent.temperatureC ?? "");
     setTemperatureLocation(editingEvent.temperatureLocation ?? "forehead");
     setMealName(editingEvent.mealName ?? "");
-    setMealAmountG(editingEvent.mealAmountG ?? 80);
+    setMealAmountG(editingEvent.mealAmountG ?? "");
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.note ?? "");
   }, [editingEvent, initialEventType, latestFeedAmount, ongoingSleep]);
@@ -278,38 +278,23 @@ export function EventInputScreen({
       medicineName: eventType === "medicine" ? medicineName.trim() : null,
       medicineDose: eventType === "medicine" ? medicineDose.trim() || null : null,
       medicineNextAt: eventType === "medicine" && medicineNextAt ? medicineNextAt : null,
-      temperatureC: eventType === "temperature" ? temperatureC : null,
+      temperatureC: eventType === "temperature" && temperatureC !== "" ? temperatureC : null,
       temperatureLocation: eventType === "temperature" ? temperatureLocation : null,
       mealName: eventType === "meal" ? mealName.trim() : null,
-      mealAmountG: eventType === "meal" ? mealAmountG : null,
+      mealAmountG: eventType === "meal" && mealAmountG !== "" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
       note: memoText.trim() || undefined,
     };
   }
 
   function validateInput(input: CreateEventInput): string | null {
-    if (input.eventType === "medicine" && !input.medicineName?.trim()) {
-      return "약 종류를 입력해 주세요";
-    }
-
-    if (input.eventType === "temperature" && (!input.temperatureC || input.temperatureC < 34 || input.temperatureC > 43)) {
+    if (
+      input.eventType === "temperature" &&
+      input.temperatureC !== null &&
+      input.temperatureC !== undefined &&
+      (input.temperatureC < 34 || input.temperatureC > 43)
+    ) {
       return "체온을 34~43도 사이로 입력해 주세요";
-    }
-
-    if (input.eventType === "meal" && !input.mealName?.trim()) {
-      return "이유식 종류를 입력해 주세요";
-    }
-
-    if (input.eventType === "memo" && !input.note?.trim()) {
-      return "메모를 입력해 주세요";
-    }
-
-    if (input.eventType === "play" && !input.note?.trim()) {
-      return "놀이 내용을 입력해 주세요";
-    }
-
-    if (input.eventType === "play" && !input.endedAt) {
-      return "놀이 종료 시간을 입력해 주세요";
     }
 
     if (input.eventType === "sleep" && input.endedAt && isEndedBeforeStarted(input.occurredAt, input.endedAt)) {
@@ -500,14 +485,22 @@ export function EventInputScreen({
             ) : null}
             {eventType === "temperature" ? (
               <>
-                <strong>{temperatureC.toFixed(1)}도</strong>
-                <small>{temperatureC >= 38 ? "고열 경향" : temperatureC >= 37.5 ? "미열 경향" : "정상 범위 경향"}</small>
+                <strong>{temperatureC === "" ? "체온" : `${temperatureC.toFixed(1)}도`}</strong>
+                <small>
+                  {temperatureC === ""
+                    ? "시간만 기록해도 저장돼요."
+                    : temperatureC >= 38
+                      ? "고열 경향"
+                      : temperatureC >= 37.5
+                        ? "미열 경향"
+                        : "정상 범위 경향"}
+                </small>
               </>
             ) : null}
             {eventType === "meal" ? (
               <>
-                <strong>{mealAmountG}g</strong>
-                <small>이유식 종류와 반응을 함께 남겨요.</small>
+                <strong>{mealAmountG === "" ? "이유식" : `${mealAmountG}g`}</strong>
+                <small>시간만 기록하거나 종류와 반응을 함께 남겨요.</small>
               </>
             ) : null}
             {eventType === "memo" ? (
@@ -525,7 +518,7 @@ export function EventInputScreen({
             {eventType === "play" ? (
               <>
                 <strong>놀이</strong>
-                <small>놀이 시간과 내용을 함께 남겨요.</small>
+                <small>시간만 기록하거나 내용을 함께 남겨요.</small>
               </>
             ) : null}
           </div>
@@ -581,7 +574,7 @@ export function EventInputScreen({
           <div className="stacked-fields">
             <label className="medicine-name-field">
               <span>약 이름</span>
-              <input required value={medicineName} onChange={(event) => setMedicineName(event.target.value)} placeholder="예: 비타민 D" />
+              <input value={medicineName} onChange={(event) => setMedicineName(event.target.value)} placeholder="예: 비타민 D" />
             </label>
             <label className="medicine-name-field">
               <span>용량</span>
@@ -598,7 +591,14 @@ export function EventInputScreen({
           <div className="stacked-fields">
             <label className="medicine-name-field">
               <span>체온</span>
-              <input type="number" step="0.1" min="34" max="43" value={temperatureC} onChange={(event) => setTemperatureC(Number(event.target.value))} />
+              <input
+                type="number"
+                step="0.1"
+                min="34"
+                max="43"
+                value={temperatureC}
+                onChange={(event) => setTemperatureC(event.target.value === "" ? "" : Number(event.target.value))}
+              />
             </label>
             <div className="choice-grid">
               {temperatureLocations.map((option) => (
@@ -614,11 +614,17 @@ export function EventInputScreen({
           <div className="stacked-fields">
             <label className="medicine-name-field">
               <span>종류</span>
-              <input required value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="예: 쌀미음" />
+              <input value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="예: 쌀미음" />
             </label>
             <label className="medicine-name-field">
               <span>양(g)</span>
-              <input type="number" min="0" max="500" value={mealAmountG} onChange={(event) => setMealAmountG(Number(event.target.value))} />
+              <input
+                type="number"
+                min="0"
+                max="500"
+                value={mealAmountG}
+                onChange={(event) => setMealAmountG(event.target.value === "" ? "" : Number(event.target.value))}
+              />
             </label>
             <div className="choice-grid">
               {mealReactions.map((option) => (
