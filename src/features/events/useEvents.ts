@@ -653,9 +653,9 @@ export function useEvents() {
       if (shouldAutoCloseSleep) {
         const openSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
         if (openSleep) {
-          const nowMinus15Minutes = Date.now() - 15 * 60 * 1000;
+          const inputOccurredAtMinus15Minutes = new Date(input.occurredAt).getTime() - 15 * 60 * 1000;
           const sleepStartedAt = new Date(openSleep.occurredAt).getTime();
-          const safeEndedAtMs = Math.max(nowMinus15Minutes, sleepStartedAt);
+          const safeEndedAtMs = Math.max(inputOccurredAtMinus15Minutes, sleepStartedAt);
           autoClosedSleepEndedAt = new Date(safeEndedAtMs).toISOString();
 
           const updatedSleepInput: UpdateEventInput = {
