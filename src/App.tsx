@@ -98,6 +98,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("infant-time-admob-visibility", {
+        detail: { hidden: isInputModalOpen },
+      }),
+    );
+  }, [isInputModalOpen]);
+
+  useEffect(() => {
     if (!user) {
       return;
     }
@@ -504,6 +512,7 @@ export function App() {
               baby={baby}
               editingEvent={editingEvent}
               events={events}
+              hideAds
               initialEventType={inputEventType}
               onSubmit={handleAddEvent}
               onUpdateEvent={handleUpdateEventFromInput}

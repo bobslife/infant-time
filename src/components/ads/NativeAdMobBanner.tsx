@@ -8,6 +8,7 @@ interface NativeAdMobBannerProps {
 }
 
 let initialized = false;
+let isBannerSuppressed = false;
 
 async function ensureAdMobInitialized(isTesting: boolean) {
   if (initialized) {
@@ -34,8 +35,16 @@ export function NativeAdMobBanner({ adId, isTesting }: NativeAdMobBannerProps) {
     }
 
     async function showBanner() {
+      if (isBannerSuppressed) {
+        return;
+      }
+
       try {
         await ensureAdMobInitialized(isTesting);
+        if (!mountedRef.current || isBannerSuppressed) {
+          return;
+        }
+
         await AdMob.showBanner({
           adId,
           adSize: BannerAdSize.ADAPTIVE_BANNER,
@@ -49,10 +58,24 @@ export function NativeAdMobBanner({ adId, isTesting }: NativeAdMobBannerProps) {
       }
     }
 
+    function handleVisibilityChange(event: Event) {
+      const nextHidden = Boolean((event as CustomEvent<{ hidden?: boolean }>).detail?.hidden);
+      isBannerSuppressed = nextHidden;
+
+      if (nextHidden) {
+        void AdMob.removeBanner().catch(() => undefined);
+        return;
+      }
+
+      void showBanner();
+    }
+
+    window.addEventListener("infant-time-admob-visibility", handleVisibilityChange);
     void showBanner();
 
     return () => {
       mountedRef.current = false;
+      window.removeEventListener("infant-time-admob-visibility", handleVisibilityChange);
       if (Capacitor.isNativePlatform()) {
         void AdMob.removeBanner().catch(() => undefined);
       }

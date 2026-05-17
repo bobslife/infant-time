@@ -18,6 +18,7 @@ interface EventInputScreenProps {
   baby: BabyProfile;
   editingEvent?: BabyEvent | null;
   events: BabyEvent[];
+  hideAds?: boolean;
   initialEventType?: EventType;
   onSubmit: (input: CreateEventInput) => Promise<void>;
   onUpdateEvent: (input: UpdateEventInput) => Promise<void>;
@@ -101,6 +102,7 @@ export function EventInputScreen({
   baby,
   editingEvent,
   events,
+  hideAds = false,
   initialEventType = "feed",
   onSubmit,
   onUpdateEvent,
@@ -727,7 +729,7 @@ export function EventInputScreen({
       </section>
 
       {toastMessage ? <div className="toast-message">{toastMessage}</div> : null}
-      <AdBanner placement="activity-bottom" />
+      {!hideAds ? <AdBanner placement="activity-bottom" /> : null}
     </section>
   );
 }
