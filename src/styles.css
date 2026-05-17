@@ -749,6 +749,9 @@ button {
 }
 
 .feed-interval-chips button {
+  display: grid;
+  place-items: center;
+  align-content: center;
   min-height: 46px;
   border: 1px solid var(--color-line);
   border-radius: 8px;
@@ -759,6 +762,11 @@ button {
   font-weight: 800;
   box-shadow: none;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.feed-interval-chips button span {
+  display: block;
+  line-height: 1.15;
 }
 
 .feed-interval-chips button.active {
@@ -835,7 +843,7 @@ button {
 }
 
 .metric-value strong {
-  margin-top: 0;
+  text-align: center;
 }
 
 .poop-summary-value {
@@ -895,7 +903,6 @@ button {
 }
 
 .today-summary-grid .metric-value strong {
-  margin-top: 0;
   font-size: clamp(1.03rem, 3.5vw, 1.18rem);
   line-height: 1.15;
   letter-spacing: 0;

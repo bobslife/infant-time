@@ -149,6 +149,22 @@ function formatFeedIntervalPreset(minutes: number): string {
   return `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
 }
 
+function FeedIntervalPresetLabel({ minutes }: { minutes: number }) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return <span>{hours}시간</span>;
+  }
+
+  return (
+    <>
+      <span>{hours}시간</span>
+      <span>{remainingMinutes}분</span>
+    </>
+  );
+}
+
 function getFeedStatus(lastFeedAt: string | null, intervalMinutes: number, now: Date) {
   if (!lastFeedAt) {
     return "empty";
@@ -264,7 +280,7 @@ export function SummaryCards({
                   type="button"
                   onClick={() => onFeedIntervalChange(minutes)}
                 >
-                  {formatFeedIntervalPreset(minutes)}
+                  <FeedIntervalPresetLabel minutes={minutes} />
                 </button>
               ))}
             </div>
@@ -275,14 +291,12 @@ export function SummaryCards({
             <span>수유량</span>
             <div className="metric-value">
               <strong>{summary.todayFeedTotalMl}ml</strong>
-              <small>{summary.todayFeedCount}회</small>
             </div>
           </button>
           <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("sleep")}>
             <span>수면시간</span>
             <div className="metric-value">
               <strong>{formatDurationMinutes(summary.todaySleepMinutes)}</strong>
-              <small>{summary.todaySleepCount}회</small>
             </div>
           </button>
         </div>
@@ -305,42 +319,36 @@ export function SummaryCards({
               <span>기저귀</span>
               <div className="metric-value">
                 <strong>{summary.todayDiaperCount}회</strong>
-                <small>오늘 기록</small>
               </div>
             </button>
             <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("medicine")}>
               <span>약</span>
               <div className="metric-value">
                 <strong>{summary.todayMedicineCount}회</strong>
-                <small>복용 기록</small>
               </div>
             </button>
             <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("temperature")}>
               <span>체온</span>
               <div className="metric-value">
                 <strong>{summary.latestTemperatureC ? `${summary.latestTemperatureC.toFixed(1)}도` : "-"}</strong>
-                <small>{summary.todayTemperatureCount}회</small>
               </div>
             </button>
             <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("play")}>
               <span>놀이</span>
               <div className="metric-value">
                 <strong>{formatDurationMinutes(summary.todayPlayMinutes)}</strong>
-                <small>{summary.todayPlayCount}회</small>
               </div>
             </button>
             <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("bath")}>
               <span>목욕</span>
               <div className="metric-value">
                 <strong>{summary.todayBathCount}회</strong>
-                <small>오늘 기록</small>
               </div>
             </button>
             <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("meal")}>
               <span>이유식</span>
               <div className="metric-value">
                 <strong>{summary.todayMealCount}회</strong>
-                <small>식사 기록</small>
               </div>
             </button>
           </div>
