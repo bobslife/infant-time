@@ -193,12 +193,6 @@ export function App() {
       setFeedIntervalMinutes(nextMinutes);
       setIsFeedIntervalReady(true);
 
-      if (user) {
-        void saveFeedingReminderInterval(user, baby, nextMinutes).catch((error) => {
-          console.warn("Failed to sync feeding reminder interval", error);
-        });
-      }
-
       return () => {
         isCancelled = true;
       };

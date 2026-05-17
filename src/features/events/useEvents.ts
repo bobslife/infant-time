@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabase/client";
 import {
   createLocalBaby,
@@ -44,6 +44,7 @@ import {
 } from "../../types";
 
 const overnightSleepNormalizationLocks = new Set<string>();
+const ensuredProfileUserIds = new Set<string>();
 
 export interface EventSummary {
   lastFeedAt: string | null;
@@ -203,6 +204,9 @@ export function useEvents() {
   const [events, setEvents] = useState<BabyEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const loadForUserPromiseRef = useRef<Promise<void> | null>(null);
+  const loadForUserKeyRef = useRef<string | null>(null);
+  const loadedVisibleUserIdRef = useRef<string | null>(null);
 
   const selectedBabyStorageKey = useCallback(
     (userId: string) => `infant-time-selected-baby-${userId}`,
@@ -313,19 +317,50 @@ export function useEvents() {
 
   const loadForUser = useCallback(
     async (nextUser: AppUser, options?: { silent?: boolean }) => {
-      if (!options?.silent) {
-        setIsLoading(true);
+      const loadKey = `${nextUser.id}:${options?.silent ? "silent" : "visible"}`;
+      if (loadForUserKeyRef.current === loadKey && loadForUserPromiseRef.current) {
+        return loadForUserPromiseRef.current;
       }
 
-      setErrorMessage(null);
+      const loadPromise = (async () => {
+        if (!options?.silent && loadedVisibleUserIdRef.current === nextUser.id) {
+          return;
+        }
 
-      try {
-        if (client && !nextUser.isLocal) {
-          await ensureProfile(client, nextUser);
-          const nextBabies = await listSupabaseBabies(client, nextUser.id);
-          const savedBabyId = window.localStorage.getItem(selectedBabyStorageKey(nextUser.id));
-          const nextBaby =
-            nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
+        if (!options?.silent) {
+          setIsLoading(true);
+        }
+
+        setErrorMessage(null);
+
+        try {
+          if (client && !nextUser.isLocal) {
+            if (!ensuredProfileUserIds.has(nextUser.id)) {
+              await ensureProfile(client, nextUser);
+              ensuredProfileUserIds.add(nextUser.id);
+            }
+
+            const nextBabies = await listSupabaseBabies(client, nextUser.id);
+            const savedBabyId = window.localStorage.getItem(selectedBabyStorageKey(nextUser.id));
+            const nextBaby =
+              nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
+
+            setBabies(nextBabies);
+            if (nextBaby) {
+              await loadEventsForBaby(nextUser, nextBaby);
+            } else {
+              setBaby(null);
+              setEvents([]);
+            }
+            if (!options?.silent) {
+              loadedVisibleUserIdRef.current = nextUser.id;
+            }
+            return;
+          }
+
+          const nextBabies = await listLocalBabies();
+          const savedBabyId = await getSelectedLocalBabyId();
+          const nextBaby = nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
 
           setBabies(nextBabies);
           if (nextBaby) {
@@ -334,25 +369,27 @@ export function useEvents() {
             setBaby(null);
             setEvents([]);
           }
-          return;
+          if (!options?.silent) {
+            loadedVisibleUserIdRef.current = nextUser.id;
+          }
+        } catch (error) {
+          setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
+        } finally {
+          if (!options?.silent) {
+            setIsLoading(false);
+          }
         }
+      })();
 
-        const nextBabies = await listLocalBabies();
-        const savedBabyId = await getSelectedLocalBabyId();
-        const nextBaby = nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
+      loadForUserKeyRef.current = loadKey;
+      loadForUserPromiseRef.current = loadPromise;
 
-        setBabies(nextBabies);
-        if (nextBaby) {
-          await loadEventsForBaby(nextUser, nextBaby);
-        } else {
-          setBaby(null);
-          setEvents([]);
-        }
-      } catch (error) {
-        setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
+      try {
+        await loadPromise;
       } finally {
-        if (!options?.silent) {
-          setIsLoading(false);
+        if (loadForUserPromiseRef.current === loadPromise) {
+          loadForUserPromiseRef.current = null;
+          loadForUserKeyRef.current = null;
         }
       }
     },
@@ -387,6 +424,7 @@ export function useEvents() {
       const sessionUser = session?.user;
 
       if (!sessionUser) {
+        loadedVisibleUserIdRef.current = null;
         setUser(null);
         setBabies([]);
         setBaby(null);
@@ -500,6 +538,7 @@ export function useEvents() {
     setBabies([]);
     setBaby(null);
     setEvents([]);
+    loadedVisibleUserIdRef.current = null;
 
     if (!client) {
       await loadForUser(localUser);
@@ -519,9 +558,11 @@ export function useEvents() {
         await client.auth.signOut().catch(() => undefined);
         window.localStorage.removeItem(selectedBabyStorageKey(user.id));
         setUser(null);
+        loadedVisibleUserIdRef.current = null;
       } else {
         await deleteLocalAccount();
         setUser(client ? null : localUser);
+        loadedVisibleUserIdRef.current = null;
       }
 
       setBabies([]);
