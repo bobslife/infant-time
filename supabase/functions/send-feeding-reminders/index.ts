@@ -32,6 +32,7 @@ const corsHeaders = {
 
 const textEncoder = new TextEncoder();
 const defaultIntervalMinutes = 180;
+const reminderGraceMinutes = 10;
 const minIntervalMinutes = 30;
 const maxIntervalMinutes = 12 * 60;
 
@@ -115,21 +116,6 @@ function clampInterval(minutes: number) {
   return Math.min(maxIntervalMinutes, Math.max(minIntervalMinutes, Math.round(minutes)));
 }
 
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}시간 ${remainingMinutes}분`;
-  }
-
-  if (hours > 0) {
-    return `${hours}시간`;
-  }
-
-  return `${remainingMinutes}분`;
-}
-
 function calculateDueReminder(events: FeedEvent[], intervalMinutes: number, nowMs: number) {
   const sorted = [...events].sort(
     (left, right) => new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime(),
@@ -141,7 +127,7 @@ function calculateDueReminder(events: FeedEvent[], intervalMinutes: number, nowM
   }
 
   const safeIntervalMinutes = clampInterval(intervalMinutes);
-  const scheduledForMs = new Date(lastFeed.occurred_at).getTime() + safeIntervalMinutes * 60_000;
+  const scheduledForMs = new Date(lastFeed.occurred_at).getTime() + (safeIntervalMinutes + reminderGraceMinutes) * 60_000;
 
   if (nowMs < scheduledForMs) {
     return null;
@@ -294,7 +280,7 @@ Deno.serve(async (request) => {
         ]),
       );
       const babyName = babyNames.get(babyId);
-      const title = "수유할 시간이에요!";
+      const title = "아기가 배고파해요";
       let babyHadDueReminder = false;
 
       for (const token of tokens as PushToken[]) {
@@ -310,8 +296,8 @@ Deno.serve(async (request) => {
         }
 
         babyHadDueReminder = true;
-        const bodyPrefix = babyName ? `${babyName} 수유할 시간이에요!` : "수유할 시간이에요!";
-        const body = `${bodyPrefix} 마지막 수유 후 설정한 간격인 ${formatDuration(reminder.intervalMinutes)}이 지났어요.`;
+        const bodyPrefix = babyName ? `${babyName} ` : "";
+        const body = `${bodyPrefix}수유 시간이 지났어요.`;
 
         const { data: delivery, error: deliveryError } = await supabase
           .from("feeding_reminder_deliveries")

@@ -356,6 +356,14 @@ private struct FeedingWidgetViewModel {
         return "\(Self.formatDuration(remainingFeedMinutes)) 남았어요"
     }
 
+    var isFeedOverdue: Bool {
+        guard let nextFeedDueAt else {
+            return false
+        }
+
+        return nextFeedDueAt <= entry.date
+    }
+
     var elapsedFeedText: String {
         guard let elapsedFeedMinutes else {
             return "수유 기록 없음"
@@ -581,12 +589,12 @@ private struct MainCountdown: View {
             }
 
             if let nextFeedDueAt = model.nextFeedDueAt {
-                Text(nextFeedDueAt, style: .relative)
-                    .font(.system(size: 31, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(model.urgencyColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.62)
+                (Text(nextFeedDueAt, style: .relative) + Text(model.isFeedOverdue ? " 지남" : ""))
+                .font(.system(size: 31, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(model.urgencyColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
 
                 if let lastFeedAt = model.entry.lastFeedAt {
                     HStack(spacing: 4) {

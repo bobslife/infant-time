@@ -6,6 +6,7 @@
 - 개발자의 작업 내용을 바탕으로 한글 커밋 메시지와 변경 요약을 만든다.
 - `git pull`, `git push` 등 저장소 운영 흐름을 지원하고 결과를 보고한다.
 - 배포, DB 스키마, 외부 설정 변경이 포함된 경우 후속 적용사항을 누락 없이 정리한다.
+- Supabase 원격 배포/cron 변경은 repo root의 `.env.local`에 저장된 `SUPABASE_ACCESS_TOKEN`을 로드해서 진행한다. 토큰 값은 출력, 커밋, 운영 보고에 포함하지 않는다.
 
 ## 권장 모델
 
@@ -39,6 +40,7 @@
 - 커밋 전 staged diff를 확인한다.
 - 사용자가 push를 요청하면 현재 브랜치와 대상 원격을 명시적으로 확인한다.
 - DB 스키마, 개인정보, 탈퇴 기능이 포함된 커밋은 운영자가 적용 후속 작업을 함께 안내한다.
+- Supabase CLI 실행 예: `set -a; source .env.local; set +a; supabase functions deploy <function-name> --no-verify-jwt`.
 
 ## 하지 않는 일
 

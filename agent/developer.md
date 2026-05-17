@@ -7,6 +7,7 @@
 - 구현 중 드러난 제약, 외부 설정 필요사항, 대안을 명확히 기록한다.
 - 구현 결과가 실제로 동작하는지 빌드, 테스트, 수동 확인 중 적절한 검증을 수행한다.
 - Supabase, Capacitor, 광고, PWA, 모바일 UI처럼 앱 동작에 직접 영향이 있는 변경은 저장/동기화/배포 영향을 함께 확인한다.
+- Supabase 원격 배포가 필요하면 repo root의 `.env.local`에 저장된 `SUPABASE_ACCESS_TOKEN`을 로드해서 CLI를 실행한다. 토큰 값은 문서, 커밋 메시지, 로그 요약에 기록하지 않는다.
 
 ## 권장 모델
 
@@ -38,6 +39,7 @@
 - 완료 후 실행한 검증 방법과 남은 위험을 정리한다.
 - 저장소의 기존 패턴, 타입, 스타일 규칙을 우선 따른다.
 - 개인정보, 계정 삭제, DB 스키마 변경은 앱 코드와 문서/마이그레이션을 함께 확인한다.
+- Supabase Edge Function 배포 예: `set -a; source .env.local; set +a; supabase functions deploy <function-name> --no-verify-jwt`.
 - 로컬에서 확인 가능한 작업은 가능한 한 빌드 또는 테스트를 실행한다.
 - 실패한 검증은 숨기지 않고 원인과 다음 조치를 적는다.
 

@@ -11,7 +11,13 @@ import { SupportPage } from "./components/SupportPage";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
-import { loadFeedingReminderInterval, saveFeedingReminderInterval, syncApnsTokenIfPermissionGranted } from "./lib/push/apns";
+import {
+  checkApnsPermissionState,
+  loadFeedingReminderInterval,
+  registerApnsToken,
+  saveFeedingReminderInterval,
+  syncApnsTokenIfPermissionGranted,
+} from "./lib/push/apns";
 import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
 import { BabyEvent, EventType } from "./types";
 
@@ -26,6 +32,7 @@ const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
 ];
 
 const DEFAULT_FEED_INTERVAL_MINUTES = 180;
+const PUSH_PERMISSION_PROMPT_KEY = "infant-time-push-permission-prompt-feeding-reminder-v1";
 const PULL_REFRESH_THRESHOLD = 84;
 const MAX_PULL_DISTANCE = 112;
 const PULL_FRICTION = 0.45;
@@ -39,6 +46,8 @@ const rawAdMode = String(import.meta.env.VITE_AD_MODE ?? import.meta.env.NEXT_PU
   .trim()
   .toLowerCase();
 const isAdMobMode = rawAdMode === "admob";
+
+type PushPermissionPromptMode = "permission" | "settings";
 
 function getFeedIntervalStorageKey(babyId: string) {
   return `infant-time-feed-interval-${babyId}`;
@@ -87,10 +96,13 @@ export function App() {
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
+  const [pushPermissionPromptMode, setPushPermissionPromptMode] = useState<PushPermissionPromptMode | null>(null);
+  const [isPushPermissionBusy, setIsPushPermissionBusy] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
   const pullActiveRef = useRef(false);
   const pushRegistrationKeyRef = useRef<string | null>(null);
+  const pushPermissionPromptKeyRef = useRef<string | null>(null);
   const appUpdate = useAppUpdateGate();
 
   useEffect(() => {
@@ -100,10 +112,10 @@ export function App() {
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("infant-time-admob-visibility", {
-        detail: { hidden: isInputModalOpen },
+        detail: { hidden: isInputModalOpen || Boolean(pushPermissionPromptMode) },
       }),
     );
-  }, [isInputModalOpen]);
+  }, [isInputModalOpen, pushPermissionPromptMode]);
 
   useEffect(() => {
     if (!user) {
@@ -119,6 +131,11 @@ export function App() {
   useEffect(() => {
     if (!user || !baby) {
       pushRegistrationKeyRef.current = null;
+      pushPermissionPromptKeyRef.current = null;
+      return;
+    }
+
+    if (!isFeedIntervalReady) {
       return;
     }
 
@@ -128,11 +145,35 @@ export function App() {
     }
 
     pushRegistrationKeyRef.current = registrationKey;
-    void syncApnsTokenIfPermissionGranted(user, baby).catch((error) => {
-      console.warn("Failed to sync APNs token", error);
+    void (async () => {
+      const permissionState = await checkApnsPermissionState();
+      if (permissionState === "unsupported") {
+        return;
+      }
+
+      if (permissionState === "granted") {
+        await syncApnsTokenIfPermissionGranted(user, baby);
+        await saveFeedingReminderInterval(user, baby, feedIntervalMinutes);
+        window.localStorage.setItem(PUSH_PERMISSION_PROMPT_KEY, "granted");
+        setPushPermissionPromptMode(null);
+        return;
+      }
+
+      if (window.localStorage.getItem(PUSH_PERMISSION_PROMPT_KEY)) {
+        return;
+      }
+
+      if (pushPermissionPromptKeyRef.current === registrationKey) {
+        return;
+      }
+
+      pushPermissionPromptKeyRef.current = registrationKey;
+      setPushPermissionPromptMode(permissionState === "denied" ? "settings" : "permission");
+    })().catch((error) => {
+      console.warn("Failed to prepare APNs permission flow", error);
       pushRegistrationKeyRef.current = null;
     });
-  }, [baby, user]);
+  }, [baby, feedIntervalMinutes, isFeedIntervalReady, user]);
 
   useEffect(() => {
     if (!saveToastMessage) {
@@ -235,6 +276,10 @@ export function App() {
   }, [baby, user]);
 
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
     if (!user || !baby) {
       void clearWidgetSummary().catch(() => undefined);
       return;
@@ -245,7 +290,7 @@ export function App() {
     }
 
     void syncWidgetSummary(summary, events, baby, feedIntervalMinutes).catch(() => undefined);
-  }, [baby, events, feedIntervalMinutes, isFeedIntervalReady, summary, user]);
+  }, [baby, events, feedIntervalMinutes, isFeedIntervalReady, isLoading, summary, user]);
 
   function handleFeedIntervalChange(nextMinutes: number) {
     if (!baby) {
@@ -262,6 +307,37 @@ export function App() {
         console.warn("Failed to save feeding reminder interval", error);
       });
     }
+  }
+
+  async function handleAllowPushPermission() {
+    if (!user || !baby) {
+      return;
+    }
+
+    setIsPushPermissionBusy(true);
+    try {
+      await registerApnsToken(user, baby);
+      await saveFeedingReminderInterval(user, baby, feedIntervalMinutes);
+      window.localStorage.setItem(PUSH_PERMISSION_PROMPT_KEY, "granted");
+      setPushPermissionPromptMode(null);
+      setSaveToastMessage("수유 알림을 켰어요.");
+    } catch (error) {
+      console.warn("Failed to register APNs token", error);
+      const permissionState = await checkApnsPermissionState().catch(() => "denied" as const);
+      if (permissionState === "denied") {
+        setPushPermissionPromptMode("settings");
+        return;
+      }
+
+      setSaveToastMessage("알림 설정을 완료하지 못했어요.");
+    } finally {
+      setIsPushPermissionBusy(false);
+    }
+  }
+
+  function dismissPushPermissionPrompt() {
+    window.localStorage.setItem(PUSH_PERMISSION_PROMPT_KEY, "dismissed");
+    setPushPermissionPromptMode(null);
   }
 
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
@@ -489,6 +565,59 @@ export function App() {
           </section>
         ) : null}
       </div>
+      {pushPermissionPromptMode ? (
+        <div className="modal-backdrop push-permission-backdrop" role="presentation">
+          <section
+            aria-label="수유 알림 설정"
+            aria-modal="true"
+            className="modal-panel push-permission-panel"
+            role="dialog"
+          >
+            {pushPermissionPromptMode === "permission" ? (
+              <>
+                <p className="push-permission-kicker">수유 리마인드</p>
+                <h2>아기가 배고파할 때 알려드릴까요?</h2>
+                <p>
+                  마지막 수유 후 설정한 기준 시간보다 10분이 지나면
+                  푸시 알림으로 알려드릴게요.
+                </p>
+                <div className="push-permission-actions">
+                  <button
+                    className="primary-button"
+                    disabled={isPushPermissionBusy}
+                    type="button"
+                    onClick={() => void handleAllowPushPermission()}
+                  >
+                    {isPushPermissionBusy ? "설정 중..." : "알림 받기"}
+                  </button>
+                  <button
+                    className="ghost-button"
+                    disabled={isPushPermissionBusy}
+                    type="button"
+                    onClick={dismissPushPermissionPrompt}
+                  >
+                    나중에
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="push-permission-kicker">알림 꺼짐</p>
+                <h2>iOS 설정에서 알림을 켜주세요</h2>
+                <p>
+                  알림 권한이 꺼져 있어 수유 리마인드를 보낼 수 없어요.
+                  iOS 설정의 앙팡타임 알림에서 권한을 허용해 주세요.
+                </p>
+                <div className="push-permission-actions">
+                  <button className="primary-button" type="button" onClick={dismissPushPermissionPrompt}>
+                    확인했어요
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
       {isInputModalOpen ? (
         <div className="input-modal-backdrop" role="presentation" onMouseDown={closeInputModal}>
           <section

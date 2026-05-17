@@ -11,6 +11,25 @@ type PushRegistrationResult = {
   sent: boolean;
 };
 
+export type ApnsPermissionState = "unsupported" | "granted" | "denied" | "prompt";
+
+export async function checkApnsPermissionState(): Promise<ApnsPermissionState> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+    return "unsupported";
+  }
+
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive === "granted") {
+    return "granted";
+  }
+
+  if (permission.receive === "denied") {
+    return "denied";
+  }
+
+  return "prompt";
+}
+
 async function saveApnsToken(user: AppUser, baby: BabyProfile, token: string) {
   const client = getSupabaseClient();
   if (!client) {

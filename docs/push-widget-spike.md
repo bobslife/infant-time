@@ -5,7 +5,7 @@
 요구사항:
 
 - 홈 탭에서 사용자가 지정한 아기별 수유 간격을 서버에 저장한다.
-- 마지막 수유 기록 기준으로 설정 간격이 지나면 `수유할 시간이에요!` 알림을 보낸다.
+- 마지막 수유 기록 기준으로 설정 간격 + 10분이 지나면 `아기가 배고파해요` 알림을 보낸다.
 - 마지막 수유가 새로 추가/수정/삭제되면 다음 알림 기준도 다시 계산한다.
 
 현재 백엔드 MVP 정책:
@@ -17,18 +17,19 @@
 - 설정 저장: 홈 탭 수유 간격 칩을 변경하거나 앱이 아기 데이터를 로드할 때 `feeding_reminder_settings`에 저장한다.
 - 알림 설정: `feeding_reminder_settings.enabled`에서 아기/사용자별 opt-out을 지원한다. 설정 row가 없으면 활성으로 간주한다.
 - 알림 문구:
-  - 제목: `수유할 시간이에요!`
-  - 본문: `{아기 이름} 수유할 시간이에요! 마지막 수유 후 설정한 간격인 3시간이 지났어요.`
+  - 제목: `아기가 배고파해요`
+  - 본문: `{아기 이름} 수유 시간이 지났어요.`
+- 권한 요청: 앱 설치 후 최초 실행 또는 해당 안내 버전 업데이트 후 로그인/아기 선택이 완료되면 앱 내부 안내를 먼저 보여주고, 사용자가 동의한 경우 iOS 시스템 권한 팝업을 호출한다.
 - 권한 거부 시 프로필/설정 화면에 권한 꺼짐 상태를 보여주고 iOS 설정 이동 안내를 제공한다.
 
 Remote APNs 구현:
 
 1. Supabase cron이 Edge Function을 주기적으로 실행한다.
-   - 현재 원격 프로젝트에는 `send-feeding-reminders-every-30-minutes`가 30분 주기로 등록되어 있다.
+   - 알림 지연을 줄이려면 5분 또는 10분 주기로 등록한다.
 2. Edge Function이 대상자를 조회한다.
    - 활성 `push_tokens.enabled = true`
    - `feeding_reminder_settings.enabled`가 false가 아닌 사용자
-   - 해당 아기의 마지막 `feed` 이벤트 `occurred_at + interval_minutes <= now()`
+   - 해당 아기의 마지막 `feed` 이벤트 `occurred_at + interval_minutes + 10분 <= now()`
 3. 발송 이력을 저장한다.
    - `feeding_reminder_deliveries(push_token_id, feed_event_id)` unique index로 같은 마지막 수유 기준 중복 발송을 막는다.
 4. 수유 기록이 추가되면 다음 cron tick에서 자동으로 새 기준을 사용한다.
