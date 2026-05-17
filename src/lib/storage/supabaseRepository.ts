@@ -5,6 +5,8 @@ import {
   BabyProfile,
   CreateBabyInput,
   CreateEventInput,
+  CreateGrowthRecordInput,
+  GrowthRecord,
   JoinBabyInput,
   UpdateBabyInput,
   UpdateEventInput,
@@ -45,6 +47,17 @@ interface EventRow {
 
 interface BabyMemberRow {
   baby_id: string;
+}
+
+interface GrowthRecordRow {
+  id: string;
+  baby_id: string;
+  measured_at: string;
+  weight_kg: number | null;
+  height_cm: number | null;
+  head_cm: number | null;
+  note: string | null;
+  created_at: string;
 }
 
 export function mapSupabaseUser(user: User): AppUser {
@@ -107,8 +120,23 @@ function mapEvent(row: EventRow): BabyEvent {
   };
 }
 
+function mapGrowthRecord(row: GrowthRecordRow): GrowthRecord {
+  return {
+    id: row.id,
+    babyId: row.baby_id,
+    measuredAt: row.measured_at,
+    weightKg: row.weight_kg,
+    heightCm: row.height_cm,
+    headCm: row.head_cm,
+    note: row.note,
+    createdAt: row.created_at,
+  };
+}
+
 const eventSelectColumns =
   "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
+const growthRecordSelectColumns =
+  "id, baby_id, measured_at, weight_kg, height_cm, head_cm, note, created_at";
 
 export async function ensureProfile(client: SupabaseClient, user: AppUser) {
   const { error } = await client.from("profiles").upsert({
@@ -332,6 +360,48 @@ export async function deleteSupabaseEvent(
   if (error) {
     throw error;
   }
+}
+
+export async function listSupabaseGrowthRecords(
+  client: SupabaseClient,
+  babyId: string,
+): Promise<GrowthRecord[]> {
+  const { data, error } = await client
+    .from("growth_records")
+    .select(growthRecordSelectColumns)
+    .eq("baby_id", babyId)
+    .order("measured_at", { ascending: true })
+    .returns<GrowthRecordRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.map(mapGrowthRecord);
+}
+
+export async function createSupabaseGrowthRecord(
+  client: SupabaseClient,
+  input: CreateGrowthRecordInput,
+): Promise<GrowthRecord> {
+  const { data, error } = await client
+    .from("growth_records")
+    .insert({
+      baby_id: input.babyId,
+      measured_at: new Date(input.measuredAt).toISOString(),
+      weight_kg: input.weightKg ?? null,
+      height_cm: input.heightCm ?? null,
+      head_cm: input.headCm ?? null,
+      note: input.note || null,
+    })
+    .select(growthRecordSelectColumns)
+    .single<GrowthRecordRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapGrowthRecord(data);
 }
 
 export async function deleteSupabaseAccount(client: SupabaseClient): Promise<void> {

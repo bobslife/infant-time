@@ -67,6 +67,15 @@ export interface GrowthRecord {
   createdAt: string;
 }
 
+export interface CreateGrowthRecordInput {
+  babyId: string;
+  measuredAt: string;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  headCm?: number | null;
+  note?: string | null;
+}
+
 export interface CreateBabyInput {
   name: string;
   birthDate: string;

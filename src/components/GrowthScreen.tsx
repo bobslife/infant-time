@@ -10,10 +10,16 @@ import {
   YAxis,
 } from "recharts";
 import { AdBanner } from "./ads/AdBanner";
-import { BabyProfile, GrowthRecord } from "../types";
+import { getSupabaseClient } from "../lib/supabase/client";
+import {
+  createSupabaseGrowthRecord,
+  listSupabaseGrowthRecords,
+} from "../lib/storage/supabaseRepository";
+import { AppUser, BabyProfile, CreateGrowthRecordInput, GrowthRecord } from "../types";
 
 interface GrowthScreenProps {
   baby: BabyProfile;
+  user: AppUser;
 }
 
 function storageKey(babyId: string) {
@@ -39,22 +45,63 @@ function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function GrowthScreen({ baby }: GrowthScreenProps) {
+function sortGrowthRecords(records: GrowthRecord[]): GrowthRecord[] {
+  return [...records].sort(
+    (left, right) => new Date(left.measuredAt).getTime() - new Date(right.measuredAt).getTime(),
+  );
+}
+
+export function GrowthScreen({ baby, user }: GrowthScreenProps) {
   const [records, setRecords] = useState<GrowthRecord[]>([]);
   const [measuredAt, setMeasuredAt] = useState(todayDate());
   const [weightKg, setWeightKg] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [headCm, setHeadCm] = useState("");
   const [note, setNote] = useState("");
+  const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+  const [isSavingRecord, setIsSavingRecord] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setRecords(readGrowthRecords(baby.id));
+    let isCancelled = false;
+
+    async function loadRecords() {
+      setIsLoadingRecords(true);
+      setErrorMessage(null);
+
+      try {
+        const client = getSupabaseClient();
+        const nextRecords =
+          client && !user.isLocal
+            ? await listSupabaseGrowthRecords(client, baby.id)
+            : readGrowthRecords(baby.id);
+
+        if (!isCancelled) {
+          setRecords(sortGrowthRecords(nextRecords));
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setRecords([]);
+          setErrorMessage(error instanceof Error ? error.message : "성장 기록을 불러오지 못했습니다.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingRecords(false);
+        }
+      }
+    }
+
+    void loadRecords();
     setMeasuredAt(todayDate());
     setWeightKg("");
     setHeightCm("");
     setHeadCm("");
     setNote("");
-  }, [baby.id]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [baby.id, user.isLocal]);
 
   const latest = records.at(-1) ?? null;
   const previous = records.at(-2) ?? null;
@@ -69,29 +116,46 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
     [records],
   );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setIsSavingRecord(true);
+    setErrorMessage(null);
 
-    const next: GrowthRecord = {
-      id: crypto.randomUUID(),
+    const input: CreateGrowthRecordInput = {
       babyId: baby.id,
       measuredAt: `${measuredAt}T00:00:00.000Z`,
       weightKg: weightKg ? Number(weightKg) : null,
       heightCm: heightCm ? Number(heightCm) : null,
       headCm: headCm ? Number(headCm) : null,
       note: note.trim() || null,
-      createdAt: new Date().toISOString(),
     };
-    const nextRecords = [...records, next].sort(
-      (left, right) => new Date(left.measuredAt).getTime() - new Date(right.measuredAt).getTime(),
-    );
 
-    setRecords(nextRecords);
-    writeGrowthRecords(baby.id, nextRecords);
-    setWeightKg("");
-    setHeightCm("");
-    setHeadCm("");
-    setNote("");
+    try {
+      const client = getSupabaseClient();
+      const next =
+        client && !user.isLocal
+          ? await createSupabaseGrowthRecord(client, input)
+          : {
+              ...input,
+              id: crypto.randomUUID(),
+              createdAt: new Date().toISOString(),
+            };
+      const nextRecords = sortGrowthRecords([...records, next]);
+
+      setRecords(nextRecords);
+      if (!client || user.isLocal) {
+        writeGrowthRecords(baby.id, nextRecords);
+      }
+
+      setWeightKg("");
+      setHeightCm("");
+      setHeadCm("");
+      setNote("");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "성장 기록을 저장하지 못했습니다.");
+    } finally {
+      setIsSavingRecord(false);
+    }
   }
 
   return (
@@ -129,7 +193,10 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
             <h2>최근 성장 변화</h2>
           </div>
         </div>
-        {chartData.length >= 2 ? (
+        {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
+        {isLoadingRecords ? (
+          <p className="empty-copy">성장 기록을 불러오는 중입니다.</p>
+        ) : chartData.length >= 2 ? (
           <div className="growth-chart">
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={chartData}>
@@ -188,7 +255,9 @@ export function GrowthScreen({ baby }: GrowthScreenProps) {
             <span>메모</span>
             <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="선택 입력" />
           </label>
-          <button className="primary-button" type="submit">성장 기록 저장</button>
+          <button className="primary-button" type="submit" disabled={isSavingRecord}>
+            {isSavingRecord ? "저장 중" : "성장 기록 저장"}
+          </button>
         </form>
       </section>
     </section>

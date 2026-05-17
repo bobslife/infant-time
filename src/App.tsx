@@ -467,7 +467,7 @@ export function App() {
         {activeTab === "growth" ? (
           <section className="screen-stack">
             <Suspense fallback={<p className="empty-copy">성장 기록을 불러오는 중입니다.</p>}>
-              <GrowthScreen baby={baby} />
+              <GrowthScreen baby={baby} user={user} />
             </Suspense>
           </section>
         ) : null}
