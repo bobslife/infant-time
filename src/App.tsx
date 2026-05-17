@@ -11,7 +11,7 @@ import { SupportPage } from "./components/SupportPage";
 import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
 import { buildDailySummary, useEvents } from "./features/events/useEvents";
-import { loadFeedingReminderInterval, saveFeedingReminderInterval } from "./lib/push/apns";
+import { loadFeedingReminderInterval, saveFeedingReminderInterval, syncApnsTokenIfPermissionGranted } from "./lib/push/apns";
 import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
 import { BabyEvent, EventType } from "./types";
 
@@ -90,6 +90,7 @@ export function App() {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const pullDistanceRef = useRef(0);
   const pullActiveRef = useRef(false);
+  const pushRegistrationKeyRef = useRef<string | null>(null);
   const appUpdate = useAppUpdateGate();
 
   useEffect(() => {
@@ -106,6 +107,24 @@ export function App() {
     setInputEventType("feed");
     setIsInputModalOpen(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!user || !baby) {
+      pushRegistrationKeyRef.current = null;
+      return;
+    }
+
+    const registrationKey = `${user.id}:${baby.id}`;
+    if (pushRegistrationKeyRef.current === registrationKey) {
+      return;
+    }
+
+    pushRegistrationKeyRef.current = registrationKey;
+    void syncApnsTokenIfPermissionGranted(user, baby).catch((error) => {
+      console.warn("Failed to sync APNs token", error);
+      pushRegistrationKeyRef.current = null;
+    });
+  }, [baby, user]);
 
   useEffect(() => {
     if (!saveToastMessage) {

@@ -11,6 +11,29 @@ type PushRegistrationResult = {
   sent: boolean;
 };
 
+async function saveApnsToken(user: AppUser, baby: BabyProfile, token: string) {
+  const client = getSupabaseClient();
+  if (!client) {
+    throw new Error("Supabase 설정이 없어 푸시 토큰을 저장할 수 없어요.");
+  }
+
+  const { error } = await client.from("push_tokens").upsert(
+    {
+      user_id: user.id,
+      baby_id: baby.id,
+      platform: "ios",
+      token,
+      enabled: true,
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: "token" },
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 async function formatFunctionError(error: unknown): Promise<string> {
   const fallback = error instanceof Error ? error.message : "테스트 푸시를 보낼 수 없어요.";
   const context = (error as { context?: unknown })?.context;
@@ -104,22 +127,29 @@ export async function registerApnsToken(user: AppUser, baby: BabyProfile): Promi
   await PushNotifications.register();
   const token = await tokenPromise;
 
-  const { error } = await client.from("push_tokens").upsert(
-    {
-      user_id: user.id,
-      baby_id: baby.id,
-      platform: "ios",
-      token,
-      enabled: true,
-      last_seen_at: new Date().toISOString(),
-    },
-    { onConflict: "token" },
-  );
+  await saveApnsToken(user, baby, token);
 
-  if (error) {
-    throw new Error(error.message);
+  return token;
+}
+
+export async function syncApnsTokenIfPermissionGranted(
+  user: AppUser,
+  baby: BabyProfile,
+): Promise<string | null> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios" || user.isLocal) {
+    return null;
   }
 
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive !== "granted") {
+    return null;
+  }
+
+  const tokenPromise = waitForPushToken();
+  await PushNotifications.register();
+  const token = await tokenPromise;
+
+  await saveApnsToken(user, baby, token);
   return token;
 }
 
