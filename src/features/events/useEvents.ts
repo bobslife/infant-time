@@ -687,68 +687,12 @@ export function useEvents() {
     setErrorMessage(null);
 
     try {
-      const shouldAutoCloseSleep = input.eventType === "feed" || input.eventType === "diaper" || input.eventType === "medicine" || input.eventType === "meal" || input.eventType === "bath" || input.eventType === "play";
-      let autoClosedSleepId: string | null = null;
-      let autoClosedSleepEndedAt: string | null = null;
-
-      if (shouldAutoCloseSleep) {
-        const openSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null;
-        if (openSleep) {
-          const inputOccurredAtMinus15Minutes = new Date(input.occurredAt).getTime() - 15 * 60 * 1000;
-          const sleepStartedAt = new Date(openSleep.occurredAt).getTime();
-          const safeEndedAtMs = Math.max(inputOccurredAtMinus15Minutes, sleepStartedAt);
-          autoClosedSleepEndedAt = new Date(safeEndedAtMs).toISOString();
-
-          const updatedSleepInput: UpdateEventInput = {
-            id: openSleep.id,
-            babyId: openSleep.babyId,
-            eventType: "sleep",
-            occurredAt: openSleep.occurredAt,
-            endedAt: autoClosedSleepEndedAt,
-            amountMl: openSleep.amountMl ?? null,
-            diaperType: openSleep.diaperType ?? null,
-            poopAmount: openSleep.poopAmount ?? null,
-            poopColor: openSleep.poopColor ?? null,
-            medicineName: openSleep.medicineName ?? null,
-            medicineDose: openSleep.medicineDose ?? null,
-            medicineNextAt: openSleep.medicineNextAt ?? null,
-            temperatureC: openSleep.temperatureC ?? null,
-            temperatureLocation: openSleep.temperatureLocation ?? null,
-            mealName: openSleep.mealName ?? null,
-            mealAmountG: openSleep.mealAmountG ?? null,
-            mealReaction: openSleep.mealReaction ?? null,
-            note: openSleep.note,
-          };
-
-          if (client && !user.isLocal) {
-            await updateSupabaseEvent(client, updatedSleepInput);
-          } else {
-            await updateLocalEvent(updatedSleepInput);
-          }
-
-          autoClosedSleepId = openSleep.id;
-        }
-      }
-
       const created =
         client && !user.isLocal
           ? await createSupabaseEvent(client, user.id, input)
           : await createLocalEvent(input);
 
-      setEvents((current) => {
-        const nextEvents = autoClosedSleepId && autoClosedSleepEndedAt
-          ? current.map((event) =>
-              event.id === autoClosedSleepId
-                ? {
-                    ...event,
-                    endedAt: autoClosedSleepEndedAt,
-                  }
-                : event,
-            )
-          : current;
-
-        return sortDescending([created, ...nextEvents]);
-      });
+      setEvents((current) => sortDescending([created, ...current]));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "기록을 저장하지 못했습니다.");
     }
