@@ -226,6 +226,7 @@ private struct FeedingWidgetViewModel {
     let remainingFeedMinutes: Int?
     let feedProgress: Double
     let urgency: FeedUrgency
+    let sleepAnchorDate: Date?
     let sleepDurationMinutes: Int?
     let isSleeping: Bool
     let palette: WidgetPalette
@@ -259,10 +260,13 @@ private struct FeedingWidgetViewModel {
 
         self.isSleeping = entry.activeSleepStartedAt != nil
         if let activeSleepStartedAt = entry.activeSleepStartedAt {
+            self.sleepAnchorDate = activeSleepStartedAt
             self.sleepDurationMinutes = max(0, Int(entry.date.timeIntervalSince(activeSleepStartedAt) / 60))
         } else if let awakeStartedAt = entry.awakeStartedAt {
+            self.sleepAnchorDate = awakeStartedAt
             self.sleepDurationMinutes = max(0, Int(entry.date.timeIntervalSince(awakeStartedAt) / 60))
         } else {
+            self.sleepAnchorDate = nil
             self.sleepDurationMinutes = nil
         }
     }
@@ -599,7 +603,7 @@ private struct MainCountdown: View {
                 if let lastFeedAt = model.entry.lastFeedAt {
                     HStack(spacing: 4) {
                         Text("마지막 수유")
-                        Text(lastFeedAt, style: .relative)
+                        Text(lastFeedAt, style: .relative) + Text(" 전")
                     }
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(WidgetTheme.secondaryText)
@@ -657,9 +661,44 @@ private struct MetricGrid: View {
         HStack(alignment: .top, spacing: 7) {
             MetricCell(title: "오늘", value: "\(model.entry.feedingMl)ml")
             MetricCell(title: "마지막", value: model.lastFeedTimeText)
-                MetricCell(title: model.isSleeping ? "수면" : "깨어있음", value: model.sleepMetricValue, accent: model.isSleeping ? WidgetTheme.sleep : model.palette.accent)
+            SleepMetricCell(model: model)
             MetricCell(title: "기준 간격", value: model.feedIntervalText)
         }
+    }
+}
+
+private struct SleepMetricCell: View {
+    let model: FeedingWidgetViewModel
+
+    private var accent: Color {
+        model.isSleeping ? WidgetTheme.sleep : model.palette.accent
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(model.isSleeping ? "수면" : "깨어있음")
+                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                .foregroundStyle(WidgetTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            if let sleepAnchorDate = model.sleepAnchorDate {
+                Text(sleepAnchorDate, style: .relative)
+                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            } else {
+                Text(model.sleepMetricValue)
+                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

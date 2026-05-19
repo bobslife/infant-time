@@ -103,6 +103,7 @@ export function App() {
   const pullActiveRef = useRef(false);
   const pushRegistrationKeyRef = useRef<string | null>(null);
   const pushPermissionPromptKeyRef = useRef<string | null>(null);
+  const homeScrollResetKeyRef = useRef<string | null>(null);
   const appUpdate = useAppUpdateGate();
 
   useEffect(() => {
@@ -127,6 +128,30 @@ export function App() {
     setInputEventType("feed");
     setIsInputModalOpen(false);
   }, [user?.id]);
+
+  useEffect(() => {
+    if (isLoading || !user || !baby || activeTab !== "home") {
+      return;
+    }
+
+    const resetKey = `${user.id}:${baby.id}`;
+    if (homeScrollResetKeyRef.current === resetKey) {
+      return;
+    }
+
+    homeScrollResetKeyRef.current = resetKey;
+
+    const resetHomeScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetHomeScroll();
+    const frame = window.requestAnimationFrame(resetHomeScroll);
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTab, baby, isLoading, user]);
 
   useEffect(() => {
     if (!user || !baby) {
