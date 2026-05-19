@@ -111,6 +111,53 @@ function getEventDurationMinutes(event: BabyEvent, now = new Date()): number {
   return Math.max(0, Math.round((end - start) / 60000));
 }
 
+function startOfNextLocalDay(date: Date): Date {
+  const nextDay = new Date(date);
+  nextDay.setHours(0, 0, 0, 0);
+  nextDay.setDate(nextDay.getDate() + 1);
+  return nextDay;
+}
+
+export function splitSleepInputByLocalMidnight(input: CreateEventInput): CreateEventInput[] {
+  if (input.eventType !== "sleep" || !input.endedAt) {
+    return [input];
+  }
+
+  const sleepStart = new Date(input.occurredAt);
+  const sleepEnd = new Date(input.endedAt);
+
+  if (sleepEnd.getTime() <= sleepStart.getTime()) {
+    return [input];
+  }
+
+  const segments: CreateEventInput[] = [];
+  let segmentStart = sleepStart;
+  let segmentEnd = startOfNextLocalDay(segmentStart);
+
+  while (segmentEnd.getTime() < sleepEnd.getTime()) {
+    if (segmentEnd.getTime() > segmentStart.getTime()) {
+      segments.push({
+        ...input,
+        occurredAt: segmentStart.toISOString(),
+        endedAt: segmentEnd.toISOString(),
+      });
+    }
+
+    segmentStart = segmentEnd;
+    segmentEnd = startOfNextLocalDay(segmentStart);
+  }
+
+  if (sleepEnd.getTime() > segmentStart.getTime()) {
+    segments.push({
+      ...input,
+      occurredAt: segmentStart.toISOString(),
+      endedAt: sleepEnd.toISOString(),
+    });
+  }
+
+  return segments.length > 0 ? segments : [input];
+}
+
 export function buildDailySummary(events: BabyEvent[], date: string): DailyEventSummary {
   const targetStart = new Date(`${date}T00:00:00`);
   const targetEnd = new Date(targetStart);
@@ -687,12 +734,16 @@ export function useEvents() {
     setErrorMessage(null);
 
     try {
-      const created =
-        client && !user.isLocal
-          ? await createSupabaseEvent(client, user.id, input)
-          : await createLocalEvent(input);
+      const inputs = splitSleepInputByLocalMidnight(input);
+      const created = await Promise.all(
+        inputs.map((nextInput) =>
+          client && !user.isLocal
+            ? createSupabaseEvent(client, user.id, nextInput)
+            : createLocalEvent(nextInput),
+        ),
+      );
 
-      setEvents((current) => sortDescending([created, ...current]));
+      setEvents((current) => sortDescending([...created, ...current]));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "기록을 저장하지 못했습니다.");
     }
