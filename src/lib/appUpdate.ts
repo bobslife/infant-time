@@ -57,7 +57,8 @@ export function getUpdateUrl(): string {
 }
 
 export async function getInstalledAppVersion(): Promise<string | null> {
-  if (!Capacitor.isNativePlatform()) {
+  const platform = Capacitor.getPlatform();
+  if (platform !== "ios" && platform !== "android") {
     return null;
   }
 
