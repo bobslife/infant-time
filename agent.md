@@ -58,7 +58,7 @@
 
 이 앱은 Capacitor 네이티브 앱에서 `https://infant-time.vercel.app` 원격 웹을 로드하는 구조를 사용한다. 원격 웹 반영, 강제 업데이트, 앱 버전 확인, 프로필 앱 정보처럼 배포 직후 최신 번들이 바로 보여야 하는 작업은 아래 규칙을 적용한다.
 
-- `capacitor.config.ts`, `ios/App/App/capacitor.config.json`, `android/app/src/main/assets/capacitor.config.json`의 `server.url`이 원격 URL인지 확인한다.
+- 네이티브 릴리즈 빌드 전에는 반드시 `npm run cap:sync:remote`를 실행하고, 이어서 `npm run cap:check:remote`로 `capacitor.config.ts`, `ios/App/App/capacitor.config.json`, `android/app/src/main/assets/capacitor.config.json`의 `server.url`이 `https://infant-time.vercel.app`인지 확인한다. 이 확인 없이 App Store/TestFlight/Play 빌드를 만들지 않는다.
 - Safari/브라우저에는 최신 화면이 보이는데 앱 WebView에만 안 보이면 Vercel 배포 실패보다 WebView 캐시 또는 service worker 잔존 가능성을 먼저 의심한다.
 - 네이티브 앱 WebView에서 원격 웹을 로드할 때는 PWA service worker 등록이 최신 번들 반영을 지연시킬 수 있다. `src/pwa.ts`, `vite.config.ts`, `src/main.tsx`를 수정할 때는 iOS/Android WebView에서 service worker가 등록/유지되지 않는지 확인한다.
 - Capacitor 빌드(`CAPACITOR=1`)에서 PWA 플러그인이 제외되어도, 원격 Vercel 빌드를 앱이 로드하면 Vercel 빌드의 service worker가 앱 WebView 안에서 실행될 수 있음을 전제로 검토한다.

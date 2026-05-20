@@ -1,7 +1,7 @@
 {
   "name": "infant-time",
   "private": true,
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "cap:sync": "CAPACITOR=1 npm run build && cap sync",
     "cap:sync:remote": "CAPACITOR=1 npm run build && CAP_SERVER_URL=https://infant-time.vercel.app cap sync",
+    "cap:check:remote": "node scripts/check-capacitor-remote-url.mjs",
     "cap:add:android": "cap add android",
     "cap:add:ios": "cap add ios",
     "cap:open:android": "cap open android",
