@@ -1,7 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 
-export const CURRENT_APP_VERSION = "1.0.6";
 export const MIN_SUPPORTED_APP_VERSION = "1.0.6";
 
 export interface AppUpdateState {
