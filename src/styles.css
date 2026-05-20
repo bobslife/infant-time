@@ -2660,6 +2660,10 @@ button {
   overflow: hidden;
 }
 
+.profile-app-info-panel {
+  margin-top: -2px;
+}
+
 .profile-baby-name {
   font-size: 1.7rem;
 }

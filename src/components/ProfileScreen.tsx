@@ -1,7 +1,8 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AdBanner } from "./ads/AdBanner";
 import { AppUser, BabyGender, BabyProfile, CreateBabyInput, JoinBabyInput, UpdateBabyInput } from "../types";
 import { formatAge, formatDateTime } from "../lib/time";
+import { getInstalledAppVersion } from "../lib/appUpdate";
 
 const genderOptions: Array<{ value: BabyGender; label: string; icon: string }> = [
   { value: "girl", label: "여아", icon: "/icons/girl.svg" },
@@ -43,7 +44,34 @@ export function ProfileScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [installedAppVersion, setInstalledAppVersion] = useState<string | null>(null);
+  const [isCheckingAppVersion, setIsCheckingAppVersion] = useState(true);
   const selectedGender = genderOptions.find((option) => option.value === baby.gender) ?? genderOptions[0];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    void (async () => {
+      try {
+        const version = await getInstalledAppVersion();
+        if (isMounted) {
+          setInstalledAppVersion(version);
+        }
+      } catch {
+        if (isMounted) {
+          setInstalledAppVersion(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingAppVersion(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function handleInviteCodeChange(value: string) {
     setInviteCode(value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 8).toUpperCase());
@@ -217,6 +245,19 @@ export function ProfileScreen({
         >
           회원 탈퇴
         </button>
+      </section>
+      <section className="panel profile-app-info-panel" aria-label="앱 정보">
+        <div className="section-heading compact-heading">
+          <div>
+            <h2>앱 정보</h2>
+          </div>
+        </div>
+        <div className="profile-list">
+          <div>
+            <span>버전</span>
+            <strong>{isCheckingAppVersion ? "확인 중" : installedAppVersion ?? "확인 불가"}</strong>
+          </div>
+        </div>
       </section>
       {isDeleteConfirmOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setIsDeleteConfirmOpen(false)}>
