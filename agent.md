@@ -54,6 +54,18 @@
 - 확인하지 않은 실행 결과를 성공한 것처럼 기록하지 않는다.
 - 개인정보, 인증, 배포, 데이터 삭제 관련 변경은 검증 및 남은 위험을 반드시 남긴다.
 
+## Capacitor 원격 웹뷰/PWA 운영 규칙
+
+이 앱은 Capacitor 네이티브 앱에서 `https://infant-time.vercel.app` 원격 웹을 로드하는 구조를 사용한다. 원격 웹 반영, 강제 업데이트, 앱 버전 확인, 프로필 앱 정보처럼 배포 직후 최신 번들이 바로 보여야 하는 작업은 아래 규칙을 적용한다.
+
+- `capacitor.config.ts`, `ios/App/App/capacitor.config.json`, `android/app/src/main/assets/capacitor.config.json`의 `server.url`이 원격 URL인지 확인한다.
+- Safari/브라우저에는 최신 화면이 보이는데 앱 WebView에만 안 보이면 Vercel 배포 실패보다 WebView 캐시 또는 service worker 잔존 가능성을 먼저 의심한다.
+- 네이티브 앱 WebView에서 원격 웹을 로드할 때는 PWA service worker 등록이 최신 번들 반영을 지연시킬 수 있다. `src/pwa.ts`, `vite.config.ts`, `src/main.tsx`를 수정할 때는 iOS/Android WebView에서 service worker가 등록/유지되지 않는지 확인한다.
+- Capacitor 빌드(`CAPACITOR=1`)에서 PWA 플러그인이 제외되어도, 원격 Vercel 빌드를 앱이 로드하면 Vercel 빌드의 service worker가 앱 WebView 안에서 실행될 수 있음을 전제로 검토한다.
+- 앱 버전/최소 지원 버전/강제 업데이트 작업은 `@capacitor/app`의 설치 버전 조회, 원격 웹 최신 번들 반영, WebView service worker 캐시를 함께 점검한다.
+- `cap:sync` 후에는 네이티브 config가 원격 URL을 유지하는지 확인하고, 원격 웹 배포 후 실기기에서 최신 UI가 안 보이면 앱 재실행, 앱 삭제 후 재설치, service worker unregister 정책을 순서대로 검토한다.
+- 동일 증상 재발 시 과거 커밋 `48b64c1 Configure Capacitor remote webview`처럼 원격 웹뷰와 PWA 등록이 결합된 변경을 먼저 확인한다.
+
 ## 문서 운영 원칙
 
 - 역할별 상세 규칙은 `agent/` 디렉터리의 문서에 누적한다.
