@@ -49,11 +49,15 @@ const ensuredProfileUserIds = new Set<string>();
 export interface EventSummary {
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
+  lastMealAt: string | null;
+  lastMealAmountG: number | null;
   lastPoopAt: string | null;
   lastPoopAmount: PoopAmount | null;
   lastPoopColor: PoopColor | null;
   todayFeedCount: number;
   todayFeedTotalMl: number;
+  todayMealCount: number;
+  todayMealTotalG: number;
   todaySleepCount: number;
   todaySleepMinutes: number;
   todayPeeCount: number;
@@ -61,7 +65,6 @@ export interface EventSummary {
   todayDiaperCount: number;
   todayMedicineCount: number;
   todayTemperatureCount: number;
-  todayMealCount: number;
   todayBathCount: number;
   todayPlayCount: number;
   todayPlayMinutes: number;
@@ -73,6 +76,8 @@ export interface EventSummary {
 export interface DailyEventSummary {
   feedCount: number;
   feedTotalMl: number;
+  mealCount: number;
+  mealTotalG: number;
   sleepCount: number;
   sleepMinutes: number;
   peeCount: number;
@@ -80,7 +85,6 @@ export interface DailyEventSummary {
   diaperCount: number;
   medicineCount: number;
   temperatureCount: number;
-  mealCount: number;
   bathCount: number;
   playCount: number;
   playMinutes: number;
@@ -169,12 +173,15 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
   });
 
   const feedEvents = dayEvents.filter((event) => event.eventType === "feed");
+  const mealEvents = dayEvents.filter((event) => event.eventType === "meal");
   const sleepEvents = dayEvents.filter((event) => event.eventType === "sleep");
   const playEvents = dayEvents.filter((event) => event.eventType === "play");
 
   return {
     feedCount: feedEvents.length,
     feedTotalMl: feedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    mealCount: mealEvents.length,
+    mealTotalG: mealEvents.reduce((total, event) => total + (event.mealAmountG ?? 0), 0),
     sleepCount: sleepEvents.length,
     sleepMinutes: sleepEvents.reduce((total, event) => total + getSleepDurationMinutes(event), 0),
     peeCount: dayEvents.filter((event) => event.eventType === "pee").length,
@@ -182,7 +189,6 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
     diaperCount: dayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType)).length,
     medicineCount: dayEvents.filter((event) => event.eventType === "medicine").length,
     temperatureCount: dayEvents.filter((event) => event.eventType === "temperature").length,
-    mealCount: dayEvents.filter((event) => event.eventType === "meal").length,
     bathCount: dayEvents.filter((event) => event.eventType === "bath").length,
     playCount: playEvents.length,
     playMinutes: playEvents.reduce((total, event) => total + getEventDurationMinutes(event), 0),
@@ -196,7 +202,9 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   );
 
   const feedEvents = events.filter((event) => event.eventType === "feed");
+  const mealEvents = events.filter((event) => event.eventType === "meal");
   const todayFeedEvents = todayEvents.filter((event) => event.eventType === "feed");
+  const todayMealEvents = todayEvents.filter((event) => event.eventType === "meal");
   const poopEvents = events.filter((event) => event.eventType === "poop");
   const sleepEvents = todayEvents.filter((event) => event.eventType === "sleep");
   const playEvents = todayEvents.filter((event) => event.eventType === "play");
@@ -204,6 +212,7 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   const temperatureEvents = events.filter((event) => event.eventType === "temperature");
 
   const lastFeedAt = feedEvents[0]?.occurredAt ?? null;
+  const lastMealAt = mealEvents[0]?.occurredAt ?? null;
   const lastPoopAt = poopEvents[0]?.occurredAt ?? null;
 
   let latestFeedGapMinutes: number | null = null;
@@ -221,11 +230,15 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   return {
     lastFeedAt,
     lastFeedAmountMl: feedEvents[0]?.amountMl ?? null,
+    lastMealAt,
+    lastMealAmountG: mealEvents[0]?.mealAmountG ?? null,
     lastPoopAt,
     lastPoopAmount: poopEvents[0]?.poopAmount ?? null,
     lastPoopColor: poopEvents[0]?.poopColor ?? null,
     todayFeedCount: todayFeedEvents.length,
     todayFeedTotalMl: todayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    todayMealCount: todayMealEvents.length,
+    todayMealTotalG: todayMealEvents.reduce((total, event) => total + (event.mealAmountG ?? 0), 0),
     todaySleepCount: sleepEvents.length,
     todaySleepMinutes,
     todayPeeCount: todayEvents.filter((event) => event.eventType === "pee").length,
@@ -233,7 +246,6 @@ function buildSummary(events: BabyEvent[]): EventSummary {
     todayDiaperCount: todayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType)).length,
     todayMedicineCount: todayEvents.filter((event) => event.eventType === "medicine").length,
     todayTemperatureCount: todayEvents.filter((event) => event.eventType === "temperature").length,
-    todayMealCount: todayEvents.filter((event) => event.eventType === "meal").length,
     todayBathCount: todayEvents.filter((event) => event.eventType === "bath").length,
     todayPlayCount: playEvents.length,
     todayPlayMinutes: playEvents.reduce((total, event) => total + getEventDurationMinutes(event), 0),

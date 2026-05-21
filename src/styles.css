@@ -664,11 +664,11 @@ button {
 
 .status-card {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   margin-top: 16px;
-  padding: 20px;
+  padding: 14px;
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 24px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.84);
   box-shadow: 0 10px 24px rgba(25, 31, 40, 0.06);
   backdrop-filter: blur(14px);
@@ -683,9 +683,19 @@ button {
   background: rgba(255, 247, 248, 0.92);
 }
 
+.status-card.meal {
+  border-color: rgba(34, 197, 94, 0.22);
+  background: rgba(246, 255, 250, 0.9);
+}
+
+.status-card.meal.meal-timer-soon {
+  border-color: rgba(217, 119, 6, 0.24);
+  background: rgba(255, 251, 235, 0.92);
+}
+
 .status-card-section {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-card-heading {
@@ -700,21 +710,25 @@ button {
 
 .status-card-section strong {
   color: #0f172a;
-  font-size: 1.68rem;
+  font-size: 1.42rem;
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
 
+.status-current.meal-timer-soon strong {
+  color: #d97706;
+}
+
 .status-card-section small {
   color: var(--color-text-soft);
-  font-size: 0.94rem;
+  font-size: 0.88rem;
   font-weight: 800;
   line-height: 1.45;
 }
 
 .status-next strong {
   color: var(--home-accent-strong);
-  font-size: 1.72rem;
+  font-size: 1.48rem;
 }
 
 .status-next .next-feed-copy {
@@ -818,7 +832,7 @@ button {
   transform: translateY(1px);
 }
 
-.metric-card span,
+.metric-card > span,
 .compact .eyebrow,
 .section-heading .eyebrow,
 .hero .eyebrow,
@@ -902,6 +916,14 @@ button {
   text-align: left;
 }
 
+.today-primary-summary-grid .metric-display-left .metric-value {
+  text-align: left;
+}
+
+.today-primary-summary-grid .metric-display-left .metric-value strong {
+  text-align: left;
+}
+
 .today-summary-grid .metric-value strong {
   font-size: clamp(1.03rem, 3.5vw, 1.18rem);
   line-height: 1.15;
@@ -913,6 +935,47 @@ button {
   margin-top: 4px;
   font-size: 0.76rem;
   line-height: 1.25;
+}
+
+.sleep-status-chip {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--home-accent-text);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.sleep-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 16px;
+  margin-top: 4px;
+  line-height: 1.25;
+}
+
+.sleep-wake-button {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.sleep-status-chip.active {
+  color: var(--home-accent-text);
 }
 
 .compact small {
@@ -1108,6 +1171,10 @@ button {
 
 .analysis-metric.feed {
   border-color: rgba(49, 130, 246, 0.18);
+}
+
+.analysis-metric.meal {
+  border-color: rgba(34, 197, 94, 0.18);
 }
 
 .analysis-metric.sleep {
@@ -1573,6 +1640,15 @@ button {
   white-space: nowrap;
 }
 
+.feed-marker.meal-marker {
+  background: #34d399;
+  box-shadow: 0 7px 14px rgba(16, 185, 129, 0.18);
+}
+
+.feed-marker.meal-marker em {
+  color: #047857;
+}
+
 .chart-axis {
   position: absolute;
   right: 14px;
@@ -1736,6 +1812,10 @@ button {
 
 .trend-stack .feed {
   background: #6aa8f7;
+}
+
+.trend-stack .meal {
+  background: #34d399;
 }
 
 .trend-stack .sleep {
@@ -2950,10 +3030,10 @@ button {
 }
 
 .activity-shortcut-quick {
-  min-height: 88px;
+  min-height: 76px;
   align-content: center;
-  border-radius: 24px;
-  padding: 14px 12px;
+  border-radius: 20px;
+  padding: 10px 8px;
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(14px);
@@ -2976,8 +3056,8 @@ button {
 }
 
 .activity-shortcut-quick .activity-shortcut-icon {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
 }
 
 .activity-shortcut-icon img {
@@ -2987,14 +3067,14 @@ button {
 }
 
 .activity-shortcut-quick .activity-shortcut-icon img {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .activity-shortcut-label {
   max-width: 100%;
   overflow-wrap: anywhere;
-  font-size: 0.82rem;
+  font-size: 0.75rem;
   line-height: 1.15;
 }
 
@@ -3026,10 +3106,37 @@ button {
   font-size: 1.28rem;
 }
 
+.compact-heading {
+  align-items: center;
+}
+
+.quick-record-toggle {
+  align-self: start;
+  margin-top: 2px;
+}
+
 .home-quick-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(78px, 1fr);
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.home-quick-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.home-quick-grid .activity-shortcut-quick {
+  min-width: 0;
+}
+
+.home-quick-grid .activity-shortcut-label {
+  font-size: 0.72rem;
+  line-height: 1.1;
 }
 
 .quick-entry-backdrop {

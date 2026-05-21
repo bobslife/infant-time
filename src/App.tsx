@@ -376,6 +376,39 @@ export function App() {
     completeEventSave();
   }
 
+  async function handleWakeSleep() {
+    if (!baby) {
+      return;
+    }
+
+    const activeSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt);
+    if (!activeSleep) {
+      return;
+    }
+
+    await updateEvent({
+      id: activeSleep.id,
+      babyId: activeSleep.babyId,
+      eventType: activeSleep.eventType,
+      occurredAt: activeSleep.occurredAt,
+      endedAt: new Date().toISOString(),
+      amountMl: activeSleep.amountMl,
+      diaperType: activeSleep.diaperType,
+      poopAmount: activeSleep.poopAmount,
+      poopColor: activeSleep.poopColor,
+      medicineName: activeSleep.medicineName,
+      medicineDose: activeSleep.medicineDose,
+      medicineNextAt: activeSleep.medicineNextAt,
+      temperatureC: activeSleep.temperatureC,
+      temperatureLocation: activeSleep.temperatureLocation,
+      mealName: activeSleep.mealName,
+      mealAmountG: activeSleep.mealAmountG,
+      mealReaction: activeSleep.mealReaction,
+      note: activeSleep.note,
+    });
+    setSaveToastMessage("수면을 종료했어요.");
+  }
+
   function completeEventSave() {
     setEditingEvent(null);
     setIsInputModalOpen(false);
@@ -541,6 +574,7 @@ export function App() {
               summary={summary}
               onFeedIntervalChange={handleFeedIntervalChange}
               onQuickAdd={handleQuickAdd}
+              onWakeSleep={handleWakeSleep}
             />
             <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
           </section>
