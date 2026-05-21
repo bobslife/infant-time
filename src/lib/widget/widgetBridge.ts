@@ -13,6 +13,7 @@ type WidgetSummaryPayload = {
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
   lastMealAt: string | null;
+  lastMealName: string | null;
   mealTotalG: number;
   activeSleepStartedAt: string | null;
   awakeStartedAt: string | null;
@@ -62,6 +63,14 @@ function getAwakeStartedAt(events: BabyEvent[]): string | null {
   return lastFinishedSleep?.endedAt ?? null;
 }
 
+function getLastMealName(events: BabyEvent[], lastMealAt: string | null): string | null {
+  const lastMeal = events.find(
+    (event) => event.eventType === "meal" && (!lastMealAt || event.occurredAt === lastMealAt),
+  );
+  const mealName = lastMeal?.mealName?.trim();
+  return mealName || null;
+}
+
 export function buildWidgetSummary(
   summary: EventSummary,
   events: BabyEvent[],
@@ -80,6 +89,7 @@ export function buildWidgetSummary(
     lastFeedAt: summary.lastFeedAt,
     lastFeedAmountMl: summary.lastFeedAmountMl,
     lastMealAt: summary.lastMealAt,
+    lastMealName: getLastMealName(events, summary.lastMealAt),
     mealTotalG: summary.todayMealTotalG,
     activeSleepStartedAt: summary.activeSleepStartedAt,
     awakeStartedAt: summary.activeSleepStartedAt ? null : getAwakeStartedAt(events),
@@ -115,6 +125,7 @@ export async function syncWidgetSummary(
     lastFeedAt: payload.lastFeedAt,
     lastFeedAmountMl: payload.lastFeedAmountMl,
     lastMealAt: payload.lastMealAt,
+    lastMealName: payload.lastMealName,
     mealTotalG: payload.mealTotalG,
     activeSleepStartedAt: payload.activeSleepStartedAt,
     awakeStartedAt: payload.awakeStartedAt,

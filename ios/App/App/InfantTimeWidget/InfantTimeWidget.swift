@@ -14,6 +14,7 @@ struct InfantTimeWidgetEntry: TimelineEntry {
     let lastFeedAt: Date?
     let lastFeedAmountMl: Int?
     let lastMealAt: Date?
+    let lastMealName: String?
     let mealTotalG: Int
     let activeSleepStartedAt: Date?
     let awakeStartedAt: Date?
@@ -32,6 +33,7 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastFeedAt: Calendar.current.date(byAdding: .minute, value: -135, to: Date()),
             lastFeedAmountMl: 120,
             lastMealAt: nil,
+            lastMealName: nil,
             mealTotalG: 0,
             activeSleepStartedAt: nil,
             awakeStartedAt: Calendar.current.date(byAdding: .minute, value: -50, to: Date())
@@ -64,6 +66,7 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let lastFeedAtString = summary?["lastFeedAt"] as? String ?? defaults?.string(forKey: "lastFeedAt")
         let lastFeedAmountMl = summary?["lastFeedAmountMl"] as? Int ?? defaults?.integer(forKey: "lastFeedAmountMl")
         let lastMealAtString = summary?["lastMealAt"] as? String ?? defaults?.string(forKey: "lastMealAt")
+        let lastMealName = summary?["lastMealName"] as? String ?? defaults?.string(forKey: "lastMealName")
         let mealTotalG = summary?["mealTotalG"] as? Int ?? defaults?.integer(forKey: "todayMealTotalG") ?? 0
         let activeSleepStartedAtString = summary?["activeSleepStartedAt"] as? String ?? defaults?.string(forKey: "activeSleepStartedAt")
         let awakeStartedAtString = summary?["awakeStartedAt"] as? String ?? defaults?.string(forKey: "awakeStartedAt")
@@ -79,6 +82,7 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastFeedAt: parseDate(lastFeedAtString),
             lastFeedAmountMl: lastFeedAmountMl == 0 ? nil : lastFeedAmountMl,
             lastMealAt: parseDate(lastMealAtString),
+            lastMealName: lastMealName,
             mealTotalG: mealTotalG,
             activeSleepStartedAt: parseDate(activeSleepStartedAtString),
             awakeStartedAt: parseDate(awakeStartedAtString)
@@ -410,11 +414,16 @@ private struct FeedingWidgetViewModel {
     }
 
     var lastMealDetailText: String {
+        let mealName = entry.lastMealName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "종류 - \((mealName?.isEmpty == false ? mealName : nil) ?? "미입력")"
+    }
+
+    var lastMealTimeText: String {
         guard let lastMealAt = entry.lastMealAt else {
-            return "이유식 기록 없음"
+            return "기록 없음"
         }
 
-        return "\(Self.formatClockTime(lastMealAt)) 마지막 이유식"
+        return Self.formatClockTime(lastMealAt)
     }
 
     var sleepStateText: String {
@@ -729,12 +738,9 @@ private struct MetricGrid: View {
         if model.isMealMode {
             HStack(alignment: .top, spacing: 8) {
                 MetricCell(title: "오늘 총 이유식량", value: "\(model.entry.mealTotalG)g", alignment: .center)
-                MetricCell(
-                    title: "수면 상태",
-                    value: model.sleepStateText,
-                    accent: model.isSleeping ? WidgetTheme.sleep : model.palette.accent,
-                    alignment: .center
-                )
+                MetricCell(title: "마지막 이유식 시간", value: model.lastMealTimeText, alignment: .center)
+                SleepMetricCell(model: model)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         } else {
             HStack(alignment: .top, spacing: 8) {
