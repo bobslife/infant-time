@@ -13,6 +13,8 @@ struct InfantTimeWidgetEntry: TimelineEntry {
     let sleepMinutes: Int
     let lastFeedAt: Date?
     let lastFeedAmountMl: Int?
+    let lastMealAt: Date?
+    let mealTotalG: Int
     let activeSleepStartedAt: Date?
     let awakeStartedAt: Date?
 }
@@ -29,6 +31,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             sleepMinutes: 520,
             lastFeedAt: Calendar.current.date(byAdding: .minute, value: -135, to: Date()),
             lastFeedAmountMl: 120,
+            lastMealAt: nil,
+            mealTotalG: 0,
             activeSleepStartedAt: nil,
             awakeStartedAt: Calendar.current.date(byAdding: .minute, value: -50, to: Date())
         )
@@ -59,6 +63,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let sleepMinutes = summary?["sleepMinutes"] as? Int ?? defaults?.integer(forKey: "todaySleepMinutes") ?? 0
         let lastFeedAtString = summary?["lastFeedAt"] as? String ?? defaults?.string(forKey: "lastFeedAt")
         let lastFeedAmountMl = summary?["lastFeedAmountMl"] as? Int ?? defaults?.integer(forKey: "lastFeedAmountMl")
+        let lastMealAtString = summary?["lastMealAt"] as? String ?? defaults?.string(forKey: "lastMealAt")
+        let mealTotalG = summary?["mealTotalG"] as? Int ?? defaults?.integer(forKey: "todayMealTotalG") ?? 0
         let activeSleepStartedAtString = summary?["activeSleepStartedAt"] as? String ?? defaults?.string(forKey: "activeSleepStartedAt")
         let awakeStartedAtString = summary?["awakeStartedAt"] as? String ?? defaults?.string(forKey: "awakeStartedAt")
 
@@ -72,6 +78,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             sleepMinutes: sleepMinutes,
             lastFeedAt: parseDate(lastFeedAtString),
             lastFeedAmountMl: lastFeedAmountMl == 0 ? nil : lastFeedAmountMl,
+            lastMealAt: parseDate(lastMealAtString),
+            mealTotalG: mealTotalG,
             activeSleepStartedAt: parseDate(activeSleepStartedAtString),
             awakeStartedAt: parseDate(awakeStartedAtString)
         )
@@ -115,8 +123,12 @@ struct InfantTimeWidgetView: View {
     private var mediumBody: some View {
         VStack(alignment: .leading, spacing: WidgetTheme.Spacing.section) {
             Header(model: model)
-            MainCountdown(model: model)
-            ProgressBar(model: model)
+            if model.isMealMode {
+                MealMainStatus(model: model)
+            } else {
+                MainCountdown(model: model)
+                ProgressBar(model: model)
+            }
             MetricGrid(model: model)
         }
         .padding(WidgetTheme.Spacing.mediumPadding)
@@ -381,10 +393,32 @@ private struct FeedingWidgetViewModel {
             return "기록 없음"
         }
 
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
-        formatter.dateFormat = "a h:mm"
-        return formatter.string(from: lastFeedAt)
+        return Self.formatClockTime(lastFeedAt)
+    }
+
+    var isMealMode: Bool {
+        entry.lastMealAt != nil
+    }
+
+    var lastMealElapsedText: String {
+        guard let lastMealAt = entry.lastMealAt else {
+            return "이유식 기록 없음"
+        }
+
+        let elapsed = max(0, Int(entry.date.timeIntervalSince(lastMealAt) / 60))
+        return "\(Self.formatDuration(elapsed)) 전"
+    }
+
+    var lastMealDetailText: String {
+        guard let lastMealAt = entry.lastMealAt else {
+            return "이유식 기록 없음"
+        }
+
+        return "\(Self.formatClockTime(lastMealAt)) 마지막 이유식"
+    }
+
+    var sleepStateText: String {
+        isSleeping ? "수면 중" : "깨어있음"
     }
 
     var sleepSummaryText: String {
@@ -412,7 +446,7 @@ private struct FeedingWidgetViewModel {
     }
 
     var widgetUpdateText: String {
-        "1분마다 업데이트"
+        "\(feedIntervalText) 간격"
     }
 
     var nextFeedDueAt: Date? {
@@ -436,6 +470,13 @@ private struct FeedingWidgetViewModel {
         }
 
         return "\(hours)시간 \(remainingMinutes)분"
+    }
+
+    private static func formatClockTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "a h:mm"
+        return formatter.string(from: date)
     }
 
     private static func parseBirthDate(_ value: String?) -> Date? {
@@ -506,7 +547,9 @@ private struct Header: View {
 
             Spacer(minLength: 6)
 
-            StatusBadge(urgency: model.urgency, color: model.urgencyColor)
+            if !model.isMealMode {
+                StatusBadge(urgency: model.urgency, color: model.urgencyColor)
+            }
         }
     }
 }
@@ -567,6 +610,31 @@ private struct StatusBadge: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
         .background(color.opacity(0.13), in: Capsule())
+    }
+}
+
+private struct MealMainStatus: View {
+    let model: FeedingWidgetViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("마지막 이유식")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(WidgetTheme.secondaryText)
+
+            Text(model.lastMealElapsedText)
+                .font(.system(size: 31, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(model.palette.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.62)
+
+            Text(model.lastMealDetailText)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(WidgetTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
     }
 }
 
@@ -658,11 +726,23 @@ private struct MetricGrid: View {
     let model: FeedingWidgetViewModel
 
     var body: some View {
-        HStack(alignment: .top, spacing: 7) {
-            MetricCell(title: "오늘", value: "\(model.entry.feedingMl)ml")
-            MetricCell(title: "마지막", value: model.lastFeedTimeText)
-            SleepMetricCell(model: model)
-            MetricCell(title: "기준 간격", value: model.feedIntervalText)
+        if model.isMealMode {
+            HStack(alignment: .top, spacing: 8) {
+                MetricCell(title: "오늘 총 이유식량", value: "\(model.entry.mealTotalG)g", alignment: .center)
+                MetricCell(
+                    title: "수면 상태",
+                    value: model.sleepStateText,
+                    accent: model.isSleeping ? WidgetTheme.sleep : model.palette.accent,
+                    alignment: .center
+                )
+            }
+        } else {
+            HStack(alignment: .top, spacing: 8) {
+                MetricCell(title: "오늘 수유량", value: "\(model.entry.feedingMl)ml", alignment: .center)
+                MetricCell(title: "마지막 수유 시간", value: model.lastFeedTimeText, alignment: .center)
+                SleepMetricCell(model: model)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
     }
 }
@@ -675,30 +755,31 @@ private struct SleepMetricCell: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(model.isSleeping ? "수면" : "깨어있음")
+        VStack(alignment: .center, spacing: 2) {
+            Text(model.isSleeping ? "수면 - 수면 중" : "수면 - 깨어있음")
                 .font(.system(size: 9.5, weight: .medium, design: .rounded))
                 .foregroundStyle(WidgetTheme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            if let sleepAnchorDate = model.sleepAnchorDate {
-                Text(sleepAnchorDate, style: .relative)
-                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(accent)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.58)
-            } else {
-                Text(model.sleepMetricValue)
-                    .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(accent)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.58)
+            Group {
+                if let sleepAnchorDate = model.sleepAnchorDate {
+                    Text(sleepAnchorDate, style: .relative)
+                } else {
+                    Text(model.sleepMetricValue)
+                }
             }
+            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(accent)
+            .lineLimit(1)
+            .minimumScaleFactor(0.58)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -706,14 +787,16 @@ private struct MetricCell: View {
     let title: String
     let value: String
     var accent: Color = WidgetTheme.primaryText
+    var alignment: Alignment = .leading
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: horizontalAlignment, spacing: 2) {
             Text(title)
                 .font(.system(size: 9.5, weight: .medium, design: .rounded))
                 .foregroundStyle(WidgetTheme.secondaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: alignment)
 
             Text(value)
                 .font(.system(size: 13.5, weight: .semibold, design: .rounded))
@@ -721,8 +804,13 @@ private struct MetricCell: View {
                 .foregroundStyle(accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.58)
+                .frame(maxWidth: .infinity, alignment: alignment)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: alignment)
+    }
+
+    private var horizontalAlignment: HorizontalAlignment {
+        alignment == .center ? .center : .leading
     }
 }
 

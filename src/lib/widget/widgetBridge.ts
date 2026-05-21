@@ -12,6 +12,8 @@ type WidgetSummaryPayload = {
   sleepMinutes: number;
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
+  lastMealAt: string | null;
+  mealTotalG: number;
   activeSleepStartedAt: string | null;
   awakeStartedAt: string | null;
   diaperCount: number;
@@ -77,6 +79,8 @@ export function buildWidgetSummary(
     sleepMinutes: summary.todaySleepMinutes,
     lastFeedAt: summary.lastFeedAt,
     lastFeedAmountMl: summary.lastFeedAmountMl,
+    lastMealAt: summary.lastMealAt,
+    mealTotalG: summary.todayMealTotalG,
     activeSleepStartedAt: summary.activeSleepStartedAt,
     awakeStartedAt: summary.activeSleepStartedAt ? null : getAwakeStartedAt(events),
     diaperCount: summary.todayDiaperCount,
@@ -110,6 +114,8 @@ export async function syncWidgetSummary(
     sleepMinutes: payload.sleepMinutes,
     lastFeedAt: payload.lastFeedAt,
     lastFeedAmountMl: payload.lastFeedAmountMl,
+    lastMealAt: payload.lastMealAt,
+    mealTotalG: payload.mealTotalG,
     activeSleepStartedAt: payload.activeSleepStartedAt,
     awakeStartedAt: payload.awakeStartedAt,
     diaperCount: payload.diaperCount,

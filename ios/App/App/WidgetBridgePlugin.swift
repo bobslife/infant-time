@@ -13,8 +13,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let suiteName = "group.com.infanttime.app"
     private let summaryKey = "todayWidgetSummary"
-    private let lastReloadAtKey = "widgetLastReloadAt"
-    private let reloadThrottleInterval: TimeInterval = 60
+    private let widgetKind = "InfantTimeWidgetHome"
 
     @objc func saveSummary(_ call: CAPPluginCall) {
         guard let summary = call.getObject("summary") else {
@@ -32,6 +31,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.set(summary["sleepMinutes"] as? Int ?? 0, forKey: "todaySleepMinutes")
         defaults?.set(summary["lastFeedAt"] as? String, forKey: "lastFeedAt")
         defaults?.set(summary["lastFeedAmountMl"] as? Int ?? 0, forKey: "lastFeedAmountMl")
+        defaults?.set(summary["lastMealAt"] as? String, forKey: "lastMealAt")
+        defaults?.set(summary["mealTotalG"] as? Int ?? 0, forKey: "todayMealTotalG")
         defaults?.set(summary["activeSleepStartedAt"] as? String, forKey: "activeSleepStartedAt")
         defaults?.set(summary["awakeStartedAt"] as? String, forKey: "awakeStartedAt")
         defaults?.set(summary["diaperCount"] as? Int ?? 0, forKey: "todayDiaperCount")
@@ -44,7 +45,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.set(summary["updatedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()), forKey: "todayWidgetUpdatedAt")
         defaults?.synchronize()
 
-        reloadTimelinesIfNeeded(defaults: defaults)
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
         call.resolve()
     }
 
@@ -59,6 +60,8 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.removeObject(forKey: "todaySleepMinutes")
         defaults?.removeObject(forKey: "lastFeedAt")
         defaults?.removeObject(forKey: "lastFeedAmountMl")
+        defaults?.removeObject(forKey: "lastMealAt")
+        defaults?.removeObject(forKey: "todayMealTotalG")
         defaults?.removeObject(forKey: "activeSleepStartedAt")
         defaults?.removeObject(forKey: "awakeStartedAt")
         defaults?.removeObject(forKey: "todayDiaperCount")
@@ -69,10 +72,9 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.removeObject(forKey: "lastEventLabel")
         defaults?.removeObject(forKey: "lastEventTime")
         defaults?.removeObject(forKey: "todayWidgetUpdatedAt")
-        defaults?.removeObject(forKey: lastReloadAtKey)
         defaults?.synchronize()
 
-        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
         call.resolve()
     }
 
@@ -86,15 +88,4 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    private func reloadTimelinesIfNeeded(defaults: UserDefaults?) {
-        let now = Date()
-        let lastReloadAt = defaults?.object(forKey: lastReloadAtKey) as? Date
-        if let lastReloadAt, now.timeIntervalSince(lastReloadAt) < reloadThrottleInterval {
-            return
-        }
-
-        defaults?.set(now, forKey: lastReloadAtKey)
-        defaults?.synchronize()
-        WidgetCenter.shared.reloadAllTimelines()
-    }
 }
