@@ -392,7 +392,7 @@ export function EventInputScreen({
 
     if (ongoingSleep) {
       const current = toLocalDateTimeInputValue();
-      const sleepEnd = current;
+      const sleepEnd = endedAt || current;
       setEndedAtFromDateTime(sleepEnd);
       await updateExistingEvent(
         {

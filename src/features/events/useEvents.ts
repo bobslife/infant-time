@@ -162,6 +162,11 @@ export function splitSleepInputByLocalMidnight(input: CreateEventInput): CreateE
   return segments.length > 0 ? segments : [input];
 }
 
+function removeEventId(input: CreateEventInput | UpdateEventInput): CreateEventInput {
+  const { id: _id, ...createInput } = input as UpdateEventInput;
+  return createInput;
+}
+
 export function buildDailySummary(events: BabyEvent[], date: string): DailyEventSummary {
   const targetStart = new Date(`${date}T00:00:00`);
   const targetEnd = new Date(targetStart);
@@ -769,6 +774,29 @@ export function useEvents() {
     setErrorMessage(null);
 
     try {
+      const sleepSegments = splitSleepInputByLocalMidnight(removeEventId(input));
+
+      if (sleepSegments.length > 1) {
+        const [firstSegment, ...remainingSegments] = sleepSegments;
+        const updatedInput: UpdateEventInput = { ...firstSegment, id: input.id };
+        const updated =
+          client && !user.isLocal
+            ? await updateSupabaseEvent(client, updatedInput)
+            : await updateLocalEvent(updatedInput);
+        const created = await Promise.all(
+          remainingSegments.map((nextInput) =>
+            client && !user.isLocal
+              ? createSupabaseEvent(client, user.id, nextInput)
+              : createLocalEvent(nextInput),
+          ),
+        );
+
+        setEvents((current) =>
+          sortDescending([...created, ...current.map((event) => (event.id === updated.id ? updated : event))]),
+        );
+        return;
+      }
+
       const updated =
         client && !user.isLocal
           ? await updateSupabaseEvent(client, input)
