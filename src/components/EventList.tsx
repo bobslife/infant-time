@@ -64,13 +64,6 @@ const temperatureLocationLabels = {
   armpit: "겨드랑이",
 };
 
-const mealReactionLabels = {
-  good: "잘 먹음",
-  normal: "보통",
-  poor: "적게 먹음",
-  allergy: "반응 있음",
-};
-
 function eventDetail(event: BabyEvent): string {
   if (event.eventType === "feed") {
     return `${event.amountMl ?? 0}ml`;
@@ -117,8 +110,7 @@ function eventDetail(event: BabyEvent): string {
   }
 
   if (event.eventType === "meal") {
-    const reaction = event.mealReaction ? mealReactionLabels[event.mealReaction] : "반응 미입력";
-    return `${event.mealName || "종류 미입력"} · ${event.mealAmountG ?? 0}g · ${reaction}`;
+    return `${event.mealAmountG ?? 0}g`;
   }
 
   if (event.eventType === "memo") {
@@ -337,7 +329,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     <div className="event-copy">
                       <strong>{eventLabels[event.eventType]}</strong>
                       <span>{eventDetail(event)}</span>
-                      {event.note?.trim() ? <small>{event.note.trim()}</small> : null}
+                      {event.eventType !== "meal" && event.note?.trim() ? <small>{event.note.trim()}</small> : null}
                     </div>
                   </article>
                 </div>
