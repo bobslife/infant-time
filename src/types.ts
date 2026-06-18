@@ -21,6 +21,8 @@ export type TemperatureLocation = "forehead" | "ear" | "armpit";
 
 export type MealReaction = "good" | "normal" | "poor" | "allergy";
 
+export type FeedingMethod = "bottle" | "breast";
+
 export type BabyGender = "girl" | "boy";
 
 export interface BabyProfile {
@@ -41,6 +43,9 @@ export interface BabyEvent {
   occurredAt: string;
   endedAt?: string | null;
   amountMl?: number | null;
+  feedingMethod?: FeedingMethod | null;
+  breastLeftMinutes?: number | null;
+  breastRightMinutes?: number | null;
   diaperType?: DiaperType | null;
   poopAmount?: PoopAmount | null;
   poopColor?: PoopColor | null;
@@ -99,6 +104,9 @@ export interface CreateEventInput {
   occurredAt: string;
   endedAt?: string | null;
   amountMl?: number | null;
+  feedingMethod?: FeedingMethod | null;
+  breastLeftMinutes?: number | null;
+  breastRightMinutes?: number | null;
   diaperType?: DiaperType | null;
   poopAmount?: PoopAmount | null;
   poopColor?: PoopColor | null;

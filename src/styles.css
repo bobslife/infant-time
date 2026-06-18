@@ -1044,6 +1044,71 @@ button {
   gap: 16px;
 }
 
+.analysis-detail-switch {
+  position: sticky;
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgba(25, 31, 40, 0.07);
+  border-radius: 10px;
+  background: rgba(245, 248, 252, 0.92);
+  box-shadow: 0 10px 24px rgba(25, 31, 40, 0.07);
+  backdrop-filter: blur(14px);
+}
+
+.analysis-detail-switch button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 900;
+}
+
+.analysis-detail-switch button.active {
+  background: #fff;
+  color: var(--color-blue-strong);
+  box-shadow: 0 6px 16px rgba(25, 31, 40, 0.08);
+}
+
+.analysis-detail-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.analysis-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.analysis-companion-feed,
+.analysis-diaper-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.analysis-companion-feed span,
+.analysis-diaper-summary span {
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.analysis-companion-feed strong,
+.analysis-diaper-summary strong {
+  color: var(--color-text);
+  font-size: 1.08rem;
+}
+
+.analysis-diaper-summary small {
+  color: var(--color-text-soft);
+  font-weight: 800;
+}
+
 .analysis-range-switch {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1171,6 +1236,14 @@ button {
 
 .analysis-metric.feed {
   border-color: rgba(49, 130, 246, 0.18);
+}
+
+.analysis-metric.bottle {
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.analysis-metric.breast {
+  border-color: rgba(236, 72, 153, 0.18);
 }
 
 .analysis-metric.meal {
@@ -1505,7 +1578,7 @@ button {
 
 .pattern-summary-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1647,6 +1720,19 @@ button {
 
 .feed-marker.meal-marker em {
   color: #047857;
+}
+
+.feed-marker.breast-marker {
+  bottom: 58px;
+  width: 16px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #ec4899;
+  box-shadow: 0 5px 14px rgba(236, 72, 153, 0.24);
+}
+
+.feed-marker.breast-marker em {
+  color: #be185d;
 }
 
 .chart-axis {
@@ -1812,6 +1898,10 @@ button {
 
 .trend-stack .feed {
   background: #6aa8f7;
+}
+
+.trend-stack .breast {
+  background: #ec8fba;
 }
 
 .trend-stack .meal {
@@ -2313,6 +2403,14 @@ button {
   border-color: rgba(59, 130, 246, 0.22);
 }
 
+.quick-action-card.feed-breast {
+  --action-accent-bg: #fce7f3;
+  --action-accent-text: #be185d;
+  --action-accent-border: rgba(236, 72, 153, 0.28);
+  --action-accent-shadow: rgba(236, 72, 153, 0.14);
+  border-color: rgba(236, 72, 153, 0.22);
+}
+
 .quick-action-card.sleep {
   --action-accent-bg: #f0e8ff;
   --action-accent-text: #6d4ac9;
@@ -2431,6 +2529,48 @@ button {
   color: #111827;
   font-size: 1.85rem;
   text-align: center;
+}
+
+.breast-duration-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.breast-duration-grid label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--color-surface-soft);
+}
+
+.breast-duration-grid span {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.breast-duration-grid input {
+  width: 100%;
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid rgba(25, 31, 40, 0.08);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--color-text);
+  font-size: 1.25rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.breast-duration-grid small {
+  color: var(--color-text-muted);
+  font-weight: 900;
 }
 
 .quick-poop-row {
@@ -3735,6 +3875,10 @@ button {
   }
 
   .analysis-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-trend-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

@@ -5,7 +5,8 @@ import { BabyEvent } from "../types";
 
 type PatternTypeKey =
   | "empty"
-  | "feed"
+  | "bottle"
+  | "breast"
   | "sleep"
   | "diaper"
   | "medicine"
@@ -46,6 +47,8 @@ interface RhythmInsight {
 
 interface DayRhythmStats {
   feedings: BabyEvent[];
+  bottleFeedings: BabyEvent[];
+  breastFeedings: BabyEvent[];
   sleeps: BabyEvent[];
   diapers: BabyEvent[];
   meals: BabyEvent[];
@@ -53,6 +56,7 @@ interface DayRhythmStats {
   medicines: BabyEvent[];
   temperatures: BabyEvent[];
   totalFeedMl: number;
+  totalBreastMinutes: number;
   totalSleepMinutes: number;
   playMinutes: number;
   averageFeedIntervalMinutes: number | null;
@@ -113,7 +117,8 @@ interface PatternCardsProps {
 
 const rhythmTypes: Record<PatternTypeKey, PatternVisual> = {
   empty: { key: "empty", label: "빈 시간", color: "#F1F5F9", softColor: "#F8FAFC", priority: 0 },
-  feed: { key: "feed", label: "수유", color: "#4F8CFF", softColor: "#EAF2FF", priority: 70 },
+  bottle: { key: "bottle", label: "분유", color: "#4F8CFF", softColor: "#EAF2FF", priority: 70 },
+  breast: { key: "breast", label: "모유", color: "#EC4899", softColor: "#FCE7F3", priority: 72 },
   sleep: { key: "sleep", label: "수면", color: "#A78BFA", softColor: "#F1ECFF", priority: 90 },
   diaper: { key: "diaper", label: "기저귀", color: "#F59E0B", softColor: "#FFF4D8", priority: 50 },
   medicine: { key: "medicine", label: "약", color: "#EF5DA8", softColor: "#FDE7F2", priority: 65 },
@@ -138,7 +143,7 @@ const rhythmRings: Record<RhythmRingKey, RhythmRing> = {
     label: "수유",
     radius: 98,
     strokeWidth: 16,
-    color: rhythmTypes.feed.color,
+    color: rhythmTypes.bottle.color,
     emptyColor: rhythmTypes.empty.color,
   },
   diaper: {
@@ -161,7 +166,8 @@ const rhythmRings: Record<RhythmRingKey, RhythmRing> = {
 
 const secondaryLaneOffsets: Record<PatternTypeKey, number> = {
   empty: 0,
-  feed: 0,
+  bottle: 0,
+  breast: 0,
   sleep: 0,
   diaper: 0,
   medicine: -12,
@@ -174,7 +180,8 @@ const secondaryLaneOffsets: Record<PatternTypeKey, number> = {
 
 const eventMinimumDurations: Record<PatternTypeKey, number> = {
   empty: 10,
-  feed: 18,
+  bottle: 18,
+  breast: 18,
   sleep: 20,
   diaper: 10,
   medicine: 10,
@@ -218,6 +225,12 @@ function getEventsForDate(events: BabyEvent[], dateKey: string): BabyEvent[] {
 }
 
 function getPatternType(event: BabyEvent): PatternVisual {
+  if (event.eventType === "feed") {
+    return (event.feedingMethod ?? "bottle") === "breast"
+      ? rhythmTypes.breast
+      : rhythmTypes.bottle;
+  }
+
   if (event.eventType === "pee" || event.eventType === "poop" || event.eventType === "diaper") {
     return rhythmTypes.diaper;
   }
@@ -287,11 +300,12 @@ function buildRhythmEvents(events: BabyEvent[], _dateKey: string): RhythmEvent[]
       }
 
       const duration = Math.max(1, range.endMinute - range.startMinute);
-      const isPrimary = type.key === "sleep" || type.key === "feed" || type.key === "diaper";
+      const isFeeding = type.key === "bottle" || type.key === "breast";
+      const isPrimary = type.key === "sleep" || isFeeding || type.key === "diaper";
       const ringKey: RhythmRingKey =
         type.key === "sleep"
           ? "sleep"
-          : type.key === "feed"
+          : isFeeding
             ? "feed"
             : type.key === "diaper"
               ? "diaper"
@@ -323,7 +337,9 @@ function buildRhythmEvents(events: BabyEvent[], _dateKey: string): RhythmEvent[]
 
 function buildEventDetail(event: BabyEvent, typeKey: PatternTypeKey, durationMinutes: number): string {
   switch (typeKey) {
-    case "feed":
+    case "breast":
+      return `왼쪽 ${event.breastLeftMinutes ?? 0}분 · 오른쪽 ${event.breastRightMinutes ?? 0}분`;
+    case "bottle":
       return `${event.amountMl ?? 0}ml`;
     case "sleep":
       return `${formatDurationMinutes(durationMinutes)} 수면`;
@@ -500,6 +516,8 @@ function comparePercent(today: number, average: number | null): number | null {
 function getStatsForDate(events: BabyEvent[], dateKey: string, now: Date): DayRhythmStats {
   const dayEvents = getEventsForDate(events, dateKey);
   const feedings = dayEvents.filter((event) => event.eventType === "feed");
+  const bottleFeedings = feedings.filter((event) => (event.feedingMethod ?? "bottle") === "bottle");
+  const breastFeedings = feedings.filter((event) => (event.feedingMethod ?? "bottle") === "breast");
   const sleeps = dayEvents.filter((event) => event.eventType === "sleep");
   const diapers = dayEvents.filter((event) => ["diaper", "pee", "poop"].includes(event.eventType));
   const meals = dayEvents.filter((event) => event.eventType === "meal");
@@ -510,13 +528,19 @@ function getStatsForDate(events: BabyEvent[], dateKey: string, now: Date): DayRh
 
   return {
     feedings,
+    bottleFeedings,
+    breastFeedings,
     sleeps,
     diapers,
     meals,
     playRecords,
     medicines,
     temperatures,
-    totalFeedMl: feedings.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    totalFeedMl: bottleFeedings.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    totalBreastMinutes: breastFeedings.reduce(
+      (total, event) => total + (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0),
+      0,
+    ),
     totalSleepMinutes: getTotalSleepMinutes(sleeps, dateKey, now),
     playMinutes: playRecords.reduce((total, event) => total + getVisibleDurationMinutes(event, dateKey, now), 0),
     averageFeedIntervalMinutes: getAverageInterval(feedings),
@@ -612,8 +636,8 @@ function getRhythmInsight(events: BabyEvent[], allEvents: BabyEvent[], selectedD
   if (recentAverageFeedMl && stats.totalFeedMl < recentAverageFeedMl * 0.7) {
     candidates.push({
       type: "attention",
-      title: "오늘 수유량이 평소보다 적어요",
-      description: `기록상 최근 평균보다 약 ${Math.abs(feedMlDiffPercent ?? 0)}% 적게 기록됐어요. 추가 수유가 있었는지 확인해 보세요.`,
+      title: "오늘 분유량이 평소보다 적어요",
+      description: `기록상 최근 평균보다 약 ${Math.abs(feedMlDiffPercent ?? 0)}% 적게 기록됐어요. 추가 분유가 있었는지 확인해 보세요.`,
       priority: 85,
       relatedTypes: ["feeding"],
     });
@@ -700,7 +724,7 @@ function getRhythmInsight(events: BabyEvent[], allEvents: BabyEvent[], selectedD
   if (recentAverageFeedMl && stats.totalFeedMl > recentAverageFeedMl * 1.3) {
     candidates.push({
       type: "neutral",
-      title: "오늘 수유량이 평소보다 많아요",
+      title: "오늘 분유량이 평소보다 많아요",
       description: `최근 평균보다 약 ${Math.abs(feedMlDiffPercent ?? 0)}% 많이 기록됐어요. 성장기나 컨디션 변화가 있을 수 있어요.`,
       priority: 45,
       relatedTypes: ["feeding"],
@@ -860,6 +884,16 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
     [rhythmSegments],
   );
   const totalPatternCount = selectedEvents.length;
+  const bottleFeedings = selectedEvents.filter(
+    (event) => event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "bottle",
+  );
+  const breastFeedings = selectedEvents.filter(
+    (event) => event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "breast",
+  );
+  const breastMinutes = breastFeedings.reduce(
+    (total, event) => total + (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0),
+    0,
+  );
   const patternInsight = getRhythmInsight(selectedEvents, events, selectedDate, now);
   const latestPlay = selectedEvents
     .filter((event) => event.eventType === "play" && event.note?.trim())
@@ -922,7 +956,10 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
           <div className="rhythm-clock-center">
             <span>{selectedEvents.length === 0 ? "비어 있는 하루" : "오늘 리듬"}</span>
             <strong>{totalPatternCount}개 기록</strong>
-            <small>수유 {displaySummary.feedCount}회 · 수면 {formatDurationMinutes(displaySummary.sleepMinutes)}</small>
+            <small>
+              모유 {breastFeedings.length}회 · 분유 {bottleFeedings.length}회 · 수면{" "}
+              {formatDurationMinutes(displaySummary.sleepMinutes)}
+            </small>
           </div>
           <div className="rhythm-clock-markers" aria-hidden="true">
             <span className="m-0">0</span>
@@ -997,11 +1034,17 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
       </section>
 
       <section className="pattern-summary-strip">
-        <article className="panel analysis-metric feed">
-          <p>수유</p>
-          <strong>{displaySummary.feedCount}회</strong>
+        <article className="panel analysis-metric breast">
+          <p>모유</p>
+          <strong>{breastFeedings.length}회</strong>
+          <small>총 {breastMinutes}분</small>
+          <em>좌우 합계</em>
+        </article>
+        <article className="panel analysis-metric bottle">
+          <p>분유</p>
+          <strong>{bottleFeedings.length}회</strong>
           <small>총 {displaySummary.feedTotalMl}ml</small>
-          <em>하루 리듬</em>
+          <em>하루 총량</em>
         </article>
         <article className="panel analysis-metric sleep">
           <p>수면</p>

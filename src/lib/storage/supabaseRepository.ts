@@ -30,6 +30,9 @@ interface EventRow {
   occurred_at: string;
   ended_at: string | null;
   amount_ml: number | null;
+  feeding_method?: BabyEvent["feedingMethod"];
+  breast_left_minutes?: number | null;
+  breast_right_minutes?: number | null;
   diaper_type: BabyEvent["diaperType"];
   poop_amount: BabyEvent["poopAmount"];
   poop_color: BabyEvent["poopColor"];
@@ -104,6 +107,9 @@ function mapEvent(row: EventRow): BabyEvent {
     occurredAt: row.occurred_at,
     endedAt: row.ended_at,
     amountMl: row.amount_ml,
+    feedingMethod: row.feeding_method ?? "bottle",
+    breastLeftMinutes: row.breast_left_minutes ?? null,
+    breastRightMinutes: row.breast_right_minutes ?? null,
     diaperType: row.diaper_type,
     poopAmount: row.poop_amount,
     poopColor: row.poop_color,
@@ -134,6 +140,8 @@ function mapGrowthRecord(row: GrowthRecordRow): GrowthRecord {
 }
 
 const eventSelectColumns =
+  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, feeding_method, breast_left_minutes, breast_right_minutes, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
+const legacyEventSelectColumns =
   "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
 const growthRecordSelectColumns =
   "id, baby_id, measured_at, weight_kg, height_cm, head_cm, note, created_at";
@@ -272,11 +280,31 @@ export async function listSupabaseEvents(
     .order("occurred_at", { ascending: false })
     .returns<EventRow[]>();
 
-  if (error) {
+  if (!error) {
+    return data.map(mapEvent);
+  }
+
+  const isMissingBreastfeedingColumn =
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    /feeding_method|breast_left_minutes|breast_right_minutes/i.test(error.message);
+
+  if (!isMissingBreastfeedingColumn) {
     throw error;
   }
 
-  return data.map(mapEvent);
+  const { data: legacyData, error: legacyError } = await client
+    .from("events")
+    .select(legacyEventSelectColumns)
+    .eq("baby_id", babyId)
+    .order("occurred_at", { ascending: false })
+    .returns<EventRow[]>();
+
+  if (legacyError) {
+    throw legacyError;
+  }
+
+  return legacyData.map(mapEvent);
 }
 
 export async function createSupabaseEvent(
@@ -293,6 +321,9 @@ export async function createSupabaseEvent(
       occurred_at: new Date(input.occurredAt).toISOString(),
       ended_at: input.endedAt ? new Date(input.endedAt).toISOString() : null,
       amount_ml: input.amountMl ?? null,
+      feeding_method: input.eventType === "feed" ? input.feedingMethod ?? "bottle" : "bottle",
+      breast_left_minutes: input.breastLeftMinutes ?? null,
+      breast_right_minutes: input.breastRightMinutes ?? null,
       diaper_type: input.diaperType ?? null,
       poop_amount: input.poopAmount ?? null,
       poop_color: input.poopColor ?? null,
@@ -327,6 +358,9 @@ export async function updateSupabaseEvent(
       occurred_at: new Date(input.occurredAt).toISOString(),
       ended_at: input.endedAt ? new Date(input.endedAt).toISOString() : null,
       amount_ml: input.amountMl ?? null,
+      feeding_method: input.eventType === "feed" ? input.feedingMethod ?? "bottle" : "bottle",
+      breast_left_minutes: input.breastLeftMinutes ?? null,
+      breast_right_minutes: input.breastRightMinutes ?? null,
       diaper_type: input.diaperType ?? null,
       poop_amount: input.poopAmount ?? null,
       poop_color: input.poopColor ?? null,

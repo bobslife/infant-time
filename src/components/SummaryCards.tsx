@@ -3,7 +3,7 @@ import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
 import { buildDailySummary, DailyEventSummary, EventSummary } from "../features/events/useEvents";
 import { formatAge, formatDurationMinutes, formatTime } from "../lib/time";
-import { BabyEvent, BabyProfile, EventType, PoopColor } from "../types";
+import { BabyEvent, BabyProfile, EventType, FeedingMethod, PoopColor } from "../types";
 
 interface SummaryCardsProps {
   baby: BabyProfile;
@@ -11,7 +11,7 @@ interface SummaryCardsProps {
   feedIntervalMinutes: number;
   summary: EventSummary;
   onFeedIntervalChange: (minutes: number) => void;
-  onQuickAdd: (eventType: EventType) => void;
+  onQuickAdd: (eventType: EventType, feedingMethod?: FeedingMethod) => void;
   onWakeSleep: () => void;
 }
 
@@ -42,15 +42,22 @@ const defaultProfileImages: Record<BabyProfile["gender"], string> = {
   girl: "/images/default-profile-girl.png",
 };
 
-const quickActions: Array<{ type: EventType; icon: string; label: string }> = [
-  { type: "feed", icon: "/icons/feeding.svg", label: "수유" },
-  { type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
-  { type: "meal", icon: "/icons/babyfood.svg", label: "이유식" },
-  { type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
-  { type: "play", icon: "/icons/play.svg", label: "놀이" },
-  { type: "bath", icon: "/icons/bath.svg", label: "목욕" },
-  { type: "medicine", icon: "/icons/pill.svg", label: "약" },
-  { type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
+const quickActions: Array<{
+  id: string;
+  type: EventType;
+  feedingMethod?: FeedingMethod;
+  icon: string;
+  label: string;
+}> = [
+  { id: "breast", type: "feed", feedingMethod: "breast", icon: "/icons/breastfeed.svg", label: "모유" },
+  { id: "bottle", type: "feed", feedingMethod: "bottle", icon: "/icons/feeding.svg", label: "분유" },
+  { id: "meal", type: "meal", icon: "/icons/babyfood.svg", label: "이유식" },
+  { id: "sleep", type: "sleep", icon: "/icons/sleeping.svg", label: "수면" },
+  { id: "diaper", type: "diaper", icon: "/icons/diaper.svg", label: "기저귀" },
+  { id: "play", type: "play", icon: "/icons/play.svg", label: "놀이" },
+  { id: "bath", type: "bath", icon: "/icons/bath.svg", label: "목욕" },
+  { id: "medicine", type: "medicine", icon: "/icons/pill.svg", label: "약" },
+  { id: "temperature", type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
 ];
 
 const feedIntervalPresets = [180, 210, 240, 270, 300];
@@ -244,17 +251,21 @@ export function SummaryCards({
   const lastMealDescription = summary.lastMealAt
     ? `${formatTime(summary.lastMealAt)} 마지막 이유식`
     : "이유식 기록을 남기면 오늘의 흐름이 표시됩니다.";
+  const lastFeedDetail =
+    summary.lastFeedingMethod === "breast"
+      ? `모유 · 왼쪽 ${summary.lastBreastLeftMinutes ?? 0}분 · 오른쪽 ${summary.lastBreastRightMinutes ?? 0}분`
+      : `분유 · ${summary.lastFeedAmountMl ?? 0}ml`;
   const nextFeedCopy = formatFeedCountdown(summary.lastFeedAt, feedIntervalMinutes, now);
   const visibleFeedIntervalPresets = feedIntervalPresets.includes(feedIntervalMinutes)
     ? feedIntervalPresets
     : [...feedIntervalPresets, feedIntervalMinutes].sort((left, right) => left - right);
-  const primarySummaryLabel = isMealMode ? "이유식량" : "수유량";
+  const primarySummaryLabel = isMealMode ? "이유식량" : "오늘 수유";
   const primarySummaryValue = isMealMode
     ? summary.todayMealTotalG > 0
       ? `${summary.todayMealTotalG}g`
       : "아직 기록이 없어요"
-    : summary.todayFeedTotalMl > 0
-      ? `${summary.todayFeedTotalMl}ml`
+    : summary.todayFeedCount > 0
+      ? `분유 ${summary.todayFeedTotalMl}ml · 모유 ${summary.todayBreastMinutes}분`
       : "아직 기록이 없어요";
   const sleepDurationLabel = summary.todaySleepMinutes > 0 ? formatDurationMinutes(summary.todaySleepMinutes) : "아직 기록이 없어요";
   const primarySummaryDetail = isMealMode
@@ -262,7 +273,7 @@ export function SummaryCards({
       ? formatTodayMealNameCounts(events, now) ?? `오늘 ${summary.todayMealCount}회 기록`
       : "기록을 더 쌓는 중"
     : summary.todayFeedCount > 0
-      ? `오늘 ${summary.todayFeedCount}회 기록`
+      ? `총 ${summary.todayFeedCount}회 기록`
       : "아직 기록이 없어요";
   const sleepStatusLabel = getSleepStatusLabel(summary.activeSleepStartedAt);
   useEffect(() => {
@@ -298,7 +309,13 @@ export function SummaryCards({
               <span>{isMealMode ? "마지막 이유식" : "마지막 수유"}</span>
             </div>
             <strong>{isMealMode ? lastMealTitle : lastFeedTitle}</strong>
-            <small>{isMealMode ? lastMealDescription : lastFeedDescription}</small>
+            <small>
+              {isMealMode
+                ? lastMealDescription
+                : summary.lastFeedAt
+                  ? `${lastFeedDescription} · ${lastFeedDetail}`
+                  : lastFeedDescription}
+            </small>
           </div>
 
           {!isMealMode ? (
@@ -368,10 +385,11 @@ export function SummaryCards({
           <div className="summary-grid today-summary-grid today-extra-summary-grid">
             {isMealMode ? (
               <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
-                <span>수유량</span>
+                <span>분유</span>
                 <div className="metric-value">
-                  <strong>{summary.todayFeedTotalMl}ml</strong>
+                  <strong>분유 {summary.todayFeedTotalMl}ml</strong>
                 </div>
+                <small>모유 {summary.todayBreastMinutes}분 · {summary.todayFeedCount}회</small>
               </button>
             ) : (
               <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
@@ -435,10 +453,10 @@ export function SummaryCards({
           {quickActions.map((action) => (
             <ActivityShortcut
               icon={action.icon}
-              key={action.type}
+              key={action.id}
               label={action.label}
               variant="quick"
-              onClick={() => onQuickAdd(action.type)}
+              onClick={() => onQuickAdd(action.type, action.feedingMethod)}
             />
           ))}
         </div>
@@ -458,6 +476,7 @@ interface DayTrend {
   dateKey: string;
   label: string;
   feedTotalMl: number;
+  breastMinutes: number;
   feedAverageIntervalMinutes: number | null;
   mealTotalG: number;
   mealAverageIntervalMinutes: number | null;
@@ -653,9 +672,9 @@ function TrendBars({
   selectedDate,
 }: {
   data: DayTrend[];
-  valueKey: "feedTotalMl" | "mealTotalG" | "sleepMinutes";
+  valueKey: "feedTotalMl" | "breastMinutes" | "mealTotalG" | "sleepMinutes";
   maxValue: number;
-  tone: "feed" | "meal" | "sleep";
+  tone: "feed" | "breast" | "meal" | "sleep";
   selectedDate: string;
 }) {
   const safeMax = Math.max(1, maxValue);
@@ -668,6 +687,8 @@ function TrendBars({
             <em>
               {valueKey === "feedTotalMl"
                 ? `${item.feedTotalMl}ml`
+                : valueKey === "breastMinutes"
+                  ? `${item.breastMinutes}분`
                 : valueKey === "mealTotalG"
                   ? `${item.mealTotalG}g`
                   : formatCompactHours(item.sleepMinutes)}
@@ -678,6 +699,8 @@ function TrendBars({
               title={`${item.label || item.dateKey} ${
                 valueKey === "feedTotalMl"
                   ? `${item.feedTotalMl}ml`
+                  : valueKey === "breastMinutes"
+                    ? `${item.breastMinutes}분`
                   : valueKey === "mealTotalG"
                     ? `${item.mealTotalG}g`
                     : formatDurationMinutes(item.sleepMinutes)
@@ -695,7 +718,8 @@ function FeedTimelineChart({ feeds }: { feeds: BabyEvent[] }) {
   const sortedFeeds = feeds
     .slice()
     .sort((left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime());
-  const maxAmount = Math.max(120, ...sortedFeeds.map((event) => event.amountMl ?? 0));
+  const bottleFeeds = sortedFeeds.filter((event) => (event.feedingMethod ?? "bottle") === "bottle");
+  const maxAmount = Math.max(120, ...bottleFeeds.map((event) => event.amountMl ?? 0));
 
   return (
     <div className="chart-with-y-axis">
@@ -705,16 +729,22 @@ function FeedTimelineChart({ feeds }: { feeds: BabyEvent[] }) {
         {sortedFeeds.map((event) => {
           const occurred = new Date(event.occurredAt);
           const left = ((occurred.getHours() * 60 + occurred.getMinutes()) / 1440) * 100;
+          const isBreast = (event.feedingMethod ?? "bottle") === "breast";
+          const breastMinutes = (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0);
           const height = Math.max(18, ((event.amountMl ?? 0) / maxAmount) * 78);
 
           return (
             <span
-              className="feed-marker"
+              className={`feed-marker${isBreast ? " breast-marker" : ""}`}
               key={event.id}
-              style={{ left: `${left}%`, height: `${height}%` }}
-              title={`${formatTime(event.occurredAt)} ${event.amountMl ?? 0}ml`}
+              style={{ left: `${left}%`, height: isBreast ? "16px" : `${height}%` }}
+              title={
+                isBreast
+                  ? `${formatTime(event.occurredAt)} 모유 왼쪽 ${event.breastLeftMinutes ?? 0}분 오른쪽 ${event.breastRightMinutes ?? 0}분`
+                  : `${formatTime(event.occurredAt)} 분유 ${event.amountMl ?? 0}ml`
+              }
             >
-              <em>{event.amountMl ?? 0}ml</em>
+              <em>{isBreast ? `모유 ${breastMinutes}분` : `${event.amountMl ?? 0}ml`}</em>
             </span>
           );
         })}
@@ -847,6 +877,7 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
 
 export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
   const [now, setNow] = useState(new Date());
+  const [detailSection, setDetailSection] = useState<"intake" | "sleep" | "diaper">("intake");
   const selectedEvents = getEventsForDate(events, selectedDate);
   const todayKey = toDateKey(now);
   const isTodaySelected = selectedDate === todayKey;
@@ -864,10 +895,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const yesterdaySummary = buildDailySummary(events, yesterdayKey);
   const firstMealDateKey = getFirstEventDateKey(events, "meal");
   const isMealMode = firstMealDateKey !== null && selectedDate >= firstMealDateKey;
-  const rhythmLabel = isMealMode ? "이유식" : "수유";
-  const rhythmUnit = isMealMode ? "g" : "ml";
-  const rhythmTotal = isMealMode ? summary.mealTotalG : summary.feedTotalMl;
-  const rhythmAverageInterval = isMealMode ? averageMealInterval : averageInterval;
   const rhythmDiff = isMealMode ? summary.mealTotalG - yesterdaySummary.mealTotalG : summary.feedTotalMl - yesterdaySummary.feedTotalMl;
   const trendData: DayTrend[] = Array.from({ length: RECENT_TREND_DAYS }, (_, index) => {
     const date = addDays(selectedStart, index - (RECENT_TREND_DAYS - 1));
@@ -881,7 +908,19 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     return {
       dateKey,
       label: `${date.getMonth() + 1}/${date.getDate()}`,
-      feedTotalMl: dayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+      feedTotalMl: dayFeedEvents.reduce(
+        (total, event) =>
+          total + ((event.feedingMethod ?? "bottle") === "bottle" ? event.amountMl ?? 0 : 0),
+        0,
+      ),
+      breastMinutes: dayFeedEvents.reduce(
+        (total, event) =>
+          total +
+          ((event.feedingMethod ?? "bottle") === "breast"
+            ? (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0)
+            : 0),
+        0,
+      ),
       feedAverageIntervalMinutes:
         dayFeedIntervals.length > 0
           ? Math.round(dayFeedIntervals.reduce((total, interval) => total + interval, 0) / dayFeedIntervals.length)
@@ -898,6 +937,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     trendData.reduce((total, item) => total + item.sleepMinutes, 0) / trendData.length,
   );
   const maxSevenDayFeed = Math.max(120, ...trendData.map((item) => item.feedTotalMl));
+  const maxSevenDayBreast = Math.max(30, ...trendData.map((item) => item.breastMinutes));
   const maxSevenDayMeal = Math.max(60, ...trendData.map((item) => item.mealTotalG));
   const maxTrendInterval = Math.max(240, ...trendData.map((item) => item.feedAverageIntervalMinutes ?? 0));
   const maxMealTrendInterval = Math.max(240, ...trendData.map((item) => item.mealAverageIntervalMinutes ?? 0));
@@ -913,6 +953,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
     ? getMealInsight(displaySummary, averageMealInterval, sevenDaySleepAverage)
     : getInsight(displaySummary, averageInterval, sevenDaySleepAverage);
   const sleepDiff = displaySummary.sleepMinutes - yesterdaySummary.sleepMinutes;
+  const breastDiff = displaySummary.breastMinutes - yesterdaySummary.breastMinutes;
   const hasEnoughFeedsForIntervalChart = feedEvents.length >= 2;
   const hasEnoughMealsForIntervalChart = mealEvents.length >= 2;
 
@@ -942,128 +983,210 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
       </section>
 
       <section className="analysis-metric-grid">
-        <article className={`panel analysis-metric ${isMealMode ? "meal" : "feed"}`}>
-          <p>{rhythmLabel}</p>
-          <strong>{rhythmTotal}{rhythmUnit}</strong>
-          <small>평균 간격 {formatAverageInterval(rhythmAverageInterval)}</small>
-          <em className={rhythmDiff >= 0 ? "up" : "down"}>{formatSignedAmount(rhythmDiff, rhythmUnit)}</em>
-        </article>
-        <article className="panel analysis-metric sleep">
-          <p>수면</p>
-          <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
-          <small>{displaySummary.sleepCount}회 기록</small>
-          <em className={sleepDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(sleepDiff)}</em>
-        </article>
-        <article className="panel analysis-metric poop">
-          <p>기저귀</p>
-          <strong>{summary.diaperCount}회</strong>
-          <small>소변/대변 통합</small>
-          <em>{poopEvents[0]?.poopColor ? poopColorLabels[poopEvents[0].poopColor] : "상태 기록 없음"}</em>
-        </article>
+        {isMealMode ? (
+          <>
+            <article className="panel analysis-metric meal">
+              <p>이유식</p>
+              <strong>{summary.mealTotalG}g</strong>
+              <small>
+                {summary.mealCount}회 · 수유 {summary.feedCount}회 병행
+              </small>
+              <em className={rhythmDiff >= 0 ? "up" : "down"}>
+                {formatSignedAmount(rhythmDiff, "g")}
+              </em>
+            </article>
+            <article className="panel analysis-metric sleep">
+              <p>수면</p>
+              <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
+              <small>{displaySummary.sleepCount}회 기록</small>
+              <em className={sleepDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(sleepDiff)}</em>
+            </article>
+            <article className="panel analysis-metric poop">
+              <p>기저귀</p>
+              <strong>{summary.diaperCount}회</strong>
+              <small>소변/대변 통합</small>
+              <em>{poopEvents[0]?.poopColor ? poopColorLabels[poopEvents[0].poopColor] : "상태 기록 없음"}</em>
+            </article>
+          </>
+        ) : (
+          <>
+            <article className="panel analysis-metric feed">
+              <p>총 수유</p>
+              <strong>{summary.feedCount}회</strong>
+              <small>평균 간격 {formatAverageInterval(averageInterval)}</small>
+              <em>{summary.feedCount > 0 ? "분유 + 모유" : "기록 없음"}</em>
+            </article>
+            <article className="panel analysis-metric bottle">
+              <p>분유 총량</p>
+              <strong>{summary.feedTotalMl}ml</strong>
+              <small>모유 시간과 별도 집계</small>
+              <em className={rhythmDiff >= 0 ? "up" : "down"}>
+                {formatSignedAmount(rhythmDiff, "ml")}
+              </em>
+            </article>
+            <article className="panel analysis-metric breast">
+              <p>모유 시간</p>
+              <strong>{summary.breastMinutes}분</strong>
+              <small>좌우 수유 시간 합계</small>
+              <em className={breastDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(breastDiff)}</em>
+            </article>
+          </>
+        )}
       </section>
 
       <AdBanner placement="analysis-bottom" />
 
-      <section className="panel chart-panel">
-        <div className="chart-heading">
-          <div>
-            <p className="eyebrow">{isMealMode ? "이유식 타임라인" : "수유 타임라인"}</p>
-            <h3>{isMealMode ? "시간대별 이유식량" : "시간대별 수유량"}</h3>
-          </div>
-        </div>
-        {isMealMode ? <MealTimelineChart meals={mealEvents} /> : <FeedTimelineChart feeds={feedEvents} />}
-      </section>
-      <section className="panel chart-panel">
-        <div className="chart-heading">
-          <div>
-            <p className="eyebrow">{isMealMode ? "이유식 간격" : "수유 간격"}</p>
-            <h3>날짜별 평균 간격</h3>
-          </div>
-        </div>
-        {isMealMode ? (
-          hasEnoughMealsForIntervalChart ? (
-            <IntervalLineChart
-              data={trendData}
-              maxInterval={maxMealTrendInterval}
-              selectedDate={selectedDate}
-              valueKey="mealAverageIntervalMinutes"
-              emptyMessage="선택한 날짜의 이유식 기록이 2개 이상이면 날짜별 평균 간격을 확인할 수 있습니다."
-            />
+      <nav className="analysis-detail-switch" aria-label="분석 상세 항목">
+        {[
+          { id: "intake" as const, label: "섭취" },
+          { id: "sleep" as const, label: "수면" },
+          { id: "diaper" as const, label: "기저귀" },
+        ].map((item) => (
+          <button
+            aria-pressed={detailSection === item.id}
+            className={detailSection === item.id ? "active" : ""}
+            key={item.id}
+            type="button"
+            onClick={() => setDetailSection(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      {detailSection === "intake" ? (
+        <div className="analysis-detail-stack">
+          <section className="panel chart-panel">
+            <div className="chart-heading">
+              <div>
+                <p className="eyebrow">{isMealMode ? "이유식 타임라인" : "수유 타임라인"}</p>
+                <h3>{isMealMode ? "시간대별 이유식량" : "분유량과 모유 시간"}</h3>
+              </div>
+            </div>
+            {isMealMode ? <MealTimelineChart meals={mealEvents} /> : <FeedTimelineChart feeds={feedEvents} />}
+          </section>
+
+          <section className="panel chart-panel">
+            <div className="chart-heading">
+              <div>
+                <p className="eyebrow">{isMealMode ? "이유식 간격" : "통합 수유 간격"}</p>
+                <h3>날짜별 평균 간격</h3>
+              </div>
+            </div>
+            {isMealMode ? (
+              hasEnoughMealsForIntervalChart ? (
+                <IntervalLineChart
+                  data={trendData}
+                  maxInterval={maxMealTrendInterval}
+                  selectedDate={selectedDate}
+                  valueKey="mealAverageIntervalMinutes"
+                  emptyMessage="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다."
+                />
+              ) : (
+                <p className="empty-copy interval-empty-copy">
+                  선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다.
+                </p>
+              )
+            ) : hasEnoughFeedsForIntervalChart ? (
+              <IntervalLineChart
+                data={trendData}
+                maxInterval={maxTrendInterval}
+                selectedDate={selectedDate}
+                valueKey="feedAverageIntervalMinutes"
+                emptyMessage="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다."
+              />
+            ) : (
+              <p className="empty-copy interval-empty-copy">
+                분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다.
+              </p>
+            )}
+          </section>
+
+          {isMealMode ? (
+            <>
+              <section className="panel analysis-companion-feed">
+                <span>병행 수유</span>
+                <strong>
+                  {summary.feedCount}회 · 분유 {summary.feedTotalMl}ml · 모유 {summary.breastMinutes}분
+                </strong>
+              </section>
+              <section className="panel chart-panel">
+                <div className="chart-heading">
+                  <div>
+                    <p className="eyebrow">최근 7일</p>
+                    <h3>이유식량</h3>
+                  </div>
+                </div>
+                <div className="chart-with-y-axis">
+                  <ChartAxisLabels labels={[`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]} />
+                  <TrendBars data={trendData} valueKey="mealTotalG" maxValue={maxSevenDayMeal} tone="meal" selectedDate={selectedDate} />
+                </div>
+              </section>
+            </>
           ) : (
-            <p className="empty-copy interval-empty-copy">
-              선택한 날짜의 이유식 기록이 2개 이상이면 날짜별 평균 간격을 확인할 수 있습니다.
-            </p>
-          )
-        ) : hasEnoughFeedsForIntervalChart ? (
-          <IntervalLineChart
-            data={trendData}
-            maxInterval={maxTrendInterval}
-            selectedDate={selectedDate}
-            valueKey="feedAverageIntervalMinutes"
-            emptyMessage="선택한 날짜의 수유 기록이 2개 이상이면 날짜별 평균 간격을 확인할 수 있습니다."
-          />
-        ) : (
-          <p className="empty-copy interval-empty-copy">
-            선택한 날짜의 수유 기록이 2개 이상이면 날짜별 평균 간격을 확인할 수 있습니다.
-          </p>
-        )}
-      </section>
+            <div className="analysis-trend-grid">
+              <section className="panel chart-panel">
+                <div className="chart-heading">
+                  <div>
+                    <p className="eyebrow">최근 7일</p>
+                    <h3>분유량</h3>
+                  </div>
+                </div>
+                <div className="chart-with-y-axis">
+                  <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
+                  <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" selectedDate={selectedDate} />
+                </div>
+              </section>
+              <section className="panel chart-panel">
+                <div className="chart-heading">
+                  <div>
+                    <p className="eyebrow">최근 7일</p>
+                    <h3>모유 시간</h3>
+                  </div>
+                </div>
+                <div className="chart-with-y-axis">
+                  <ChartAxisLabels labels={[`${maxSevenDayBreast}분`, `${Math.round(maxSevenDayBreast / 2)}분`, "0분"]} />
+                  <TrendBars data={trendData} valueKey="breastMinutes" maxValue={maxSevenDayBreast} tone="breast" selectedDate={selectedDate} />
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      ) : null}
 
-      <section className="panel chart-panel">
-        <div className="chart-heading">
-          <div>
-            <p className="eyebrow">최근 7일</p>
-            <h3>{isMealMode ? "이유식량" : "수유량"}</h3>
+      {detailSection === "sleep" ? (
+        <section className="panel chart-panel">
+          <div className="chart-heading">
+            <div>
+              <p className="eyebrow">최근 7일</p>
+              <h3>수면 시간</h3>
+            </div>
           </div>
-        </div>
-        <div className="chart-with-y-axis">
-          <ChartAxisLabels
-            labels={
-              isMealMode
-                ? [`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]
-                : [`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]
-            }
-          />
-          <TrendBars
-            data={trendData}
-            valueKey={isMealMode ? "mealTotalG" : "feedTotalMl"}
-            maxValue={isMealMode ? maxSevenDayMeal : maxSevenDayFeed}
-            tone={isMealMode ? "meal" : "feed"}
-            selectedDate={selectedDate}
-          />
-        </div>
-      </section>
+          <div className="chart-with-y-axis">
+            <ChartAxisLabels labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]} />
+            <TrendBars data={trendData} valueKey="sleepMinutes" maxValue={maxSevenDaySleep} tone="sleep" selectedDate={selectedDate} />
+          </div>
+        </section>
+      ) : null}
 
-      <section className="panel chart-panel">
-        <div className="chart-heading">
-          <div>
-            <p className="eyebrow">최근 7일</p>
-            <h3>수면 시간</h3>
-          </div>
+      {detailSection === "diaper" ? (
+        <div className="analysis-detail-stack">
+          <section className="panel analysis-diaper-summary">
+            <span>선택한 날짜</span>
+            <strong>기저귀 {summary.diaperCount}회</strong>
+            <small>소변 {summary.peeCount}회 · 대변 {summary.poopCount}회</small>
+          </section>
+          <section className="panel chart-panel">
+            <div className="chart-heading">
+              <div>
+                <p className="eyebrow">배변 상태</p>
+                <h3>색상 분포</h3>
+              </div>
+            </div>
+            <PoopDistribution events={selectedEvents} />
+          </section>
         </div>
-        <div className="chart-with-y-axis">
-          <ChartAxisLabels
-            labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]}
-          />
-          <TrendBars
-            data={trendData}
-            valueKey="sleepMinutes"
-            maxValue={maxSevenDaySleep}
-            tone="sleep"
-            selectedDate={selectedDate}
-          />
-        </div>
-      </section>
-
-      <section className="panel chart-panel">
-        <div className="chart-heading">
-          <div>
-            <p className="eyebrow">배변 상태</p>
-            <h3>색상 분포</h3>
-          </div>
-        </div>
-        <PoopDistribution events={selectedEvents} />
-      </section>
+      ) : null}
 
       <section className="panel analysis-action">
         <strong>해석이 필요한 날은 기록을 더 촘촘히 남겨보세요.</strong>

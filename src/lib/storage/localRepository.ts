@@ -38,7 +38,13 @@ function readEvents(): BabyEvent[] {
   }
 
   const parsed = JSON.parse(saved) as BabyEvent[];
-  return sortDescending(parsed);
+  return sortDescending(
+    parsed.map((event) => ({
+      ...event,
+      feedingMethod:
+        event.eventType === "feed" ? event.feedingMethod ?? "bottle" : event.feedingMethod,
+    })),
+  );
 }
 
 function writeEvents(events: BabyEvent[]) {
@@ -152,6 +158,9 @@ export async function createLocalEvent(input: CreateEventInput): Promise<BabyEve
     occurredAt: new Date(input.occurredAt).toISOString(),
     endedAt: input.endedAt ? new Date(input.endedAt).toISOString() : null,
     amountMl: input.amountMl ?? null,
+    feedingMethod: input.eventType === "feed" ? input.feedingMethod ?? "bottle" : null,
+    breastLeftMinutes: input.breastLeftMinutes ?? null,
+    breastRightMinutes: input.breastRightMinutes ?? null,
     diaperType: input.diaperType ?? null,
     poopAmount: input.poopAmount ?? null,
     poopColor: input.poopColor ?? null,
@@ -187,6 +196,9 @@ export async function updateLocalEvent(input: UpdateEventInput): Promise<BabyEve
     occurredAt: new Date(input.occurredAt).toISOString(),
     endedAt: input.endedAt ? new Date(input.endedAt).toISOString() : null,
     amountMl: input.amountMl ?? null,
+    feedingMethod: input.eventType === "feed" ? input.feedingMethod ?? "bottle" : null,
+    breastLeftMinutes: input.breastLeftMinutes ?? null,
+    breastRightMinutes: input.breastRightMinutes ?? null,
     diaperType: input.diaperType ?? null,
     poopAmount: input.poopAmount ?? null,
     poopColor: input.poopColor ?? null,

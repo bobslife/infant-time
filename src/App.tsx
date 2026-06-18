@@ -19,7 +19,7 @@ import {
   syncApnsTokenIfPermissionGranted,
 } from "./lib/push/apns";
 import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
-import { BabyEvent, EventType } from "./types";
+import { BabyEvent, EventType, FeedingMethod } from "./types";
 
 type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
 
@@ -88,6 +88,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
+  const [inputFeedingMethod, setInputFeedingMethod] = useState<FeedingMethod>("bottle");
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
   const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
@@ -126,6 +127,7 @@ export function App() {
     setActiveTab("home");
     setEditingEvent(null);
     setInputEventType("feed");
+    setInputFeedingMethod("bottle");
     setIsInputModalOpen(false);
   }, [user?.id]);
 
@@ -393,6 +395,9 @@ export function App() {
       occurredAt: activeSleep.occurredAt,
       endedAt: new Date().toISOString(),
       amountMl: activeSleep.amountMl,
+      feedingMethod: activeSleep.feedingMethod,
+      breastLeftMinutes: activeSleep.breastLeftMinutes,
+      breastRightMinutes: activeSleep.breastRightMinutes,
       diaperType: activeSleep.diaperType,
       poopAmount: activeSleep.poopAmount,
       poopColor: activeSleep.poopColor,
@@ -419,12 +424,14 @@ export function App() {
   function handleEditEvent(event: BabyEvent) {
     setEditingEvent(event);
     setInputEventType(event.eventType === "pee" || event.eventType === "poop" ? "diaper" : event.eventType);
+    setInputFeedingMethod(event.feedingMethod ?? "bottle");
     setIsInputModalOpen(true);
   }
 
-  function handleQuickAdd(eventType: EventType) {
+  function handleQuickAdd(eventType: EventType, feedingMethod: FeedingMethod = "bottle") {
     setEditingEvent(null);
     setInputEventType(eventType);
+    setInputFeedingMethod(feedingMethod);
     setIsInputModalOpen(true);
   }
 
@@ -438,6 +445,23 @@ export function App() {
     setEditingEvent(null);
     setIsInputModalOpen(false);
   }
+
+  const inputModalFeedingMethod =
+    editingEvent?.eventType === "feed"
+      ? editingEvent.feedingMethod ?? "bottle"
+      : inputFeedingMethod;
+  const inputModalTitle =
+    inputEventType === "feed"
+      ? inputModalFeedingMethod === "breast"
+        ? editingEvent
+          ? "모유 기록 수정"
+          : "모유 기록"
+        : editingEvent
+          ? "분유 기록 수정"
+          : "분유 기록"
+      : editingEvent
+        ? "기록 수정"
+        : "바로 남기기";
 
   function resetPullState() {
     touchStartRef.current = null;
@@ -680,14 +704,14 @@ export function App() {
       {isInputModalOpen ? (
         <div className="input-modal-backdrop" role="presentation" onMouseDown={closeInputModal}>
           <section
-            aria-label={editingEvent ? "기록 수정" : "빠른 기록"}
+            aria-label={inputModalTitle}
             aria-modal="true"
             className="input-modal-panel"
             role="dialog"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="input-modal-header">
-              <strong>{editingEvent ? "기록 수정" : "바로 남기기"}</strong>
+              <strong>{inputModalTitle}</strong>
               <button type="button" onClick={closeInputModal}>닫기</button>
             </div>
             <EventInputScreen
@@ -696,6 +720,7 @@ export function App() {
               events={events}
               hideAds
               initialEventType={inputEventType}
+              initialFeedingMethod={inputFeedingMethod}
               onSubmit={handleAddEvent}
               onUpdateEvent={handleUpdateEventFromInput}
             />

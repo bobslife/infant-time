@@ -6,6 +6,7 @@ import {
   CreateEventInput,
   DiaperType,
   EventType,
+  FeedingMethod,
   MealReaction,
   PoopAmount,
   PoopColor,
@@ -20,6 +21,7 @@ interface EventInputScreenProps {
   events: BabyEvent[];
   hideAds?: boolean;
   initialEventType?: EventType;
+  initialFeedingMethod?: FeedingMethod;
   onSubmit: (input: CreateEventInput) => Promise<void>;
   onUpdateEvent: (input: UpdateEventInput) => Promise<void>;
 }
@@ -104,6 +106,7 @@ export function EventInputScreen({
   events,
   hideAds = false,
   initialEventType = "feed",
+  initialFeedingMethod = "bottle",
   onSubmit,
   onUpdateEvent,
 }: EventInputScreenProps) {
@@ -117,6 +120,12 @@ export function EventInputScreen({
   const [endedDate, setEndedDate] = useState(initialEndedAt ? toInputDate(initialEndedAt) : "");
   const [endedTime, setEndedTime] = useState(initialEndedAt ? toInputTime(initialEndedAt) : "");
   const [amountMl, setAmountMl] = useState(120);
+  const feedingMethod: FeedingMethod =
+    editingEvent?.eventType === "feed"
+      ? editingEvent.feedingMethod ?? "bottle"
+      : initialFeedingMethod;
+  const [breastLeftMinutes, setBreastLeftMinutes] = useState<number | "">("");
+  const [breastRightMinutes, setBreastRightMinutes] = useState<number | "">("");
   const [diaperType, setDiaperType] = useState<DiaperType>("wet");
   const [poopAmount, setPoopAmount] = useState<PoopAmount>("normal");
   const [poopColor, setPoopColor] = useState<PoopColor>("ocher");
@@ -142,12 +151,23 @@ export function EventInputScreen({
     [events],
   );
   const latestFeedAmount = useMemo(
-    () => events.find((event) => event.eventType === "feed" && event.amountMl !== null)?.amountMl ?? 70,
+    () =>
+      events.find(
+        (event) =>
+          event.eventType === "feed" &&
+          (event.feedingMethod ?? "bottle") === "bottle" &&
+          event.amountMl !== null,
+      )?.amountMl ?? 70,
     [events],
   );
 
   const feedEvents = useMemo(
-    () => events.filter((event) => event.eventType === "feed").slice(0, 5),
+    () =>
+      events
+        .filter(
+          (event) => event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "bottle",
+        )
+        .slice(0, 5),
     [events],
   );
   const recentFeedAverage = feedEvents.length
@@ -189,6 +209,8 @@ export function EventInputScreen({
         setEndedAtFromDateTime("");
       }
       setAmountMl(initialEventType === "feed" ? latestFeedAmount : 120);
+      setBreastLeftMinutes("");
+      setBreastRightMinutes("");
       setDiaperType("wet");
       setPoopAmount("normal");
       setPoopColor("ocher");
@@ -217,6 +239,8 @@ export function EventInputScreen({
     setEndedDate(nextEndedAt ? toInputDate(nextEndedAt) : "");
     setEndedTime(nextEndedAt ? toInputTime(nextEndedAt) : "");
     setAmountMl(editingEvent.amountMl ?? 120);
+    setBreastLeftMinutes(editingEvent.breastLeftMinutes ?? "");
+    setBreastRightMinutes(editingEvent.breastRightMinutes ?? "");
     setDiaperType(editingEvent.diaperType ?? (editingEvent.eventType === "poop" ? "dirty" : "wet"));
     setPoopAmount(editingEvent.poopAmount ?? "normal");
     setPoopColor(editingEvent.poopColor ?? "ocher");
@@ -228,7 +252,7 @@ export function EventInputScreen({
     setMealAmountG(editingEvent.mealAmountG ?? "");
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.note ?? "");
-  }, [editingEvent, initialEventType, latestFeedAmount, ongoingSleep]);
+  }, [editingEvent, initialEventType, initialFeedingMethod, latestFeedAmount, ongoingSleep]);
 
   function showSavedToast(message: string) {
     setToastMessage(message);
@@ -270,7 +294,16 @@ export function EventInputScreen({
       eventType,
       occurredAt,
       endedAt: (eventType === "sleep" || eventType === "play") && endedAt ? endedAt : null,
-      amountMl: eventType === "feed" ? amountMl : null,
+      amountMl: eventType === "feed" && feedingMethod === "bottle" ? amountMl : null,
+      feedingMethod: eventType === "feed" ? feedingMethod : null,
+      breastLeftMinutes:
+        eventType === "feed" && feedingMethod === "breast" && breastLeftMinutes !== ""
+          ? breastLeftMinutes
+          : null,
+      breastRightMinutes:
+        eventType === "feed" && feedingMethod === "breast" && breastRightMinutes !== ""
+          ? breastRightMinutes
+          : null,
       diaperType: eventType === "diaper" ? diaperType : null,
       poopAmount: hasPoopDetail ? poopAmount : null,
       poopColor: hasPoopDetail ? poopColor : null,
@@ -287,6 +320,24 @@ export function EventInputScreen({
   }
 
   function validateInput(input: CreateEventInput): string | null {
+    if (input.eventType === "feed" && input.feedingMethod === "breast") {
+      const leftMinutes = input.breastLeftMinutes ?? 0;
+      const rightMinutes = input.breastRightMinutes ?? 0;
+
+      if (
+        leftMinutes < 0 ||
+        leftMinutes > 120 ||
+        rightMinutes < 0 ||
+        rightMinutes > 120
+      ) {
+        return "모유 수유 시간은 좌우 각각 0~120분으로 입력해 주세요";
+      }
+
+      if (leftMinutes + rightMinutes < 1) {
+        return "왼쪽 또는 오른쪽 수유 시간을 1분 이상 입력해 주세요";
+      }
+    }
+
     if (
       input.eventType === "temperature" &&
       input.temperatureC !== null &&
@@ -372,7 +423,17 @@ export function EventInputScreen({
   }
 
   async function handleQuickFeed() {
-    await submitQuick(buildCurrentInput(), editingEvent ? "수유 기록 수정" : `수유 ${amountMl}ml 저장`);
+    const breastTotal =
+      (breastLeftMinutes === "" ? 0 : breastLeftMinutes) +
+      (breastRightMinutes === "" ? 0 : breastRightMinutes);
+    const message =
+      feedingMethod === "breast"
+        ? `모유 수유 ${breastTotal}분 저장`
+        : `분유 ${amountMl}ml 저장`;
+    await submitQuick(
+      buildCurrentInput(),
+      editingEvent ? (feedingMethod === "breast" ? "모유 기록 수정" : "분유 기록 수정") : message,
+    );
   }
 
   async function handleSleepSave() {
@@ -452,16 +513,34 @@ export function EventInputScreen({
 
   return (
     <section className="screen-stack action-screen">
-      <section className={`panel quick-action-card ${eventType}`}>
+      <section
+        className={`panel quick-action-card ${eventType}${
+          eventType === "feed" ? ` feed-${feedingMethod}` : ""
+        }`}
+      >
         <div className="quick-action-scroll">
           <div className={eventType === "sleep" ? "sleep-status-card" : "quick-status"}>
             {eventType === "feed" ? (
               <>
-                <strong>{amountMl}ml</strong>
-                <small>
-                  {recentFeedAverage ? `최근 평균 ${recentFeedAverage}ml` : "빠른 버튼으로 수유량을 선택해요"}
-                  {feedDiff !== null ? ` · 이전보다 ${Math.abs(feedDiff)}ml ${feedDiff >= 0 ? "많아요" : "적어요"}` : ""}
-                </small>
+                <strong>
+                  {feedingMethod === "breast"
+                    ? `모유 ${
+                        (breastLeftMinutes === "" ? 0 : breastLeftMinutes) +
+                        (breastRightMinutes === "" ? 0 : breastRightMinutes)
+                      }분`
+                    : `${amountMl}ml`}
+                </strong>
+                {feedingMethod === "breast" ? (
+                  <small>
+                    왼쪽 {breastLeftMinutes === "" ? 0 : breastLeftMinutes}분 · 오른쪽{" "}
+                    {breastRightMinutes === "" ? 0 : breastRightMinutes}분
+                  </small>
+                ) : (
+                  <small>
+                    {recentFeedAverage ? `최근 분유 평균 ${recentFeedAverage}ml` : "빠른 버튼으로 분유량을 선택해요"}
+                    {feedDiff !== null ? ` · 이전보다 ${Math.abs(feedDiff)}ml ${feedDiff >= 0 ? "많아요" : "적어요"}` : ""}
+                  </small>
+                )}
               </>
             ) : null}
             {eventType === "sleep" ? (
@@ -524,18 +603,57 @@ export function EventInputScreen({
 
         {eventType === "feed" ? (
           <>
-            <div className="quick-chip-row" aria-label="빠른 수유량">
-              {feedQuickAmounts.map((amount) => (
-                <button className={amountMl === amount ? "active" : ""} key={amount} type="button" onClick={() => setAmountMl(amount)}>
-                  {amount}
-                </button>
-              ))}
-            </div>
-            <div className="amount-stepper" aria-label="수유량">
-              <button type="button" onClick={() => setAmountMl((current) => Math.max(0, current - 10))}>-10</button>
-              <strong>{amountMl}ml</strong>
-              <button type="button" onClick={() => setAmountMl((current) => Math.min(300, current + 10))}>+10</button>
-            </div>
+            {feedingMethod === "bottle" ? (
+              <>
+                <div className="quick-chip-row" aria-label="빠른 분유량">
+                  {feedQuickAmounts.map((amount) => (
+                    <button className={amountMl === amount ? "active" : ""} key={amount} type="button" onClick={() => setAmountMl(amount)}>
+                      {amount}
+                    </button>
+                  ))}
+                </div>
+                <div className="amount-stepper" aria-label="분유량">
+                  <button type="button" onClick={() => setAmountMl((current) => Math.max(0, current - 10))}>-10</button>
+                  <strong>{amountMl}ml</strong>
+                  <button type="button" onClick={() => setAmountMl((current) => Math.min(300, current + 10))}>+10</button>
+                </div>
+              </>
+            ) : (
+              <div className="breast-duration-grid">
+                <label>
+                  <span>왼쪽</span>
+                  <input
+                    inputMode="numeric"
+                    max="120"
+                    min="0"
+                    type="number"
+                    value={breastLeftMinutes}
+                    onChange={(event) =>
+                      setBreastLeftMinutes(
+                        event.target.value === "" ? "" : Math.min(120, Math.max(0, Number(event.target.value))),
+                      )
+                    }
+                  />
+                  <small>분</small>
+                </label>
+                <label>
+                  <span>오른쪽</span>
+                  <input
+                    inputMode="numeric"
+                    max="120"
+                    min="0"
+                    type="number"
+                    value={breastRightMinutes}
+                    onChange={(event) =>
+                      setBreastRightMinutes(
+                        event.target.value === "" ? "" : Math.min(120, Math.max(0, Number(event.target.value))),
+                      )
+                    }
+                  />
+                  <small>분</small>
+                </label>
+              </div>
+            )}
           </>
         ) : null}
 
@@ -711,7 +829,15 @@ export function EventInputScreen({
         <div className="quick-button-row">
           {eventType === "feed" ? (
             <button className="primary-button quick-save-button" disabled={isSubmitting} type="button" onClick={() => void handleQuickFeed()}>
-              {isSubmitting ? "저장 중..." : editingEvent ? "수정하기" : "수유 기록하기"}
+              {isSubmitting
+                ? "저장 중..."
+                : editingEvent
+                  ? feedingMethod === "breast"
+                    ? "모유 기록 수정"
+                    : "분유 기록 수정"
+                  : feedingMethod === "breast"
+                    ? "모유 기록하기"
+                    : "분유 기록하기"}
             </button>
           ) : null}
           {eventType === "sleep" ? (

@@ -9,9 +9,13 @@ type WidgetSummaryPayload = {
   babyGender: BabyProfile["gender"];
   feedIntervalMinutes: number;
   feedingMl: number;
+  breastfeedingMinutes: number;
   sleepMinutes: number;
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
+  lastFeedingMethod: BabyEvent["feedingMethod"];
+  lastBreastLeftMinutes: number | null;
+  lastBreastRightMinutes: number | null;
   lastMealAt: string | null;
   lastMealName: string | null;
   mealTotalG: number;
@@ -85,9 +89,13 @@ export function buildWidgetSummary(
     babyGender: baby.gender,
     feedIntervalMinutes,
     feedingMl: summary.todayFeedTotalMl,
+    breastfeedingMinutes: summary.todayBreastMinutes,
     sleepMinutes: summary.todaySleepMinutes,
     lastFeedAt: summary.lastFeedAt,
     lastFeedAmountMl: summary.lastFeedAmountMl,
+    lastFeedingMethod: summary.lastFeedingMethod,
+    lastBreastLeftMinutes: summary.lastBreastLeftMinutes,
+    lastBreastRightMinutes: summary.lastBreastRightMinutes,
     lastMealAt: summary.lastMealAt,
     lastMealName: getLastMealName(events, summary.lastMealAt),
     mealTotalG: summary.todayMealTotalG,
@@ -121,9 +129,13 @@ export async function syncWidgetSummary(
     babyGender: payload.babyGender,
     feedIntervalMinutes: payload.feedIntervalMinutes,
     feedingMl: payload.feedingMl,
+    breastfeedingMinutes: payload.breastfeedingMinutes,
     sleepMinutes: payload.sleepMinutes,
     lastFeedAt: payload.lastFeedAt,
     lastFeedAmountMl: payload.lastFeedAmountMl,
+    lastFeedingMethod: payload.lastFeedingMethod,
+    lastBreastLeftMinutes: payload.lastBreastLeftMinutes,
+    lastBreastRightMinutes: payload.lastBreastRightMinutes,
     lastMealAt: payload.lastMealAt,
     lastMealName: payload.lastMealName,
     mealTotalG: payload.mealTotalG,

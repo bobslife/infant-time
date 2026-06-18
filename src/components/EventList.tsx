@@ -9,7 +9,7 @@ interface EventListProps {
 }
 
 const eventLabels: Record<BabyEvent["eventType"], string> = {
-  feed: "수유",
+  feed: "분유",
   sleep: "수면",
   pee: "소변",
   poop: "대변",
@@ -66,6 +66,10 @@ const temperatureLocationLabels = {
 
 function eventDetail(event: BabyEvent): string {
   if (event.eventType === "feed") {
+    if ((event.feedingMethod ?? "bottle") === "breast") {
+      return `왼쪽 ${event.breastLeftMinutes ?? 0}분 · 오른쪽 ${event.breastRightMinutes ?? 0}분`;
+    }
+
     return `${event.amountMl ?? 0}ml`;
   }
 
@@ -148,6 +152,10 @@ function getPlayDurationLabel(event: BabyEvent): string {
 }
 
 function eventIcon(event: BabyEvent): string {
+  if (event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "breast") {
+    return "/icons/breastfeed.svg";
+  }
+
   if (event.eventType === "diaper") {
     if (event.diaperType === "wet") {
       return "/icons/pee.svg";
@@ -161,6 +169,14 @@ function eventIcon(event: BabyEvent): string {
   }
 
   return eventIcons[event.eventType];
+}
+
+function eventLabel(event: BabyEvent): string {
+  if (event.eventType === "feed") {
+    return (event.feedingMethod ?? "bottle") === "breast" ? "모유" : "분유";
+  }
+
+  return eventLabels[event.eventType];
 }
 
 function eventDateKey(event: BabyEvent): string {
@@ -200,8 +216,19 @@ function groupEventsByDate(events: BabyEvent[]) {
 
   return Array.from(groups.entries()).map(([dateKey, groupEvents]) => {
     const feedTotalMl = groupEvents
-      .filter((event) => event.eventType === "feed")
+      .filter(
+        (event) => event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "bottle",
+      )
       .reduce((total, event) => total + (event.amountMl ?? 0), 0);
+    const breastMinutes = groupEvents
+      .filter(
+        (event) => event.eventType === "feed" && (event.feedingMethod ?? "bottle") === "breast",
+      )
+      .reduce(
+        (total, event) =>
+          total + (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0),
+        0,
+      );
     const sleepMinutes = groupEvents
       .filter((event) => event.eventType === "sleep")
       .reduce((total, event) => {
@@ -214,6 +241,7 @@ function groupEventsByDate(events: BabyEvent[]) {
       dateKey,
       events: groupEvents,
       feedTotalMl,
+      breastMinutes,
       sleepMinutes,
     };
   });
@@ -304,7 +332,8 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
             <div className="event-date-heading">
               <strong>{formatDateHeader(group.dateKey)}</strong>
               <span>
-                총 수유량 {group.feedTotalMl}ml · 수면 {formatDurationMinutes(group.sleepMinutes)}
+                분유 {group.feedTotalMl}ml · 모유 {group.breastMinutes}분 · 수면{" "}
+                {formatDurationMinutes(group.sleepMinutes)}
               </span>
             </div>
             <div className="event-date-list">
@@ -324,10 +353,10 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                   >
                     <time>{formatTime(event.occurredAt)}</time>
                     <div className={`event-chip ${event.eventType}`}>
-                      <img alt={eventLabels[event.eventType]} src={eventIcon(event)} />
+                      <img alt={eventLabel(event)} src={eventIcon(event)} />
                     </div>
                     <div className="event-copy">
-                      <strong>{eventLabels[event.eventType]}</strong>
+                      <strong>{eventLabel(event)}</strong>
                       <span>{eventDetail(event)}</span>
                       {event.eventType !== "meal" && event.note?.trim() ? <small>{event.note.trim()}</small> : null}
                     </div>

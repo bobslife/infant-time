@@ -48,6 +48,9 @@ create table if not exists events (
   occurred_at timestamptz not null,
   ended_at timestamptz,
   amount_ml integer check (amount_ml is null or (amount_ml >= 0 and amount_ml <= 300)),
+  feeding_method text not null default 'bottle' check (feeding_method in ('bottle', 'breast')),
+  breast_left_minutes integer check (breast_left_minutes is null or (breast_left_minutes >= 0 and breast_left_minutes <= 120)),
+  breast_right_minutes integer check (breast_right_minutes is null or (breast_right_minutes >= 0 and breast_right_minutes <= 120)),
   diaper_type text check (diaper_type is null or diaper_type in ('wet', 'dirty', 'both')),
   poop_amount text check (poop_amount is null or poop_amount in ('small', 'normal', 'large')),
   poop_color text check (poop_color is null or poop_color in ('ocher', 'brown', 'dark_brown', 'green', 'red_orange')),
@@ -65,6 +68,22 @@ create table if not exists events (
 );
 
 alter table events add column if not exists diaper_type text;
+alter table events add column if not exists feeding_method text;
+alter table events add column if not exists breast_left_minutes integer;
+alter table events add column if not exists breast_right_minutes integer;
+update events set feeding_method = 'bottle' where feeding_method is null;
+alter table events alter column feeding_method set default 'bottle';
+alter table events alter column feeding_method set not null;
+alter table events drop constraint if exists events_feeding_method_check;
+alter table events add constraint events_feeding_method_check check (feeding_method in ('bottle', 'breast'));
+alter table events drop constraint if exists events_breast_left_minutes_check;
+alter table events add constraint events_breast_left_minutes_check check (
+  breast_left_minutes is null or (breast_left_minutes >= 0 and breast_left_minutes <= 120)
+);
+alter table events drop constraint if exists events_breast_right_minutes_check;
+alter table events add constraint events_breast_right_minutes_check check (
+  breast_right_minutes is null or (breast_right_minutes >= 0 and breast_right_minutes <= 120)
+);
 alter table events add column if not exists medicine_name text;
 alter table events add column if not exists medicine_dose text;
 alter table events add column if not exists medicine_next_at timestamptz;

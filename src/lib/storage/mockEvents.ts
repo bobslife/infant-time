@@ -12,6 +12,7 @@ export const mockEvents: BabyEvent[] = [
     eventType: "feed",
     occurredAt: new Date(now - 5.5 * 60 * 60 * 1000).toISOString(),
     amountMl: 90,
+    feedingMethod: "bottle",
     createdAt: new Date(now - 5.5 * 60 * 60 * 1000).toISOString(),
   },
   {
@@ -30,7 +31,10 @@ export const mockEvents: BabyEvent[] = [
     babyId,
     eventType: "feed",
     occurredAt: new Date(now - 75 * 60 * 1000).toISOString(),
-    amountMl: 100,
+    amountMl: null,
+    feedingMethod: "breast",
+    breastLeftMinutes: 10,
+    breastRightMinutes: 8,
     createdAt: new Date(now - 75 * 60 * 1000).toISOString(),
   },
   {

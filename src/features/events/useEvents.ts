@@ -49,6 +49,9 @@ const ensuredProfileUserIds = new Set<string>();
 export interface EventSummary {
   lastFeedAt: string | null;
   lastFeedAmountMl: number | null;
+  lastFeedingMethod: BabyEvent["feedingMethod"];
+  lastBreastLeftMinutes: number | null;
+  lastBreastRightMinutes: number | null;
   lastMealAt: string | null;
   lastMealAmountG: number | null;
   lastPoopAt: string | null;
@@ -56,6 +59,7 @@ export interface EventSummary {
   lastPoopColor: PoopColor | null;
   todayFeedCount: number;
   todayFeedTotalMl: number;
+  todayBreastMinutes: number;
   todayMealCount: number;
   todayMealTotalG: number;
   todaySleepCount: number;
@@ -76,6 +80,7 @@ export interface EventSummary {
 export interface DailyEventSummary {
   feedCount: number;
   feedTotalMl: number;
+  breastMinutes: number;
   mealCount: number;
   mealTotalG: number;
   sleepCount: number;
@@ -113,6 +118,14 @@ function getEventDurationMinutes(event: BabyEvent, now = new Date()): number {
   const end = event.endedAt ? new Date(event.endedAt).getTime() : now.getTime();
 
   return Math.max(0, Math.round((end - start) / 60000));
+}
+
+function getBreastMinutes(event: BabyEvent): number {
+  if (event.eventType !== "feed" || (event.feedingMethod ?? "bottle") !== "breast") {
+    return 0;
+  }
+
+  return (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0);
 }
 
 function startOfNextLocalDay(date: Date): Date {
@@ -184,7 +197,12 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
 
   return {
     feedCount: feedEvents.length,
-    feedTotalMl: feedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    feedTotalMl: feedEvents.reduce(
+      (total, event) =>
+        total + ((event.feedingMethod ?? "bottle") === "bottle" ? event.amountMl ?? 0 : 0),
+      0,
+    ),
+    breastMinutes: feedEvents.reduce((total, event) => total + getBreastMinutes(event), 0),
     mealCount: mealEvents.length,
     mealTotalG: mealEvents.reduce((total, event) => total + (event.mealAmountG ?? 0), 0),
     sleepCount: sleepEvents.length,
@@ -235,13 +253,21 @@ function buildSummary(events: BabyEvent[]): EventSummary {
   return {
     lastFeedAt,
     lastFeedAmountMl: feedEvents[0]?.amountMl ?? null,
+    lastFeedingMethod: feedEvents[0] ? feedEvents[0].feedingMethod ?? "bottle" : null,
+    lastBreastLeftMinutes: feedEvents[0]?.breastLeftMinutes ?? null,
+    lastBreastRightMinutes: feedEvents[0]?.breastRightMinutes ?? null,
     lastMealAt,
     lastMealAmountG: mealEvents[0]?.mealAmountG ?? null,
     lastPoopAt,
     lastPoopAmount: poopEvents[0]?.poopAmount ?? null,
     lastPoopColor: poopEvents[0]?.poopColor ?? null,
     todayFeedCount: todayFeedEvents.length,
-    todayFeedTotalMl: todayFeedEvents.reduce((total, event) => total + (event.amountMl ?? 0), 0),
+    todayFeedTotalMl: todayFeedEvents.reduce(
+      (total, event) =>
+        total + ((event.feedingMethod ?? "bottle") === "bottle" ? event.amountMl ?? 0 : 0),
+      0,
+    ),
+    todayBreastMinutes: todayFeedEvents.reduce((total, event) => total + getBreastMinutes(event), 0),
     todayMealCount: todayMealEvents.length,
     todayMealTotalG: todayMealEvents.reduce((total, event) => total + (event.mealAmountG ?? 0), 0),
     todaySleepCount: sleepEvents.length,
@@ -307,6 +333,9 @@ export function useEvents() {
         occurredAt: sleep.occurredAt,
         endedAt: midnightIso,
         amountMl: sleep.amountMl,
+        feedingMethod: sleep.feedingMethod,
+        breastLeftMinutes: sleep.breastLeftMinutes,
+        breastRightMinutes: sleep.breastRightMinutes,
         diaperType: sleep.diaperType,
         poopAmount: sleep.poopAmount,
         poopColor: sleep.poopColor,
@@ -411,6 +440,8 @@ export function useEvents() {
 
             setBabies(nextBabies);
             if (nextBaby) {
+              setBaby(nextBaby);
+              setEvents([]);
               await loadEventsForBaby(nextUser, nextBaby);
             } else {
               setBaby(null);
@@ -428,6 +459,8 @@ export function useEvents() {
 
           setBabies(nextBabies);
           if (nextBaby) {
+            setBaby(nextBaby);
+            setEvents([]);
             await loadEventsForBaby(nextUser, nextBaby);
           } else {
             setBaby(null);

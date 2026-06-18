@@ -10,9 +10,13 @@ struct InfantTimeWidgetEntry: TimelineEntry {
     let babyGender: BabyGender
     let feedIntervalMinutes: Int
     let feedingMl: Int
+    let breastfeedingMinutes: Int
     let sleepMinutes: Int
     let lastFeedAt: Date?
     let lastFeedAmountMl: Int?
+    let lastFeedingMethod: String
+    let lastBreastLeftMinutes: Int
+    let lastBreastRightMinutes: Int
     let lastMealAt: Date?
     let lastMealName: String?
     let mealTotalG: Int
@@ -29,9 +33,13 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             babyGender: .boy,
             feedIntervalMinutes: 180,
             feedingMl: 720,
+            breastfeedingMinutes: 24,
             sleepMinutes: 520,
             lastFeedAt: Calendar.current.date(byAdding: .minute, value: -135, to: Date()),
             lastFeedAmountMl: 120,
+            lastFeedingMethod: "bottle",
+            lastBreastLeftMinutes: 0,
+            lastBreastRightMinutes: 0,
             lastMealAt: nil,
             lastMealName: nil,
             mealTotalG: 0,
@@ -62,9 +70,13 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let babyGender = BabyGender(rawValue: summary?["babyGender"] as? String ?? defaults?.string(forKey: "babyGender") ?? "boy") ?? .boy
         let feedIntervalMinutes = summary?["feedIntervalMinutes"] as? Int ?? defaults?.integer(forKey: "feedIntervalMinutes") ?? 180
         let feedingMl = summary?["feedingMl"] as? Int ?? defaults?.integer(forKey: "todayFeedingMl") ?? 0
+        let breastfeedingMinutes = summary?["breastfeedingMinutes"] as? Int ?? defaults?.integer(forKey: "todayBreastfeedingMinutes") ?? 0
         let sleepMinutes = summary?["sleepMinutes"] as? Int ?? defaults?.integer(forKey: "todaySleepMinutes") ?? 0
         let lastFeedAtString = summary?["lastFeedAt"] as? String ?? defaults?.string(forKey: "lastFeedAt")
         let lastFeedAmountMl = summary?["lastFeedAmountMl"] as? Int ?? defaults?.integer(forKey: "lastFeedAmountMl")
+        let lastFeedingMethod = summary?["lastFeedingMethod"] as? String ?? defaults?.string(forKey: "lastFeedingMethod") ?? "bottle"
+        let lastBreastLeftMinutes = summary?["lastBreastLeftMinutes"] as? Int ?? defaults?.integer(forKey: "lastBreastLeftMinutes") ?? 0
+        let lastBreastRightMinutes = summary?["lastBreastRightMinutes"] as? Int ?? defaults?.integer(forKey: "lastBreastRightMinutes") ?? 0
         let lastMealAtString = summary?["lastMealAt"] as? String ?? defaults?.string(forKey: "lastMealAt")
         let lastMealName = summary?["lastMealName"] as? String ?? defaults?.string(forKey: "lastMealName")
         let mealTotalG = summary?["mealTotalG"] as? Int ?? defaults?.integer(forKey: "todayMealTotalG") ?? 0
@@ -78,9 +90,13 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             babyGender: babyGender,
             feedIntervalMinutes: feedIntervalMinutes > 0 ? feedIntervalMinutes : 180,
             feedingMl: feedingMl,
+            breastfeedingMinutes: breastfeedingMinutes,
             sleepMinutes: sleepMinutes,
             lastFeedAt: parseDate(lastFeedAtString),
             lastFeedAmountMl: lastFeedAmountMl == 0 ? nil : lastFeedAmountMl,
+            lastFeedingMethod: lastFeedingMethod,
+            lastBreastLeftMinutes: lastBreastLeftMinutes,
+            lastBreastRightMinutes: lastBreastRightMinutes,
             lastMealAt: parseDate(lastMealAtString),
             lastMealName: lastMealName,
             mealTotalG: mealTotalG,
@@ -398,6 +414,14 @@ private struct FeedingWidgetViewModel {
         }
 
         return Self.formatClockTime(lastFeedAt)
+    }
+
+    var todayFeedingValueText: String {
+        "\(entry.feedingMl)ml · \(entry.breastfeedingMinutes)분"
+    }
+
+    var lastFeedMetricTitle: String {
+        entry.lastFeedingMethod == "breast" ? "마지막 모유 시간" : "마지막 분유 시간"
     }
 
     var isMealMode: Bool {
@@ -744,8 +768,8 @@ private struct MetricGrid: View {
             }
         } else {
             HStack(alignment: .top, spacing: 8) {
-                MetricCell(title: "오늘 수유량", value: "\(model.entry.feedingMl)ml", alignment: .center)
-                MetricCell(title: "마지막 수유 시간", value: model.lastFeedTimeText, alignment: .center)
+                MetricCell(title: "분유 · 모유", value: model.todayFeedingValueText, alignment: .center)
+                MetricCell(title: model.lastFeedMetricTitle, value: model.lastFeedTimeText, alignment: .center)
                 SleepMetricCell(model: model)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
