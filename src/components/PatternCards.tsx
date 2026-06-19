@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { DateNavigator } from "./DateNavigator";
 import { DailyEventSummary } from "../features/events/useEvents";
 import { formatDurationMinutes, formatTime } from "../lib/time";
 import { BabyEvent } from "../types";
@@ -110,9 +111,13 @@ interface RhythmEvent {
 
 interface PatternCardsProps {
   events: BabyEvent[];
+  focusEventId?: string | null;
   selectedDate: string;
   summary: DailyEventSummary;
   onDateChange: (date: string) => void;
+  onEditEvent: (event: BabyEvent) => void;
+  onQuickAdd: (eventType: BabyEvent["eventType"]) => void;
+  onViewEventInAnalysis: (event: BabyEvent) => void;
 }
 
 const rhythmTypes: Record<PatternTypeKey, PatternVisual> = {
@@ -559,6 +564,113 @@ function getRecentDayStats(events: BabyEvent[], selectedDate: string, now: Date,
   });
 }
 
+function getMinutesOfDay(value: string): number {
+  const date = new Date(value);
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function getComparisonFocus(
+  events: BabyEvent[],
+  selectedDate: string,
+  now: Date,
+): { eventId: string; message: string } | null {
+  const selectedStats = getStatsForDate(events, selectedDate, now);
+  const recentStats = getRecentDayStats(events, selectedDate, now);
+  const feedComparisonDays = recentStats.filter(
+    (stats) => stats.feedings.length >= 2 && stats.longestFeedGapMinutes !== null,
+  );
+
+  if (
+    feedComparisonDays.length >= 3 &&
+    selectedStats.feedings.length >= 2 &&
+    selectedStats.longestFeedGapMinutes !== null
+  ) {
+    const usualLongestGap = Math.round(
+      feedComparisonDays.reduce((total, stats) => total + (stats.longestFeedGapMinutes ?? 0), 0) /
+        feedComparisonDays.length,
+    );
+
+    if (selectedStats.longestFeedGapMinutes >= usualLongestGap + 60) {
+      const sortedFeedings = [...selectedStats.feedings].sort(
+        (left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime(),
+      );
+      const gapEndEvent = sortedFeedings.slice(1).reduce<{ event: BabyEvent; minutes: number } | null>(
+        (longest, event, index) => {
+          const previous = sortedFeedings[index];
+          const minutes = Math.max(
+            0,
+            Math.round(
+              (new Date(event.occurredAt).getTime() - new Date(previous.occurredAt).getTime()) / 60000,
+            ),
+          );
+          return !longest || minutes > longest.minutes ? { event, minutes } : longest;
+        },
+        null,
+      );
+
+      if (gapEndEvent) {
+        return {
+          eventId: gapEndEvent.event.id,
+          message: `가장 긴 수유 공백이 최근 흐름보다 ${formatDurationMinutes(
+            gapEndEvent.minutes - usualLongestGap,
+          )} 길었어요.`,
+        };
+      }
+    }
+  }
+
+  const firstFeedComparisonDays = recentStats.filter((stats) => stats.feedings.length > 0);
+  if (firstFeedComparisonDays.length >= 3 && selectedStats.feedings.length > 0) {
+    const usualFirstFeedMinute = Math.round(
+      firstFeedComparisonDays.reduce((total, stats) => {
+        const firstFeed = [...stats.feedings].sort(
+          (left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime(),
+        )[0];
+        return total + getMinutesOfDay(firstFeed.occurredAt);
+      }, 0) / firstFeedComparisonDays.length,
+    );
+    const firstSelectedFeed = [...selectedStats.feedings].sort(
+      (left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime(),
+    )[0];
+    const selectedFirstFeedMinute = getMinutesOfDay(firstSelectedFeed.occurredAt);
+
+    if (selectedFirstFeedMinute >= usualFirstFeedMinute + 90) {
+      return {
+        eventId: firstSelectedFeed.id,
+        message: `첫 수유가 최근 흐름보다 ${formatDurationMinutes(
+          selectedFirstFeedMinute - usualFirstFeedMinute,
+        )} 늦게 기록됐어요.`,
+      };
+    }
+  }
+
+  const sleepComparisonDays = recentStats.filter((stats) => stats.sleeps.length > 0);
+  if (sleepComparisonDays.length >= 3 && selectedStats.sleeps.length > 0) {
+    const usualLongestSleep = Math.round(
+      sleepComparisonDays.reduce((total, stats) => total + stats.longestSleepMinutes, 0) /
+        sleepComparisonDays.length,
+    );
+    const longestSelectedSleep = selectedStats.sleeps
+      .map((event) => ({
+        event,
+        minutes: getVisibleDurationMinutes(event, selectedDate, now),
+      }))
+      .sort((left, right) => right.minutes - left.minutes)[0];
+    const difference = longestSelectedSleep.minutes - usualLongestSleep;
+
+    if (Math.abs(difference) >= 90) {
+      return {
+        eventId: longestSelectedSleep.event.id,
+        message: `가장 긴 수면이 최근 흐름보다 ${formatDurationMinutes(Math.abs(difference))} ${
+          difference > 0 ? "길었어요" : "짧았어요"
+        }.`,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getSleepMinutesByTimeBucket(sleeps: BabyEvent[], dateKey: string, now: Date): Record<TimeBucket, number> {
   const { start } = getDateRange(dateKey);
 
@@ -854,8 +966,18 @@ function getRhythmInsight(events: BabyEvent[], allEvents: BabyEvent[], selectedD
   return candidates.sort((left, right) => right.priority - left.priority)[0];
 }
 
-export function PatternCards({ events, selectedDate, summary, onDateChange }: PatternCardsProps) {
+export function PatternCards({
+  events,
+  focusEventId = null,
+  selectedDate,
+  summary,
+  onDateChange,
+  onEditEvent,
+  onQuickAdd,
+  onViewEventInAnalysis,
+}: PatternCardsProps) {
   const [now, setNow] = useState(new Date());
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(focusEventId);
   const selectedEvents = useMemo(() => getEventsForDate(events, selectedDate), [events, selectedDate]);
   const todayKey = toDateKey(now);
   const isTodaySelected = selectedDate === todayKey;
@@ -895,6 +1017,12 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
     0,
   );
   const patternInsight = getRhythmInsight(selectedEvents, events, selectedDate, now);
+  const comparisonFocus = useMemo(
+    () => getComparisonFocus(events, selectedDate, now),
+    [events, now, selectedDate],
+  );
+  const selectedEvent = selectedEvents.find((event) => event.id === selectedEventId) ?? null;
+  const selectedRhythmEvent = rhythmSegments.find((event) => event.id === selectedEventId) ?? null;
   const latestPlay = selectedEvents
     .filter((event) => event.eventType === "play" && event.note?.trim())
     .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())[0];
@@ -904,15 +1032,54 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    setSelectedEventId(
+      focusEventId && selectedEvents.some((event) => event.id === focusEventId)
+        ? focusEventId
+        : null,
+    );
+  }, [focusEventId, selectedDate, selectedEvents]);
+
+  if (selectedEvents.length === 0) {
+    return (
+      <section className="analysis-stack pattern-stack">
+        <section className="panel analysis-header pattern-header">
+          <DateNavigator ariaLabel="리듬 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
+        </section>
+        <section className="panel pattern-hero-card pattern-empty-card">
+          <div className="rhythm-clock-shell empty" aria-hidden="true">
+            <svg className="rhythm-radial-chart" viewBox="0 0 320 320">
+              {Object.values(rhythmRings).map((ring) => (
+                <circle
+                  className="rhythm-ring-base"
+                  cx="160"
+                  cy="160"
+                  fill="none"
+                  key={ring.key}
+                  r={ring.radius}
+                  stroke={ring.emptyColor}
+                  strokeWidth={ring.strokeWidth}
+                />
+              ))}
+            </svg>
+          </div>
+          <div className="data-empty-state pattern-empty-copy">
+            <strong>아직 하루 리듬을 그릴 기록이 없어요</strong>
+            <p>수유와 수면부터 남기면 언제 먹고 잤는지 원형 리듬으로 한눈에 볼 수 있어요.</p>
+            <div className="data-empty-actions">
+              <button type="button" onClick={() => onQuickAdd("feed")}>수유 기록</button>
+              <button type="button" onClick={() => onQuickAdd("sleep")}>수면 기록</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
   return (
     <section className="analysis-stack pattern-stack">
       <section className="panel analysis-header pattern-header">
-        <input
-          aria-label="패턴 날짜"
-          type="date"
-          value={selectedDate}
-          onChange={(event) => onDateChange(event.target.value)}
-        />
+        <DateNavigator ariaLabel="리듬 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
       </section>
 
       <section className="panel pattern-hero-card">
@@ -933,28 +1100,59 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
 
             {rhythmSegments.map((segment, index) => {
               const path = describeArc(160, 160, segment.radius, segment.startMinute, segment.endMinute);
+              const isSelected = segment.id === selectedEventId;
+              const isComparisonFocus = segment.id === comparisonFocus?.eventId;
 
               return (
-                <path
-                  className={`rhythm-segment rhythm-${segment.ringKey}`}
-                  d={path}
-                  fill="none"
+                <g
                   aria-label={segment.title}
+                  className={isSelected ? "active" : ""}
                   key={segment.id}
-                  stroke={segment.color}
-                  strokeLinecap="round"
-                  strokeWidth={segment.strokeWidth}
-                  style={{ animationDelay: `${index * 28}ms` } as CSSProperties}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedEventId(segment.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setSelectedEventId(segment.id);
+                    }
+                  }}
                 >
-                  <title>{segment.title}</title>
-                </path>
+                  <path
+                    className="rhythm-segment-hit"
+                    d={path}
+                    fill="none"
+                    stroke="transparent"
+                    strokeLinecap="round"
+                    strokeWidth={Math.max(44, segment.strokeWidth)}
+                  />
+                  <path
+                    className={`rhythm-comparison-halo${isComparisonFocus ? " visible" : ""}`}
+                    d={path}
+                    fill="none"
+                    stroke="#F59E0B"
+                    strokeLinecap="round"
+                    strokeWidth={segment.strokeWidth + 8}
+                  />
+                  <path
+                    className={`rhythm-segment rhythm-${segment.ringKey}${isSelected ? " active" : ""}`}
+                    d={path}
+                    fill="none"
+                    stroke={segment.color}
+                    strokeLinecap="round"
+                    strokeWidth={segment.strokeWidth}
+                    style={{ animationDelay: `${index * 28}ms` } as CSSProperties}
+                  >
+                    <title>{segment.title}</title>
+                  </path>
+                </g>
               );
             })}
 
             <circle className="rhythm-center-disk" cx="160" cy="160" r="38" />
           </svg>
           <div className="rhythm-clock-center">
-            <span>{selectedEvents.length === 0 ? "비어 있는 하루" : "오늘 리듬"}</span>
+            <span>{isTodaySelected ? "오늘 리듬" : "선택한 날 리듬"}</span>
             <strong>{totalPatternCount}개 기록</strong>
             <small>
               모유 {breastFeedings.length}회 · 분유 {bottleFeedings.length}회 · 수면{" "}
@@ -983,6 +1181,35 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
           <strong>{patternInsight.title}</strong>
           <small>{patternInsight.description}</small>
         </div>
+
+        {comparisonFocus ? (
+          <div className="pattern-comparison-note">
+            <span>평소와 다른 흐름</span>
+            <strong>{comparisonFocus.message}</strong>
+            <button type="button" onClick={() => setSelectedEventId(comparisonFocus.eventId)}>
+              기록 확인
+            </button>
+          </div>
+        ) : null}
+
+        {selectedEvent && selectedRhythmEvent ? (
+          <section className="rhythm-event-detail" aria-live="polite">
+            <div>
+              <span>{selectedRhythmEvent.label}</span>
+              <strong>{selectedRhythmEvent.title}</strong>
+              <small>
+                {selectedEvent.endedAt
+                  ? `${formatTime(selectedEvent.occurredAt)} ~ ${formatTime(selectedEvent.endedAt)}`
+                  : `${formatTime(selectedEvent.occurredAt)} 기록`}
+              </small>
+            </div>
+            <div className="rhythm-event-detail-actions">
+              <button type="button" onClick={() => onEditEvent(selectedEvent)}>기록 수정</button>
+              <button type="button" onClick={() => onViewEventInAnalysis(selectedEvent)}>분석에서 보기</button>
+              <button aria-label="선택한 기록 닫기" type="button" onClick={() => setSelectedEventId(null)}>닫기</button>
+            </div>
+          </section>
+        ) : null}
       </section>
 
       <section className="panel rhythm-timeline-card">
@@ -1003,8 +1230,9 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
               const width = Math.max(5, ((event.endMinute - event.startMinute) / 1440) * 100);
 
               return (
-                <span
-                  className="rhythm-event-pill"
+                <button
+                  aria-pressed={event.id === selectedEventId}
+                  className={`rhythm-event-pill${event.id === selectedEventId ? " active" : ""}`}
                   key={event.id}
                   style={{
                     "--event-color": event.color,
@@ -1014,9 +1242,11 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
                     width: `${Math.min(100 - left, width)}%`,
                   } as CSSProperties}
                   title={event.title}
+                  type="button"
+                  onClick={() => setSelectedEventId(event.id)}
                 >
                   {event.label}
-                </span>
+                </button>
               );
             })}
           </div>
@@ -1033,32 +1263,44 @@ export function PatternCards({ events, selectedDate, summary, onDateChange }: Pa
         </div>
       </section>
 
-      <section className="pattern-summary-strip">
-        <article className="panel analysis-metric breast">
-          <p>모유</p>
-          <strong>{breastFeedings.length}회</strong>
-          <small>총 {breastMinutes}분</small>
-          <em>좌우 합계</em>
-        </article>
-        <article className="panel analysis-metric bottle">
-          <p>분유</p>
-          <strong>{bottleFeedings.length}회</strong>
-          <small>총 {displaySummary.feedTotalMl}ml</small>
-          <em>하루 총량</em>
-        </article>
-        <article className="panel analysis-metric sleep">
-          <p>수면</p>
-          <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
-          <small>{displaySummary.sleepCount}회 기록</small>
-          <em>총 수면</em>
-        </article>
-        <article className="panel analysis-metric bath">
-          <p>활동</p>
-          <strong>{displaySummary.playCount + displaySummary.mealCount}회</strong>
-          <small>놀이 {formatDurationMinutes(displaySummary.playMinutes)}</small>
-          <em>목욕 {displaySummary.bathCount}회</em>
-        </article>
-      </section>
+      {selectedEvents.length < 3 ? (
+        <section className="panel sparse-pattern-summary">
+          <span>{selectedEvents.length}개 기록으로 만든 리듬</span>
+          <strong>아직 하루 전체 흐름을 비교하기에는 기록이 조금 더 필요해요.</strong>
+          <p>수유와 수면이 함께 쌓이면 먹고 잔 순서와 긴 공백을 더 정확히 보여드려요.</p>
+          <div>
+            <button type="button" onClick={() => onQuickAdd("feed")}>수유 추가</button>
+            <button type="button" onClick={() => onQuickAdd("sleep")}>수면 추가</button>
+          </div>
+        </section>
+      ) : (
+        <section className="pattern-summary-strip">
+          <article className="panel analysis-metric breast">
+            <p>모유</p>
+            <strong>{breastFeedings.length}회</strong>
+            <small>총 {breastMinutes}분</small>
+            <em>좌우 합계</em>
+          </article>
+          <article className="panel analysis-metric bottle">
+            <p>분유</p>
+            <strong>{bottleFeedings.length}회</strong>
+            <small>총 {displaySummary.feedTotalMl}ml</small>
+            <em>하루 총량</em>
+          </article>
+          <article className="panel analysis-metric sleep">
+            <p>수면</p>
+            <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
+            <small>{displaySummary.sleepCount}회 기록</small>
+            <em>총 수면</em>
+          </article>
+          <article className="panel analysis-metric bath">
+            <p>활동</p>
+            <strong>{displaySummary.playCount + displaySummary.mealCount}회</strong>
+            <small>놀이 {formatDurationMinutes(displaySummary.playMinutes)}</small>
+            <em>목욕 {displaySummary.bathCount}회</em>
+          </article>
+        </section>
+      )}
 
       {latestPlay ? (
         <section className="panel analysis-action">

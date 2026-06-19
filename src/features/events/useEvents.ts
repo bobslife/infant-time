@@ -288,7 +288,7 @@ function buildSummary(events: BabyEvent[]): EventSummary {
 
 export function useEvents() {
   const client = useMemo(() => getSupabaseClient(), []);
-  const [user, setUser] = useState<AppUser | null>(client ? null : localUser);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [babies, setBabies] = useState<BabyProfile[]>([]);
   const [baby, setBaby] = useState<BabyProfile | null>(null);
   const [events, setEvents] = useState<BabyEvent[]>([]);
@@ -495,7 +495,7 @@ export function useEvents() {
 
   useEffect(() => {
     if (!client) {
-      void loadForUser(localUser);
+      setIsLoading(false);
       return;
     }
 
@@ -545,8 +545,7 @@ export function useEvents() {
 
   async function signUp(input: SignUpInput) {
     if (!client) {
-      setUser(localUser);
-      await loadForUser(localUser);
+      setErrorMessage("로그인 서버 설정이 없어 회원가입을 사용할 수 없습니다.");
       return;
     }
 
@@ -597,8 +596,7 @@ export function useEvents() {
 
   async function signIn(input: SignInInput) {
     if (!client) {
-      setUser(localUser);
-      await loadForUser(localUser);
+      setErrorMessage("로그인 서버 설정이 없어 로그인할 수 없습니다.");
       return;
     }
 
@@ -631,15 +629,11 @@ export function useEvents() {
       await client.auth.signOut();
     }
 
-    setUser(client ? null : localUser);
+    setUser(null);
     setBabies([]);
     setBaby(null);
     setEvents([]);
     loadedVisibleUserIdRef.current = null;
-
-    if (!client) {
-      await loadForUser(localUser);
-    }
   }
 
   async function deleteAccount() {
@@ -658,7 +652,7 @@ export function useEvents() {
         loadedVisibleUserIdRef.current = null;
       } else {
         await deleteLocalAccount();
-        setUser(client ? null : localUser);
+        setUser(null);
         loadedVisibleUserIdRef.current = null;
       }
 
@@ -666,9 +660,6 @@ export function useEvents() {
       setBaby(null);
       setEvents([]);
 
-      if (!client) {
-        await loadForUser(localUser);
-      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -776,9 +767,9 @@ export function useEvents() {
     }
   }
 
-  async function addEvent(input: CreateEventInput) {
+  async function addEvent(input: CreateEventInput): Promise<BabyEvent[]> {
     if (!user || !baby) {
-      return;
+      throw new Error("기록을 저장할 사용자 또는 아기 정보가 없습니다.");
     }
 
     setErrorMessage(null);
@@ -794,14 +785,17 @@ export function useEvents() {
       );
 
       setEvents((current) => sortDescending([...created, ...current]));
+      return created;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "기록을 저장하지 못했습니다.");
+      const message = error instanceof Error ? error.message : "기록을 저장하지 못했습니다.";
+      setErrorMessage(message);
+      throw error instanceof Error ? error : new Error(message);
     }
   }
 
-  async function updateEvent(input: UpdateEventInput) {
+  async function updateEvent(input: UpdateEventInput): Promise<BabyEvent[]> {
     if (!user || !baby) {
-      return;
+      throw new Error("기록을 수정할 사용자 또는 아기 정보가 없습니다.");
     }
 
     setErrorMessage(null);
@@ -827,7 +821,7 @@ export function useEvents() {
         setEvents((current) =>
           sortDescending([...created, ...current.map((event) => (event.id === updated.id ? updated : event))]),
         );
-        return;
+        return [updated, ...created];
       }
 
       const updated =
@@ -838,14 +832,17 @@ export function useEvents() {
       setEvents((current) =>
         sortDescending(current.map((event) => (event.id === updated.id ? updated : event))),
       );
+      return [updated];
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "기록을 수정하지 못했습니다.");
+      const message = error instanceof Error ? error.message : "기록을 수정하지 못했습니다.";
+      setErrorMessage(message);
+      throw error instanceof Error ? error : new Error(message);
     }
   }
 
-  async function deleteEvent(eventId: string) {
+  async function deleteEvent(eventId: string): Promise<void> {
     if (!user) {
-      return;
+      throw new Error("기록을 삭제할 사용자 정보가 없습니다.");
     }
 
     setErrorMessage(null);
@@ -859,7 +856,9 @@ export function useEvents() {
 
       setEvents((current) => current.filter((event) => event.id !== eventId));
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "기록을 삭제하지 못했습니다.");
+      const message = error instanceof Error ? error.message : "기록을 삭제하지 못했습니다.";
+      setErrorMessage(message);
+      throw error instanceof Error ? error : new Error(message);
     }
   }
 

@@ -1,4 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type TouchEvent } from "react";
+import { Capacitor } from "@capacitor/core";
+import { AppFeedbackSnackbar, type AppFeedback } from "./components/AppFeedbackSnackbar";
+import { AdBanner } from "./components/ads/AdBanner";
 import { BabySetup } from "./components/BabySetup";
 import { EventInputScreen } from "./components/EventInputScreen";
 import { EventList } from "./components/EventList";
@@ -18,14 +21,15 @@ import {
   saveFeedingReminderInterval,
   syncApnsTokenIfPermissionGranted,
 } from "./lib/push/apns";
+import { toLocalDateTimeInputValue } from "./lib/time";
 import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
-import { BabyEvent, EventType, FeedingMethod } from "./types";
+import { BabyEvent, CreateEventInput, EventType, FeedingMethod } from "./types";
 
 type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
 
 const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "home", icon: "/icons/home.svg", label: "홈" },
-  { id: "pattern", icon: "/icons/pattern.svg", label: "패턴" },
+  { id: "pattern", icon: "/icons/pattern.svg", label: "리듬" },
   { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
   { id: "growth", icon: "/icons/grow-up.svg", label: "성장" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
@@ -51,6 +55,62 @@ type PushPermissionPromptMode = "permission" | "settings";
 
 function getFeedIntervalStorageKey(babyId: string) {
   return `infant-time-feed-interval-${babyId}`;
+}
+
+function createFeedbackId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function toCreateEventInput(event: BabyEvent): CreateEventInput {
+  return {
+    babyId: event.babyId,
+    eventType: event.eventType,
+    occurredAt: event.occurredAt,
+    endedAt: event.endedAt,
+    amountMl: event.amountMl,
+    feedingMethod: event.feedingMethod,
+    breastLeftMinutes: event.breastLeftMinutes,
+    breastRightMinutes: event.breastRightMinutes,
+    diaperType: event.diaperType,
+    poopAmount: event.poopAmount,
+    poopColor: event.poopColor,
+    medicineName: event.medicineName,
+    medicineDose: event.medicineDose,
+    medicineNextAt: event.medicineNextAt,
+    temperatureC: event.temperatureC,
+    temperatureLocation: event.temperatureLocation,
+    mealName: event.mealName,
+    mealAmountG: event.mealAmountG,
+    mealReaction: event.mealReaction,
+    note: event.note,
+  };
+}
+
+function getEventFeedbackLabel(event: BabyEvent): string {
+  if (event.eventType === "feed") {
+    if ((event.feedingMethod ?? "bottle") === "breast") {
+      const totalMinutes = (event.breastLeftMinutes ?? 0) + (event.breastRightMinutes ?? 0);
+      return `모유 ${totalMinutes}분`;
+    }
+
+    return `분유 ${event.amountMl ?? 0}ml`;
+  }
+
+  const labels: Record<EventType, string> = {
+    feed: "수유",
+    sleep: "수면",
+    diaper: "기저귀",
+    medicine: "약",
+    temperature: "체온",
+    meal: "이유식",
+    memo: "메모",
+    pee: "소변",
+    poop: "대변",
+    bath: "목욕",
+    play: "놀이",
+  };
+
+  return labels[event.eventType];
 }
 
 export function App() {
@@ -89,14 +149,16 @@ export function App() {
   const [editingEvent, setEditingEvent] = useState<BabyEvent | null>(null);
   const [inputEventType, setInputEventType] = useState<EventType>("feed");
   const [inputFeedingMethod, setInputFeedingMethod] = useState<FeedingMethod>("bottle");
+  const [inputInitialDate, setInputInitialDate] = useState<string | null>(null);
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
-  const [analysisDate, setAnalysisDate] = useState(new Date().toISOString().slice(0, 10));
+  const [analysisDate, setAnalysisDate] = useState(toLocalDateTimeInputValue().slice(0, 10));
+  const [focusEventId, setFocusEventId] = useState<string | null>(null);
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
   const [isFeedIntervalReady, setIsFeedIntervalReady] = useState(false);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<AppFeedback | null>(null);
   const [pushPermissionPromptMode, setPushPermissionPromptMode] = useState<PushPermissionPromptMode | null>(null);
   const [isPushPermissionBusy, setIsPushPermissionBusy] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -203,13 +265,16 @@ export function App() {
   }, [baby, feedIntervalMinutes, isFeedIntervalReady, user]);
 
   useEffect(() => {
-    if (!saveToastMessage) {
+    if (!feedback || feedback.expiresInMs === 0) {
       return;
     }
 
-    const timer = window.setTimeout(() => setSaveToastMessage(null), 1000);
+    const timer = window.setTimeout(
+      () => setFeedback((current) => (current?.id === feedback.id ? null : current)),
+      feedback.expiresInMs ?? 5000,
+    );
     return () => window.clearTimeout(timer);
-  }, [saveToastMessage]);
+  }, [feedback]);
 
   useEffect(() => {
     if (!isInputModalOpen) {
@@ -347,7 +412,7 @@ export function App() {
       await saveFeedingReminderInterval(user, baby, feedIntervalMinutes);
       window.localStorage.setItem(PUSH_PERMISSION_PROMPT_KEY, "granted");
       setPushPermissionPromptMode(null);
-      setSaveToastMessage("수유 알림을 켰어요.");
+      showFeedback({ message: "수유 알림을 켰어요.", tone: "success" });
     } catch (error) {
       console.warn("Failed to register APNs token", error);
       const permissionState = await checkApnsPermissionState().catch(() => "denied" as const);
@@ -356,7 +421,7 @@ export function App() {
         return;
       }
 
-      setSaveToastMessage("알림 설정을 완료하지 못했어요.");
+      showFeedback({ message: "알림 설정을 완료하지 못했어요.", tone: "error" });
     } finally {
       setIsPushPermissionBusy(false);
     }
@@ -367,82 +432,186 @@ export function App() {
     setPushPermissionPromptMode(null);
   }
 
+  function showFeedback(next: Omit<AppFeedback, "id">) {
+    setFeedback({ ...next, id: createFeedbackId() });
+  }
+
   async function handleAddEvent(input: Parameters<typeof addEvent>[0]) {
-    await addEvent(input);
+    const createdEvents = await addEvent(input);
     completeEventSave();
+    const primaryEvent = createdEvents[0];
+    if (!primaryEvent) {
+      return;
+    }
+
+    showFeedback({
+      message: `${getEventFeedbackLabel(primaryEvent)}를 기록했어요.`,
+      tone: "success",
+      primaryAction: {
+        label: "수정",
+        onClick: () => {
+          setFeedback(null);
+          handleEditEvent(primaryEvent);
+        },
+      },
+      secondaryAction: {
+        label: "취소",
+        onClick: async () => {
+          try {
+            await Promise.all(createdEvents.map((event) => deleteEvent(event.id)));
+            showFeedback({ message: "방금 기록을 취소했어요.", tone: "neutral" });
+          } catch {
+            showFeedback({ message: "기록을 취소하지 못했어요. 다시 시도해 주세요.", tone: "error" });
+          }
+        },
+      },
+    });
   }
 
   async function handleUpdateEventFromInput(input: Parameters<typeof updateEvent>[0]) {
-    await updateEvent(input);
+    const updatedEvents = await updateEvent(input);
     setEditingEvent(null);
     completeEventSave();
+    const primaryEvent = updatedEvents[0];
+    showFeedback({
+      message: primaryEvent ? `${getEventFeedbackLabel(primaryEvent)} 기록을 수정했어요.` : "기록을 수정했어요.",
+      tone: "success",
+      primaryAction: primaryEvent
+        ? {
+            label: "다시 수정",
+            onClick: () => {
+              setFeedback(null);
+              handleEditEvent(primaryEvent);
+            },
+          }
+        : undefined,
+    });
   }
 
-  async function handleWakeSleep() {
+  async function handleEndOngoingEvent(eventType: "sleep" | "play") {
     if (!baby) {
       return;
     }
 
-    const activeSleep = events.find((event) => event.eventType === "sleep" && !event.endedAt);
-    if (!activeSleep) {
+    const activeEvent = events.find((event) => event.eventType === eventType && !event.endedAt);
+    if (!activeEvent) {
       return;
     }
 
-    await updateEvent({
-      id: activeSleep.id,
-      babyId: activeSleep.babyId,
-      eventType: activeSleep.eventType,
-      occurredAt: activeSleep.occurredAt,
-      endedAt: new Date().toISOString(),
-      amountMl: activeSleep.amountMl,
-      feedingMethod: activeSleep.feedingMethod,
-      breastLeftMinutes: activeSleep.breastLeftMinutes,
-      breastRightMinutes: activeSleep.breastRightMinutes,
-      diaperType: activeSleep.diaperType,
-      poopAmount: activeSleep.poopAmount,
-      poopColor: activeSleep.poopColor,
-      medicineName: activeSleep.medicineName,
-      medicineDose: activeSleep.medicineDose,
-      medicineNextAt: activeSleep.medicineNextAt,
-      temperatureC: activeSleep.temperatureC,
-      temperatureLocation: activeSleep.temperatureLocation,
-      mealName: activeSleep.mealName,
-      mealAmountG: activeSleep.mealAmountG,
-      mealReaction: activeSleep.mealReaction,
-      note: activeSleep.note,
-    });
-    setSaveToastMessage("수면을 종료했어요.");
+    const eventLabel = eventType === "sleep" ? "수면" : "놀이";
+    const previousEvent = { ...activeEvent };
+
+    try {
+      await updateEvent({
+        ...toCreateEventInput(activeEvent),
+        id: activeEvent.id,
+        endedAt: new Date().toISOString(),
+      });
+      showFeedback({
+        message: `${eventLabel}를 종료했어요.`,
+        tone: "success",
+        primaryAction: {
+          label: "취소",
+          onClick: async () => {
+            try {
+              await updateEvent({ ...toCreateEventInput(previousEvent), id: previousEvent.id });
+              showFeedback({ message: `${eventLabel} 종료를 취소했어요.`, tone: "neutral" });
+            } catch {
+              showFeedback({ message: `${eventLabel} 종료를 취소하지 못했어요.`, tone: "error" });
+            }
+          },
+        },
+      });
+    } catch {
+      showFeedback({
+        message: `${eventLabel}를 종료하지 못했어요. 진행 중 기록은 그대로 유지했어요.`,
+        tone: "error",
+      });
+    }
+  }
+
+  async function handleWakeSleep() {
+    await handleEndOngoingEvent("sleep");
+  }
+
+  async function handleEndPlay() {
+    await handleEndOngoingEvent("play");
   }
 
   function completeEventSave() {
     setEditingEvent(null);
     setIsInputModalOpen(false);
-    setSaveToastMessage("저장이 완료되었습니다.");
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  async function handleDeleteEvent(event: BabyEvent) {
+    try {
+      await deleteEvent(event.id);
+      showFeedback({
+        message: `${getEventFeedbackLabel(event)} 기록을 삭제했어요.`,
+        tone: "neutral",
+        primaryAction: {
+          label: "되돌리기",
+          onClick: async () => {
+            try {
+              await addEvent(toCreateEventInput(event));
+              showFeedback({ message: "삭제한 기록을 복원했어요.", tone: "success" });
+            } catch {
+              showFeedback({ message: "기록을 복원하지 못했어요. 다시 입력해 주세요.", tone: "error" });
+            }
+          },
+        },
+      });
+    } catch {
+      showFeedback({ message: "기록을 삭제하지 못했어요. 다시 시도해 주세요.", tone: "error" });
+      throw new Error("기록 삭제 실패");
+    }
   }
 
   function handleEditEvent(event: BabyEvent) {
     setEditingEvent(event);
+    setInputInitialDate(null);
     setInputEventType(event.eventType === "pee" || event.eventType === "poop" ? "diaper" : event.eventType);
     setInputFeedingMethod(event.feedingMethod ?? "bottle");
     setIsInputModalOpen(true);
   }
 
-  function handleQuickAdd(eventType: EventType, feedingMethod: FeedingMethod = "bottle") {
+  function handleViewEventInPattern(event: BabyEvent) {
+    setAnalysisDate(toLocalDateTimeInputValue(new Date(event.occurredAt)).slice(0, 10));
+    setFocusEventId(event.id);
+    setActiveTab("pattern");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  function handleViewEventInAnalysis(event: BabyEvent) {
+    setAnalysisDate(toLocalDateTimeInputValue(new Date(event.occurredAt)).slice(0, 10));
+    setFocusEventId(null);
+    setActiveTab("analysis");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }
+
+  function handleQuickAdd(
+    eventType: EventType,
+    feedingMethod: FeedingMethod = "bottle",
+    initialDate: string | null = null,
+  ) {
     setEditingEvent(null);
     setInputEventType(eventType);
     setInputFeedingMethod(feedingMethod);
+    setInputInitialDate(initialDate);
     setIsInputModalOpen(true);
   }
 
   function handleTabChange(tab: AppTab) {
     setEditingEvent(null);
+    setFocusEventId(null);
     setActiveTab(tab);
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
 
   function closeInputModal() {
     setEditingEvent(null);
+    setInputInitialDate(null);
     setIsInputModalOpen(false);
   }
 
@@ -462,6 +631,7 @@ export function App() {
       : editingEvent
         ? "기록 수정"
         : "바로 남기기";
+  const nativePlatformLabel = Capacitor.getPlatform() === "android" ? "Android" : "iOS";
 
   function resetPullState() {
     touchStartRef.current = null;
@@ -586,7 +756,7 @@ export function App() {
       >
         {isRefreshing ? "새로고침 중..." : pullDistance >= PULL_REFRESH_THRESHOLD ? "놓으면 새로고침" : "당겨서 새로고침"}
       </div>
-      {saveToastMessage ? <div className="app-save-toast">{saveToastMessage}</div> : null}
+      {feedback ? <AppFeedbackSnackbar feedback={feedback} onDismiss={() => setFeedback(null)} /> : null}
       <div className="page-frame">
         {errorMessage ? <p className="error-copy">{errorMessage}</p> : null}
         {activeTab === "home" ? (
@@ -599,8 +769,10 @@ export function App() {
               onFeedIntervalChange={handleFeedIntervalChange}
               onQuickAdd={handleQuickAdd}
               onWakeSleep={handleWakeSleep}
+              onEndPlay={handleEndPlay}
             />
-            <EventList events={events} onDelete={deleteEvent} onEdit={handleEditEvent} />
+            <EventList events={events} onDelete={handleDeleteEvent} onEdit={handleEditEvent} />
+            <AdBanner placement="home-bottom" />
           </section>
         ) : null}
         {activeTab === "analysis" ? (
@@ -610,17 +782,26 @@ export function App() {
               selectedDate={analysisDate}
               summary={buildDailySummary(events, analysisDate)}
               onDateChange={setAnalysisDate}
+              onEditEvent={handleEditEvent}
+              onQuickAdd={(eventType, feedingMethod) =>
+                handleQuickAdd(eventType, feedingMethod ?? "bottle", analysisDate)
+              }
+              onViewEventInPattern={handleViewEventInPattern}
             />
           </section>
         ) : null}
         {activeTab === "pattern" ? (
           <section className="screen-stack">
-            <Suspense fallback={<p className="empty-copy">패턴을 불러오는 중입니다.</p>}>
+            <Suspense fallback={<p className="empty-copy">리듬을 불러오는 중입니다.</p>}>
               <PatternCards
                 events={events}
+                focusEventId={focusEventId}
                 selectedDate={analysisDate}
                 summary={buildDailySummary(events, analysisDate)}
                 onDateChange={setAnalysisDate}
+                onEditEvent={handleEditEvent}
+                onQuickAdd={(eventType) => handleQuickAdd(eventType, "bottle", analysisDate)}
+                onViewEventInAnalysis={handleViewEventInAnalysis}
               />
             </Suspense>
           </section>
@@ -686,10 +867,10 @@ export function App() {
             ) : (
               <>
                 <p className="push-permission-kicker">알림 꺼짐</p>
-                <h2>iOS 설정에서 알림을 켜주세요</h2>
+                <h2>{nativePlatformLabel} 설정에서 알림을 켜주세요</h2>
                 <p>
                   알림 권한이 꺼져 있어 수유 리마인드를 보낼 수 없어요.
-                  iOS 설정의 앙팡타임 알림에서 권한을 허용해 주세요.
+                  {nativePlatformLabel} 설정의 앙팡타임 알림에서 권한을 허용해 주세요.
                 </p>
                 <div className="push-permission-actions">
                   <button className="primary-button" type="button" onClick={dismissPushPermissionPrompt}>
@@ -719,6 +900,7 @@ export function App() {
               editingEvent={editingEvent}
               events={events}
               hideAds
+              initialDate={inputInitialDate}
               initialEventType={inputEventType}
               initialFeedingMethod={inputFeedingMethod}
               onSubmit={handleAddEvent}

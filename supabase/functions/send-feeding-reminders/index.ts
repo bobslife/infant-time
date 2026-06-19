@@ -16,6 +16,7 @@ type PushToken = {
   user_id: string;
   baby_id: string;
   token: string;
+  platform: "ios" | "android";
 };
 
 type ReminderSetting = {
@@ -86,6 +87,64 @@ async function createApnsJwt() {
   );
 
   return `${signingInput}.${base64Url(signature)}`;
+}
+
+async function importFirebasePrivateKey(privateKey: string) {
+  const pem = normalizePrivateKey(privateKey)
+    .replace("-----BEGIN PRIVATE KEY-----", "")
+    .replace("-----END PRIVATE KEY-----", "")
+    .replace(/\s/g, "");
+  const binary = Uint8Array.from(atob(pem), (char) => char.charCodeAt(0));
+
+  return crypto.subtle.importKey(
+    "pkcs8",
+    binary,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+}
+
+async function createFirebaseAccessToken() {
+  const clientEmail = Deno.env.get("FIREBASE_CLIENT_EMAIL");
+  const privateKey = Deno.env.get("FIREBASE_PRIVATE_KEY");
+
+  if (!clientEmail || !privateKey) {
+    throw new Error("FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY 환경변수가 필요합니다.");
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64Url(JSON.stringify({
+    iss: clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: nowSeconds,
+    exp: nowSeconds + 3600,
+  }));
+  const signingInput = `${header}.${payload}`;
+  const key = await importFirebasePrivateKey(privateKey);
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    textEncoder.encode(signingInput),
+  );
+  const assertion = `${signingInput}.${base64Url(signature)}`;
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
+  const payloadJson = await response.json() as { access_token?: string; error_description?: string };
+
+  if (!response.ok || !payloadJson.access_token) {
+    throw new Error(payloadJson.error_description ?? "Firebase access token 발급에 실패했습니다.");
+  }
+
+  return payloadJson.access_token;
 }
 
 function parseApnsError(value: string) {
@@ -172,6 +231,42 @@ async function sendApnsPush(input: {
   });
 }
 
+async function sendFcmPush(input: {
+  token: string;
+  babyId: string;
+  title: string;
+  body: string;
+  accessToken: string;
+  projectId: string;
+}) {
+  return fetch(`https://fcm.googleapis.com/v1/projects/${input.projectId}/messages:send`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${input.accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      message: {
+        token: input.token,
+        notification: {
+          title: input.title,
+          body: input.body,
+        },
+        data: {
+          babyId: input.babyId,
+          source: "feeding-reminder",
+        },
+        android: {
+          priority: "high",
+          notification: {
+            sound: "default",
+          },
+        },
+      },
+    }),
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -237,7 +332,9 @@ Deno.serve(async (request) => {
     const bundleId = Deno.env.get("APNS_BUNDLE_ID") ?? "com.infanttime.app";
     const apnsEnvironment = Deno.env.get("APNS_ENV") ?? "production";
     const host = apnsEnvironment === "sandbox" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
-    const jwt = await createApnsJwt();
+    const firebaseProjectId = Deno.env.get("FIREBASE_PROJECT_ID");
+    let apnsJwtPromise: Promise<string> | null = null;
+    let firebaseAccessTokenPromise: Promise<string> | null = null;
     let dueBabies = 0;
     let sent = 0;
     let skippedDuplicates = 0;
@@ -246,9 +343,8 @@ Deno.serve(async (request) => {
     for (const [babyId, babyFeeds] of feedsByBaby.entries()) {
       const { data: tokens, error: tokensError } = await supabase
         .from("push_tokens")
-        .select("id,user_id,baby_id,token")
+        .select("id,user_id,baby_id,token,platform")
         .eq("baby_id", babyId)
-        .eq("platform", "ios")
         .eq("enabled", true);
 
       if (tokensError) {
@@ -323,27 +419,66 @@ Deno.serve(async (request) => {
           throw deliveryError;
         }
 
-        const apnsResponse = await sendApnsPush({
-          token: token.token,
-          babyId,
-          title,
-          body,
-          jwt,
-          host,
-          bundleId,
-        });
-        const responseText = await apnsResponse.text();
+        let pushResponse: Response;
+        try {
+          if (token.platform === "android" && !firebaseProjectId) {
+            throw new Error("FIREBASE_PROJECT_ID 환경변수가 필요합니다.");
+          }
 
-        if (!apnsResponse.ok) {
+          pushResponse =
+            token.platform === "android"
+              ? await sendFcmPush({
+                  token: token.token,
+                  babyId,
+                  title,
+                  body,
+                  accessToken: await (
+                    firebaseAccessTokenPromise ??= createFirebaseAccessToken()
+                  ),
+                  projectId: firebaseProjectId!,
+                })
+              : await sendApnsPush({
+                  token: token.token,
+                  babyId,
+                  title,
+                  body,
+                  jwt: await (apnsJwtPromise ??= createApnsJwt()),
+                  host,
+                  bundleId,
+                });
+        } catch (providerError) {
+          failed += 1;
+          const message = providerError instanceof Error ? providerError.message : "push_provider_error";
+          console.error("Push provider setup failed", {
+            babyId,
+            tokenId: token.id,
+            platform: token.platform,
+            message,
+          });
+          await supabase
+            .from("feeding_reminder_deliveries")
+            .update({
+              status: "failed",
+              error: {
+                platform: token.platform,
+                message,
+              },
+            })
+            .eq("id", delivery.id);
+          continue;
+        }
+
+        const responseText = await pushResponse.text();
+
+        if (!pushResponse.ok) {
           failed += 1;
           const detail = parseApnsError(responseText);
-          console.error("APNs feeding reminder failed", {
-            status: apnsResponse.status,
+          console.error("Push feeding reminder failed", {
+            status: pushResponse.status,
             detail,
             babyId,
             tokenId: token.id,
-            environment: apnsEnvironment,
-            bundleId,
+            platform: token.platform,
           });
 
           await supabase
@@ -351,8 +486,9 @@ Deno.serve(async (request) => {
             .update({
               status: "failed",
               error: {
-                status: apnsResponse.status,
+                status: pushResponse.status,
                 detail,
+                platform: token.platform,
               },
             })
             .eq("id", delivery.id);
@@ -360,12 +496,23 @@ Deno.serve(async (request) => {
         }
 
         sent += 1;
+        const providerMessageId =
+          token.platform === "android"
+            ? (() => {
+                try {
+                  return (JSON.parse(responseText) as { name?: string }).name ?? null;
+                } catch {
+                  return null;
+                }
+              })()
+            : pushResponse.headers.get("apns-id");
         await supabase
           .from("feeding_reminder_deliveries")
           .update({
             status: "sent",
             sent_at: new Date().toISOString(),
-            apns_id: apnsResponse.headers.get("apns-id"),
+            apns_id: token.platform === "ios" ? providerMessageId : null,
+            provider_message_id: providerMessageId,
           })
           .eq("id", delivery.id);
       }

@@ -5,4 +5,5 @@
     <string name="package_name">com.infanttime.app</string>
     <string name="custom_url_scheme">com.infanttime.app</string>
     <string name="admob_app_id">ca-app-pub-7377226666674587~6759815233</string>
+    <string name="widget_description">오늘 수유, 수면, 기저귀 기록을 빠르게 확인합니다.</string>
 </resources>

@@ -1,7 +1,8 @@
 # Infant Time App Store Metadata Draft
 
 이 문서는 `Infant Time` iOS 앱의 App Store Connect 메타데이터 초안입니다.
-코드 기준으로 채울 수 있는 값은 미리 채웠고, 최종 제출 전 확인이 필요한 값은 `[NEEDS_INPUT]`으로 표시했습니다.
+코드 기준으로 채울 수 있는 값은 미리 채웠고, 최종 제출 전 확인이 필요한 값은
+`[VERIFY_BEFORE_SUBMISSION]`으로 표시했습니다.
 
 ## 1) App Information
 
@@ -14,7 +15,7 @@
 - Content Rights: `No third-party content`
 - Age Rating: `4+` 기준으로 진행
 
-## 2) Version Information (1.0.0 후보)
+## 2) Version Information (1.0.8)
 
 ### Subtitle (30 chars max)
 
@@ -70,10 +71,14 @@ Infant Time은 복잡한 입력보다 빠른 기록과 명확한 요약에 집�
 - Usage Data
   - Account create/delete timestamps, record timestamps
 
-기본 분류 제안:
-- Data Used to Track You: `No`
+기본 분류 초안:
+- Data Used to Track You: `[VERIFY_BEFORE_SUBMISSION]`
 - Data Linked to the User: `Yes` (계정/기록 데이터)
-- Tracking (ATT): `Not used`
+- Tracking (ATT): `[VERIFY_BEFORE_SUBMISSION]`
+
+AdMob 운영 광고를 활성화하면 Google Mobile Ads SDK가 IP 주소, 앱 상호작용, 진단 정보, 광고 ID를
+처리할 수 있다. 실제 SDK 버전, 맞춤형 광고 설정, ATT/동의 흐름을 확인한 뒤 App Privacy 답변을
+확정해야 한다. 아기 프로필과 돌봄 기록은 광고 개인화에 제공하지 않는다.
 
 ## 4) Review Information
 
@@ -82,8 +87,8 @@ Infant Time은 복잡한 입력보다 빠른 기록과 명확한 요약에 집�
 - Contact Phone: `+82-10-7332-2348`
 - Contact Email: `devbob0701@gmail.com`
 - Demo Account Required: `Yes` (로그인 앱)
-  - Username: `test@test.com`
-  - Password: `test1234`
+  - Username: `[VERIFY_BEFORE_SUBMISSION: test@test.com]`
+  - Password: `[VERIFY_BEFORE_SUBMISSION: test1234]`
 - Additional Notes: `Infant Time은 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 기록을 관리하는 앱입니다. 로그인 후 홈 화면에서 오늘의 요약과 다음 수유 예측을 확인할 수 있고, 활동 탭에서 기록을 빠르게 추가하거나 수정할 수 있습니다. 문제가 있으면 devbob0701@gmail.com으로 문의해 주세요. 개인정보 관련 내용은 /privacy, 앱 사용 문의는 /support에서 확인할 수 있습니다.`
 
 ## 5) Review Notes (KR/EN Ready to Paste)
@@ -93,7 +98,7 @@ Infant Time은 복잡한 입력보다 빠른 기록과 명확한 요약에 집�
 Infant Time은 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유식 기록을 관리하는 앱입니다.  
 로그인 후 홈 화면에서 오늘의 요약과 다음 수유 예측을 확인할 수 있고, 활동 탭에서 기록을 빠르게 추가하거나 수정할 수 있습니다.
 
-- 심사 계정: test@test.com / test1234
+- 심사 계정: `[VERIFY_BEFORE_SUBMISSION]`
 - 문의: devbob0701@gmail.com
 - 개인정보처리방침: https://infant-time.vercel.app/privacy
 - 지원 페이지: https://infant-time.vercel.app/support
@@ -103,7 +108,7 @@ Infant Time은 아기의 수유, 수면, 기저귀, 약 복용, 체온, 이유�
 Infant Time is an app for tracking infant care records, including feeding, sleep, diaper changes, medication, temperature, and meals.  
 After signing in, you can check today's summary and next feeding estimate on the home screen, then add or edit records quickly from the activity tab.
 
-- Review account: test@test.com / test1234
+- Review account: `[VERIFY_BEFORE_SUBMISSION]`
 - Contact: devbob0701@gmail.com
 - Privacy Policy: https://infant-time.vercel.app/privacy
 - Support: https://infant-time.vercel.app/support

@@ -12,6 +12,7 @@ type WidgetSummaryPayload = {
   breastfeedingMinutes: number;
   sleepMinutes: number;
   lastFeedAt: string | null;
+  lastFeedTime: string;
   lastFeedAmountMl: number | null;
   lastFeedingMethod: BabyEvent["feedingMethod"];
   lastBreastLeftMinutes: number | null;
@@ -92,6 +93,7 @@ export function buildWidgetSummary(
     breastfeedingMinutes: summary.todayBreastMinutes,
     sleepMinutes: summary.todaySleepMinutes,
     lastFeedAt: summary.lastFeedAt,
+    lastFeedTime: summary.lastFeedAt ? formatTime(summary.lastFeedAt) : "-",
     lastFeedAmountMl: summary.lastFeedAmountMl,
     lastFeedingMethod: summary.lastFeedingMethod,
     lastBreastLeftMinutes: summary.lastBreastLeftMinutes,
@@ -118,7 +120,7 @@ export async function syncWidgetSummary(
   baby: BabyProfile,
   feedIntervalMinutes: number,
 ) {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
     return;
   }
 
@@ -132,6 +134,7 @@ export async function syncWidgetSummary(
     breastfeedingMinutes: payload.breastfeedingMinutes,
     sleepMinutes: payload.sleepMinutes,
     lastFeedAt: payload.lastFeedAt,
+    lastFeedTime: payload.lastFeedTime,
     lastFeedAmountMl: payload.lastFeedAmountMl,
     lastFeedingMethod: payload.lastFeedingMethod,
     lastBreastLeftMinutes: payload.lastBreastLeftMinutes,
@@ -159,7 +162,7 @@ export async function syncWidgetSummary(
 }
 
 export async function clearWidgetSummary() {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
     return;
   }
 

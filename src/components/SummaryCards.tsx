@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdBanner } from "./ads/AdBanner";
 import { ActivityShortcut } from "./activity/ActivityShortcut";
+import { DateNavigator } from "./DateNavigator";
 import { buildDailySummary, DailyEventSummary, EventSummary } from "../features/events/useEvents";
 import { formatAge, formatDurationMinutes, formatTime } from "../lib/time";
 import { BabyEvent, BabyProfile, EventType, FeedingMethod, PoopColor } from "../types";
@@ -13,6 +14,7 @@ interface SummaryCardsProps {
   onFeedIntervalChange: (minutes: number) => void;
   onQuickAdd: (eventType: EventType, feedingMethod?: FeedingMethod) => void;
   onWakeSleep: () => void;
+  onEndPlay: () => void;
 }
 
 const poopAmountLabels = {
@@ -59,6 +61,53 @@ const quickActions: Array<{
   { id: "medicine", type: "medicine", icon: "/icons/pill.svg", label: "약" },
   { id: "temperature", type: "temperature", icon: "/icons/thermometer.svg", label: "체온" },
 ];
+
+function matchesQuickAction(
+  event: BabyEvent,
+  action: (typeof quickActions)[number],
+): boolean {
+  if (action.type === "feed") {
+    return event.eventType === "feed" && (event.feedingMethod ?? "bottle") === action.feedingMethod;
+  }
+
+  if (action.type === "diaper") {
+    return event.eventType === "diaper" || event.eventType === "pee" || event.eventType === "poop";
+  }
+
+  return event.eventType === action.type;
+}
+
+function sortQuickActionsByUsage(events: BabyEvent[]) {
+  const recentEvents = [...events]
+    .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())
+    .slice(0, 30);
+
+  if (recentEvents.length < 4) {
+    return quickActions;
+  }
+
+  const scored = quickActions.map((action, defaultIndex) => {
+    const score = recentEvents.reduce((total, event, eventIndex) => {
+      if (!matchesQuickAction(event, action)) {
+        return total;
+      }
+
+      return total + Math.max(1, 30 - eventIndex);
+    }, 0);
+
+    return { action, defaultIndex, score };
+  });
+  const promoted = scored
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score || left.defaultIndex - right.defaultIndex)
+    .slice(0, 4);
+  const promotedIds = new Set(promoted.map((item) => item.action.id));
+
+  return [
+    ...promoted.map((item) => item.action),
+    ...quickActions.filter((action) => !promotedIds.has(action.id)),
+  ];
+}
 
 const feedIntervalPresets = [180, 210, 240, 270, 300];
 
@@ -235,9 +284,14 @@ export function SummaryCards({
   onFeedIntervalChange,
   onQuickAdd,
   onWakeSleep,
+  onEndPlay,
 }: SummaryCardsProps) {
   const [now, setNow] = useState(new Date());
   const [isExpandedSummaryOpen, setIsExpandedSummaryOpen] = useState(false);
+  const [isQuickScrollAtEnd, setIsQuickScrollAtEnd] = useState(false);
+  const quickScrollRef = useRef<HTMLDivElement | null>(null);
+  const ongoingPlay = events.find((event) => event.eventType === "play" && !event.endedAt) ?? null;
+  const orderedQuickActions = sortQuickActionsByUsage(events);
   const isMealMode = events.some((event) => event.eventType === "meal");
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
@@ -248,6 +302,31 @@ export function SummaryCards({
   const lastFeedDescription = summary.lastFeedAt
     ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
     : "수유 기록을 남기면 다음 예측이 표시됩니다.";
+  const quickActionItems = orderedQuickActions.map((action) => {
+    if (action.type === "sleep" && summary.activeSleepStartedAt) {
+      return {
+        ...action,
+        label: "수면 종료",
+        badge: formatDurationMinutes(getElapsedMinutes(summary.activeSleepStartedAt, now) ?? 0),
+        onClick: onWakeSleep,
+      };
+    }
+
+    if (action.type === "play" && ongoingPlay) {
+      return {
+        ...action,
+        label: "놀이 종료",
+        badge: formatDurationMinutes(getElapsedMinutes(ongoingPlay.occurredAt, now) ?? 0),
+        onClick: onEndPlay,
+      };
+    }
+
+    return {
+      ...action,
+      badge: undefined,
+      onClick: () => onQuickAdd(action.type, action.feedingMethod),
+    };
+  });
   const lastMealDescription = summary.lastMealAt
     ? `${formatTime(summary.lastMealAt)} 마지막 이유식`
     : "이유식 기록을 남기면 오늘의 흐름이 표시됩니다.";
@@ -280,6 +359,22 @@ export function SummaryCards({
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const scrollElement = quickScrollRef.current;
+    if (!scrollElement) {
+      return;
+    }
+
+    const updateScrollEnd = () => {
+      const remaining = scrollElement.scrollWidth - scrollElement.clientWidth - scrollElement.scrollLeft;
+      setIsQuickScrollAtEnd(remaining <= 4);
+    };
+
+    updateScrollEnd();
+    window.addEventListener("resize", updateScrollEnd);
+    return () => window.removeEventListener("resize", updateScrollEnd);
+  }, [quickActionItems.length]);
 
   return (
     <>
@@ -442,23 +537,33 @@ export function SummaryCards({
           </div>
         ) : null}
       </section>
-      <AdBanner placement="home-bottom" />
       <section className="panel home-quick-section" aria-label="기록">
         <div className="section-heading compact-heading">
           <div>
             <h2>기록</h2>
           </div>
         </div>
-        <div className="home-quick-grid">
-          {quickActions.map((action) => (
-            <ActivityShortcut
-              icon={action.icon}
-              key={action.id}
-              label={action.label}
-              variant="quick"
-              onClick={() => onQuickAdd(action.type, action.feedingMethod)}
-            />
-          ))}
+        <div className={`home-quick-wrap${isQuickScrollAtEnd ? " scroll-end" : ""}`}>
+          <div
+            className="home-quick-grid"
+            ref={quickScrollRef}
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              const remaining = element.scrollWidth - element.clientWidth - element.scrollLeft;
+              setIsQuickScrollAtEnd(remaining <= 4);
+            }}
+          >
+            {quickActionItems.map((action) => (
+              <ActivityShortcut
+                icon={action.icon}
+                key={action.id}
+                label={action.label}
+                badge={action.badge}
+                variant="quick"
+                onClick={action.onClick}
+              />
+            ))}
+          </div>
         </div>
       </section>
     </>
@@ -470,6 +575,9 @@ interface AnalysisCardsProps {
   selectedDate: string;
   summary: DailyEventSummary;
   onDateChange: (date: string) => void;
+  onEditEvent: (event: BabyEvent) => void;
+  onQuickAdd: (eventType: EventType, feedingMethod?: FeedingMethod) => void;
+  onViewEventInPattern: (event: BabyEvent) => void;
 }
 
 interface DayTrend {
@@ -492,6 +600,28 @@ const poopColorShortLabels: Record<PoopColor, string> = {
   green: "쑥색",
   red_orange: "다홍",
 };
+
+function getEventFeedbackLabelForAnalysis(event: BabyEvent): string {
+  if (event.eventType === "feed") {
+    return (event.feedingMethod ?? "bottle") === "breast" ? "모유" : "분유";
+  }
+
+  const labels: Record<EventType, string> = {
+    feed: "수유",
+    sleep: "수면",
+    diaper: "기저귀",
+    medicine: "약",
+    temperature: "체온",
+    meal: "이유식",
+    memo: "메모",
+    pee: "소변",
+    poop: "대변",
+    bath: "목욕",
+    play: "놀이",
+  };
+
+  return labels[event.eventType];
+}
 
 function addDays(date: Date, days: number): Date {
   const next = new Date(date);
@@ -587,6 +717,7 @@ function getInsight(summary: DailyEventSummary, averageInterval: number | null, 
       tone: "good",
       title: "수유 간격이 일정합니다",
       detail: `평균 ${formatDurationMinutes(averageInterval)} 간격으로 기록됐어요.`,
+      focus: "feed" as const,
     };
   }
 
@@ -595,6 +726,7 @@ function getInsight(summary: DailyEventSummary, averageInterval: number | null, 
       tone: "warn",
       title: "수면 시간이 평균보다 부족합니다",
       detail: `최근 평균보다 ${formatDurationMinutes(Math.round(sevenDaySleepAverage - summary.sleepMinutes))} 적어요.`,
+      focus: "sleep" as const,
     };
   }
 
@@ -603,13 +735,15 @@ function getInsight(summary: DailyEventSummary, averageInterval: number | null, 
       tone: "warn",
       title: "선택한 날짜에 수유 기록이 없습니다",
       detail: "수유 기록을 남기면 간격과 총량 추이를 볼 수 있어요.",
+      focus: "none" as const,
     };
   }
 
   return {
     tone: "neutral",
-    title: "오늘 기록 흐름을 확인해 보세요",
-    detail: "수유, 수면, 배변 패턴을 최근 7일과 비교해 보여드려요.",
+    title: "최근 흐름과 크게 다르지 않아요",
+    detail: "현재 기록만으로는 두드러진 변화를 단정하지 않았어요.",
+    focus: "none" as const,
   };
 }
 
@@ -619,6 +753,7 @@ function getMealInsight(summary: DailyEventSummary, averageInterval: number | nu
       tone: "good",
       title: "이유식 간격이 안정적입니다",
       detail: `평균 ${formatDurationMinutes(averageInterval)} 간격으로 기록됐어요.`,
+      focus: "meal" as const,
     };
   }
 
@@ -627,6 +762,7 @@ function getMealInsight(summary: DailyEventSummary, averageInterval: number | nu
       tone: "warn",
       title: "수면 시간이 평균보다 부족합니다",
       detail: `최근 평균보다 ${formatDurationMinutes(Math.round(sevenDaySleepAverage - summary.sleepMinutes))} 적어요.`,
+      focus: "sleep" as const,
     };
   }
 
@@ -635,13 +771,15 @@ function getMealInsight(summary: DailyEventSummary, averageInterval: number | nu
       tone: "warn",
       title: "선택한 날짜에 이유식 기록이 없습니다",
       detail: "이유식 기록을 남기면 간격과 총량 추이를 볼 수 있어요.",
+      focus: "none" as const,
     };
   }
 
   return {
     tone: "neutral",
-    title: "오늘 이유식 흐름을 확인해 보세요",
-    detail: "이유식, 수면, 배변 패턴을 최근 7일과 비교해 보여드려요.",
+    title: "최근 흐름과 크게 다르지 않아요",
+    detail: "현재 기록만으로는 두드러진 변화를 단정하지 않았어요.",
+    focus: "none" as const,
   };
 }
 
@@ -841,6 +979,23 @@ function IntervalLineChart({
   );
 }
 
+function AnalysisDataRequirement({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="analysis-data-requirement">
+      <p>{message}</p>
+      <button type="button" onClick={onAction}>{actionLabel}</button>
+    </div>
+  );
+}
+
 function PoopDistribution({ events }: { events: BabyEvent[] }) {
   const poopEvents = events.filter(
     (event) => (event.eventType === "poop" || event.eventType === "diaper") && event.poopColor,
@@ -875,7 +1030,15 @@ function PoopDistribution({ events }: { events: BabyEvent[] }) {
   );
 }
 
-export function AnalysisCards({ events, selectedDate, summary, onDateChange }: AnalysisCardsProps) {
+export function AnalysisCards({
+  events,
+  selectedDate,
+  summary,
+  onDateChange,
+  onEditEvent,
+  onQuickAdd,
+  onViewEventInPattern,
+}: AnalysisCardsProps) {
   const [now, setNow] = useState(new Date());
   const [detailSection, setDetailSection] = useState<"intake" | "sleep" | "diaper">("intake");
   const selectedEvents = getEventsForDate(events, selectedDate);
@@ -933,9 +1096,13 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
       sleepMinutes: getSleepMinutes(dayEvents, now),
     };
   });
-  const sevenDaySleepAverage = Math.round(
-    trendData.reduce((total, item) => total + item.sleepMinutes, 0) / trendData.length,
-  );
+  const recordedSleepValues = trendData
+    .filter((item) => item.dateKey !== selectedDate)
+    .map((item) => item.sleepMinutes)
+    .filter((minutes) => minutes > 0);
+  const sevenDaySleepAverage = recordedSleepValues.length
+    ? Math.round(recordedSleepValues.reduce((total, minutes) => total + minutes, 0) / recordedSleepValues.length)
+    : 0;
   const maxSevenDayFeed = Math.max(120, ...trendData.map((item) => item.feedTotalMl));
   const maxSevenDayBreast = Math.max(30, ...trendData.map((item) => item.breastMinutes));
   const maxSevenDayMeal = Math.max(60, ...trendData.map((item) => item.mealTotalG));
@@ -956,30 +1123,210 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
   const breastDiff = displaySummary.breastMinutes - yesterdaySummary.breastMinutes;
   const hasEnoughFeedsForIntervalChart = feedEvents.length >= 2;
   const hasEnoughMealsForIntervalChart = mealEvents.length >= 2;
+  const recordedTrendDays = trendData.filter(
+    (item) =>
+      item.feedTotalMl > 0 ||
+      item.breastMinutes > 0 ||
+      item.mealTotalG > 0 ||
+      item.sleepMinutes > 0,
+  );
+  const feedingTrendDays = trendData.filter((item) =>
+    isMealMode ? item.mealTotalG > 0 : item.feedTotalMl > 0 || item.breastMinutes > 0,
+  );
+  const sleepTrendDays = trendData.filter((item) => item.sleepMinutes > 0);
+  const bottleTrendDays = trendData.filter((item) => item.feedTotalMl > 0);
+  const breastTrendDays = trendData.filter((item) => item.breastMinutes > 0);
+  const mealTrendDays = trendData.filter((item) => item.mealTotalG > 0);
+  const averageRecordedFeedMl = feedingTrendDays.length
+    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.feedTotalMl, 0) / feedingTrendDays.length)
+    : 0;
+  const averageRecordedBreastMinutes = feedingTrendDays.length
+    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.breastMinutes, 0) / feedingTrendDays.length)
+    : 0;
+  const averageRecordedMealG = feedingTrendDays.length
+    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.mealTotalG, 0) / feedingTrendDays.length)
+    : 0;
+  const averageRecordedSleepMinutes = sleepTrendDays.length
+    ? Math.round(sleepTrendDays.reduce((total, item) => total + item.sleepMinutes, 0) / sleepTrendDays.length)
+    : 0;
+  const sortedFeedEvents = [...feedEvents].sort(
+    (left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime(),
+  );
+  const representativeFeedGap =
+    averageInterval === null
+      ? null
+      : sortedFeedEvents.slice(1).reduce<{
+          previous: BabyEvent;
+          current: BabyEvent;
+          minutes: number;
+        } | null>((closest, current, index) => {
+          const previous = sortedFeedEvents[index];
+          const minutes = Math.max(
+            0,
+            Math.round(
+              (new Date(current.occurredAt).getTime() - new Date(previous.occurredAt).getTime()) / 60000,
+            ),
+          );
+          return !closest || Math.abs(minutes - averageInterval) < Math.abs(closest.minutes - averageInterval)
+            ? { previous, current, minutes }
+            : closest;
+        }, null);
+  const sortedMealEvents = [...mealEvents].sort(
+    (left, right) => new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime(),
+  );
+  const representativeMealGap =
+    averageMealInterval === null
+      ? null
+      : sortedMealEvents.slice(1).reduce<{
+          previous: BabyEvent;
+          current: BabyEvent;
+          minutes: number;
+        } | null>((closest, current, index) => {
+          const previous = sortedMealEvents[index];
+          const minutes = Math.max(
+            0,
+            Math.round(
+              (new Date(current.occurredAt).getTime() - new Date(previous.occurredAt).getTime()) / 60000,
+            ),
+          );
+          return !closest ||
+            Math.abs(minutes - averageMealInterval) < Math.abs(closest.minutes - averageMealInterval)
+            ? { previous, current, minutes }
+            : closest;
+        }, null);
+  const longestSleep = selectedEvents
+    .filter((event) => event.eventType === "sleep")
+    .map((event) => ({
+      event,
+      minutes: Math.max(
+        0,
+        Math.round(
+          ((event.endedAt ? new Date(event.endedAt).getTime() : now.getTime()) -
+            new Date(event.occurredAt).getTime()) /
+            60000,
+        ),
+      ),
+    }))
+    .sort((left, right) => right.minutes - left.minutes)[0] ?? null;
+  const evidenceCopy =
+    insight.focus === "feed" && representativeFeedGap && averageInterval !== null
+      ? `평균 ${formatDurationMinutes(averageInterval)} · ${formatTime(
+          representativeFeedGap.previous.occurredAt,
+        )}~${formatTime(representativeFeedGap.current.occurredAt)} ${formatDurationMinutes(
+          representativeFeedGap.minutes,
+        )} 간격`
+      : insight.focus === "meal" && representativeMealGap && averageMealInterval !== null
+        ? `평균 ${formatDurationMinutes(averageMealInterval)} · ${formatTime(
+            representativeMealGap.previous.occurredAt,
+          )}~${formatTime(representativeMealGap.current.occurredAt)} ${formatDurationMinutes(
+            representativeMealGap.minutes,
+          )} 간격`
+        : insight.focus === "sleep" && longestSleep
+          ? `총 수면 ${formatDurationMinutes(displaySummary.sleepMinutes)} · ${displaySummary.sleepCount}회 중 가장 긴 수면 ${formatDurationMinutes(
+              longestSleep.minutes,
+            )}`
+          : null;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
 
+  if (selectedEvents.length === 0) {
+    return (
+      <section className="analysis-stack">
+        <section className="panel analysis-header">
+          <div>
+            <h2>하루 요약</h2>
+          </div>
+          <DateNavigator ariaLabel="분석 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
+        </section>
+        <section className="panel data-empty-state">
+          <strong>이날은 아직 기록이 없어요</strong>
+          <p>수유나 수면 한 건만 남겨도 시간 흐름이 보이기 시작해요. 선택한 날짜로 바로 기록할 수 있어요.</p>
+          <div className="data-empty-actions">
+            <button type="button" onClick={() => onQuickAdd("feed")}>수유 기록</button>
+            <button type="button" onClick={() => onQuickAdd("sleep")}>수면 기록</button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  if (selectedEvents.length === 1) {
+    const onlyEvent = selectedEvents[0];
+    const nextEventType: EventType = onlyEvent.eventType === "sleep" ? "feed" : "sleep";
+
+    return (
+      <section className="analysis-stack">
+        <section className="panel analysis-header">
+          <div>
+            <h2>하루 요약</h2>
+          </div>
+          <DateNavigator ariaLabel="분석 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
+        </section>
+        <section className="panel sparse-day-summary">
+          <span>현재 1개 기록</span>
+          <strong>{formatTime(onlyEvent.occurredAt)} · {getEventFeedbackLabelForAnalysis(onlyEvent)}</strong>
+          <p>한 건의 기록만으로 하루 전체 흐름을 단정하지 않아요. 수유와 수면이 함께 쌓이면 먹고 자는 간격을 비교할 수 있어요.</p>
+          <div>
+            <button type="button" onClick={() => onEditEvent(onlyEvent)}>이 기록 수정</button>
+            <button type="button" onClick={() => onViewEventInPattern(onlyEvent)}>리듬에서 보기</button>
+            <button type="button" onClick={() => onQuickAdd(nextEventType)}>
+              {nextEventType === "feed" ? "수유 추가" : "수면 추가"}
+            </button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
   return (
     <section className="analysis-stack">
       <section className="panel analysis-header">
-        <div>
-          <h2>{isMealMode ? "오늘의 이유식 리듬" : "오늘의 리듬"}</h2>
-        </div>
-        <input
-          aria-label="분석 날짜"
-          type="date"
-          value={selectedDate}
-          onChange={(event) => onDateChange(event.target.value)}
-        />
+        <DateNavigator ariaLabel="분석 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
       </section>
 
       <section className={`panel analysis-insight ${insight.tone}`}>
         <span>Insight</span>
         <strong>{insight.title}</strong>
         <p>{insight.detail}</p>
+        {evidenceCopy ? (
+          <div className="analysis-evidence">
+            <span>근거 기록</span>
+            <strong>{evidenceCopy}</strong>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="panel weekly-overview" aria-label="최근 7일 요약">
+        <div className="weekly-overview-heading">
+          <div>
+            <span>최근 7일 한눈에</span>
+            <strong>{recordedTrendDays.length}일 기록</strong>
+          </div>
+          <small>기록한 날 기준 평균</small>
+        </div>
+        {recordedTrendDays.length >= 2 ? (
+          <div className="weekly-overview-grid">
+            <div>
+              <span>{isMealMode ? "이유식" : "수유"}</span>
+              <strong>
+                {isMealMode
+                  ? `${averageRecordedMealG}g`
+                  : `분유 ${averageRecordedFeedMl}ml`}
+              </strong>
+              {!isMealMode ? <small>모유 {averageRecordedBreastMinutes}분</small> : null}
+            </div>
+            <div>
+              <span>수면</span>
+              <strong>{formatDurationMinutes(averageRecordedSleepMinutes)}</strong>
+              <small>{sleepTrendDays.length}일 기록 기준</small>
+            </div>
+          </div>
+        ) : (
+          <p>이틀 이상 기록하면 하루 수유와 수면이 평소 흐름과 비슷한지 비교해 드려요.</p>
+        )}
       </section>
 
       <section className="analysis-metric-grid">
@@ -1034,8 +1381,6 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
         )}
       </section>
 
-      <AdBanner placement="analysis-bottom" />
-
       <nav className="analysis-detail-switch" aria-label="분석 상세 항목">
         {[
           { id: "intake" as const, label: "섭취" },
@@ -1063,7 +1408,25 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                 <h3>{isMealMode ? "시간대별 이유식량" : "분유량과 모유 시간"}</h3>
               </div>
             </div>
-            {isMealMode ? <MealTimelineChart meals={mealEvents} /> : <FeedTimelineChart feeds={feedEvents} />}
+            {isMealMode ? (
+              mealEvents.length > 0 ? (
+                <MealTimelineChart meals={mealEvents} />
+              ) : (
+                <AnalysisDataRequirement
+                  actionLabel="이유식 기록"
+                  message="이유식 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
+                  onAction={() => onQuickAdd("meal")}
+                />
+              )
+            ) : feedEvents.length > 0 ? (
+              <FeedTimelineChart feeds={feedEvents} />
+            ) : (
+              <AnalysisDataRequirement
+                actionLabel="수유 기록"
+                message="수유 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
+                onAction={() => onQuickAdd("feed")}
+              />
+            )}
           </section>
 
           <section className="panel chart-panel">
@@ -1083,9 +1446,11 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                   emptyMessage="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다."
                 />
               ) : (
-                <p className="empty-copy interval-empty-copy">
-                  선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다.
-                </p>
+                <AnalysisDataRequirement
+                  actionLabel="이유식 한 번 더 기록"
+                  message="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있어요."
+                  onAction={() => onQuickAdd("meal")}
+                />
               )
             ) : hasEnoughFeedsForIntervalChart ? (
               <IntervalLineChart
@@ -1096,9 +1461,11 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                 emptyMessage="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다."
               />
             ) : (
-              <p className="empty-copy interval-empty-copy">
-                분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다.
-              </p>
+              <AnalysisDataRequirement
+                actionLabel="수유 한 번 더 기록"
+                message="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있어요."
+                onAction={() => onQuickAdd("feed")}
+              />
             )}
           </section>
 
@@ -1117,10 +1484,18 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                     <h3>이유식량</h3>
                   </div>
                 </div>
-                <div className="chart-with-y-axis">
-                  <ChartAxisLabels labels={[`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]} />
-                  <TrendBars data={trendData} valueKey="mealTotalG" maxValue={maxSevenDayMeal} tone="meal" selectedDate={selectedDate} />
-                </div>
+                {mealTrendDays.length >= 2 ? (
+                  <div className="chart-with-y-axis">
+                    <ChartAxisLabels labels={[`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]} />
+                    <TrendBars data={trendData} valueKey="mealTotalG" maxValue={maxSevenDayMeal} tone="meal" selectedDate={selectedDate} />
+                  </div>
+                ) : (
+                  <AnalysisDataRequirement
+                    actionLabel="이유식 기록"
+                    message="최근 7일 중 이틀 이상 이유식을 기록하면 날짜별 변화를 비교할 수 있어요."
+                    onAction={() => onQuickAdd("meal")}
+                  />
+                )}
               </section>
             </>
           ) : (
@@ -1132,10 +1507,18 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                     <h3>분유량</h3>
                   </div>
                 </div>
-                <div className="chart-with-y-axis">
-                  <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
-                  <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" selectedDate={selectedDate} />
-                </div>
+                {bottleTrendDays.length >= 2 ? (
+                  <div className="chart-with-y-axis">
+                    <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
+                    <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" selectedDate={selectedDate} />
+                  </div>
+                ) : (
+                  <AnalysisDataRequirement
+                    actionLabel="분유 기록"
+                    message="최근 7일 중 이틀 이상 분유를 기록하면 하루 총량 변화를 비교할 수 있어요."
+                    onAction={() => onQuickAdd("feed", "bottle")}
+                  />
+                )}
               </section>
               <section className="panel chart-panel">
                 <div className="chart-heading">
@@ -1144,10 +1527,18 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                     <h3>모유 시간</h3>
                   </div>
                 </div>
-                <div className="chart-with-y-axis">
-                  <ChartAxisLabels labels={[`${maxSevenDayBreast}분`, `${Math.round(maxSevenDayBreast / 2)}분`, "0분"]} />
-                  <TrendBars data={trendData} valueKey="breastMinutes" maxValue={maxSevenDayBreast} tone="breast" selectedDate={selectedDate} />
-                </div>
+                {breastTrendDays.length >= 2 ? (
+                  <div className="chart-with-y-axis">
+                    <ChartAxisLabels labels={[`${maxSevenDayBreast}분`, `${Math.round(maxSevenDayBreast / 2)}분`, "0분"]} />
+                    <TrendBars data={trendData} valueKey="breastMinutes" maxValue={maxSevenDayBreast} tone="breast" selectedDate={selectedDate} />
+                  </div>
+                ) : (
+                  <AnalysisDataRequirement
+                    actionLabel="모유 기록"
+                    message="최근 7일 중 이틀 이상 모유 시간을 기록하면 날짜별 변화를 비교할 수 있어요."
+                    onAction={() => onQuickAdd("feed", "breast")}
+                  />
+                )}
               </section>
             </div>
           )}
@@ -1162,10 +1553,18 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
               <h3>수면 시간</h3>
             </div>
           </div>
-          <div className="chart-with-y-axis">
-            <ChartAxisLabels labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]} />
-            <TrendBars data={trendData} valueKey="sleepMinutes" maxValue={maxSevenDaySleep} tone="sleep" selectedDate={selectedDate} />
-          </div>
+          {sleepTrendDays.length >= 2 ? (
+            <div className="chart-with-y-axis">
+              <ChartAxisLabels labels={[formatAxisMinutes(maxSevenDaySleep), formatAxisMinutes(Math.round(maxSevenDaySleep / 2)), "0분"]} />
+              <TrendBars data={trendData} valueKey="sleepMinutes" maxValue={maxSevenDaySleep} tone="sleep" selectedDate={selectedDate} />
+            </div>
+          ) : (
+            <AnalysisDataRequirement
+              actionLabel="수면 기록"
+              message="최근 7일 중 이틀 이상 수면을 기록하면 평소 수면 시간과 비교할 수 있어요."
+              onAction={() => onQuickAdd("sleep")}
+            />
+          )}
         </section>
       ) : null}
 
@@ -1183,7 +1582,15 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
                 <h3>색상 분포</h3>
               </div>
             </div>
-            <PoopDistribution events={selectedEvents} />
+            {poopEvents.length > 0 ? (
+              <PoopDistribution events={selectedEvents} />
+            ) : (
+              <AnalysisDataRequirement
+                actionLabel="기저귀 기록"
+                message="대변 색상을 한 번 기록하면 선택한 날의 배변 상태를 정리해 보여드려요."
+                onAction={() => onQuickAdd("diaper")}
+              />
+            )}
           </section>
         </div>
       ) : null}
@@ -1196,6 +1603,7 @@ export function AnalysisCards({ events, selectedDate, summary, onDateChange }: A
             : "수유량, 대변 색상, 수면 종료 시간이 채워질수록 흐름을 더 정확히 볼 수 있습니다."}
         </p>
       </section>
+      <AdBanner placement="analysis-bottom" />
     </section>
   );
 }

@@ -218,6 +218,20 @@ Vite 설정에서 `NEXT_PUBLIC_*` 환경변수도 읽을 수 있게 열어두었
 - iOS/Android 앱으로 패키징할 경우 WebView 안의 AdSense보다 네이티브 AdMob 배너를 별도로 검토해야 합니다.
 - 광고는 앱의 핵심 기록 UX보다 우선하지 않습니다.
 
+## Android 빌드
+
+Android는 iOS와 동일한 앱 버전 `1.0.8`을 사용합니다.
+
+```bash
+npm run cap:sync
+npm run android:assemble:debug
+npm run android:bundle:release
+```
+
+- Android 홈 위젯은 마지막 수유, 오늘 수유량, 수면 상태, 기저귀 횟수를 표시합니다.
+- Android 푸시는 Firebase 설정과 Supabase secrets 및 migration 적용 후 동작합니다.
+- 서명, Play Console, Data safety, 실기기 검증 절차는 `docs/android-release-handoff.md`를 따릅니다.
+
 ## AdMob app-ads.txt 설정
 
 - 파일 위치: `public/app-ads.txt`

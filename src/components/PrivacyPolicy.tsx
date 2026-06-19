@@ -1,6 +1,6 @@
 import { DocumentPageHeader } from "./DocumentPageHeader";
 
-const effectiveDate = "2026년 5월 6일";
+const effectiveDate = "2026년 6월 19일";
 
 const collectedItems = [
   {
@@ -17,7 +17,11 @@ const collectedItems = [
   },
   {
     title: "서비스 이용 과정에서 생성되는 정보",
-    body: "계정 식별자, 기록 생성 및 수정 시각, 로그인 세션 정보",
+    body: "계정 식별자, 기록 생성 및 수정 시각, 로그인 세션 정보, 푸시 알림 토큰",
+  },
+  {
+    title: "광고 및 앱 운영 정보",
+    body: "광고 기능이 활성화된 경우 IP 주소, 앱 실행·탭 등 상호작용 정보, 진단 정보, 광고 ID를 포함한 기기 또는 앱 식별자",
   },
   {
     title: "계정 처리 이력",
@@ -69,6 +73,8 @@ export function PrivacyPolicy() {
             <li>수유, 수면, 기저귀, 약 복용, 체온, 이유식, 성장 기록의 저장, 조회, 수정, 삭제</li>
             <li>최근 기록 요약, 일별 분석 등 앱 핵심 기능 제공</li>
             <li>서비스 안정성 유지, 오류 확인, 부정 이용 방지</li>
+            <li>사용자가 허용한 돌봄 알림 발송</li>
+            <li>광고 표시, 광고 성과 측정, 광고 부정 이용 방지</li>
             <li>회원가입 및 회원탈퇴 처리 이력 관리</li>
             <li>사용자 문의 대응 및 공지 전달</li>
           </ul>
@@ -99,8 +105,9 @@ export function PrivacyPolicy() {
         <section className="privacy-section">
           <h2>4. 개인정보의 제3자 제공</h2>
           <p>
-            Infant Time은 사용자의 개인정보를 법령에 근거가 있거나 사용자의 별도 동의가 있는 경우를
-            제외하고 제3자에게 판매하거나 제공하지 않습니다.
+            Infant Time은 사용자의 개인정보를 판매하지 않습니다. 서비스 제공을 위한 처리 위탁, 아래에
+            고지한 광고 SDK의 정보 처리, 법령에 근거가 있는 경우 또는 사용자가 별도로 동의한 경우를
+            제외하고 제3자에게 제공하지 않습니다.
           </p>
         </section>
 
@@ -119,6 +126,18 @@ export function PrivacyPolicy() {
             <div className="privacy-list-item">
               <strong>Apple App Store</strong>
               <p>iOS 앱 배포, 앱 심사, 다운로드 및 업데이트 제공</p>
+            </div>
+            <div className="privacy-list-item">
+              <strong>Google Play</strong>
+              <p>Android 앱 배포, 앱 심사, 다운로드 및 업데이트 제공</p>
+            </div>
+            <div className="privacy-list-item">
+              <strong>Firebase Cloud Messaging</strong>
+              <p>사용자가 허용한 Android 푸시 알림 발송</p>
+            </div>
+            <div className="privacy-list-item">
+              <strong>Google AdMob</strong>
+              <p>광고 표시, 광고 성과 측정, 분석 및 부정 이용 방지</p>
             </div>
           </div>
         </section>
@@ -142,7 +161,7 @@ export function PrivacyPolicy() {
           <h2>7. 아동의 개인정보</h2>
           <p>
             Infant Time은 보호자가 아기의 돌봄 기록을 관리하기 위한 서비스입니다. 아기에 관한 정보는
-            보호자가 직접 입력한 범위에서만 처리되며, 서비스 제공 목적 외로 판매하거나 광고 추적에
+            보호자가 직접 입력한 범위에서만 처리되며, 해당 돌봄 기록을 광고 개인화나 광고 대상 선정에
             사용하지 않습니다.
           </p>
         </section>
@@ -150,9 +169,15 @@ export function PrivacyPolicy() {
         <section className="privacy-section">
           <h2>8. 광고 및 추적</h2>
           <p>
-            현재 Infant Time은 맞춤형 광고 제공이나 타사 광고 추적을 목적으로 개인정보를 이용하지
-            않습니다. 향후 광고, 분석 도구, 푸시 알림 등 개인정보 처리 방식에 중대한 변경이 생기면 본
-            방침을 개정하고 필요한 경우 별도 동의를 받겠습니다.
+            Infant Time은 Google AdMob을 통해 광고를 표시할 수 있습니다. 광고 SDK는 광고 제공, 성과
+            측정, 분석 및 부정 이용 방지를 위해 IP 주소, 앱 상호작용, 진단 정보, 광고 ID를 포함한 기기
+            또는 앱 식별자를 처리할 수 있으며, 전송되는 정보는 암호화됩니다. 사용자는 Android 설정에서
+            광고 ID를 재설정하거나 삭제할 수 있습니다. Infant Time은 보호자가 입력한 아기 프로필이나
+            돌봄 기록을 광고 개인화에 제공하지 않습니다.
+          </p>
+          <p>
+            광고 또는 알림 등 개인정보 처리 방식에 중대한 변경이 생기면 본 방침을 개정하고, 법령이나
+            플랫폼 정책상 필요한 경우 별도 안내 또는 동의를 받겠습니다.
           </p>
         </section>
 

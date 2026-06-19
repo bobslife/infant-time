@@ -13,6 +13,7 @@ import {
   TemperatureLocation,
   UpdateEventInput,
 } from "../types";
+import { getRecentEventDefaults } from "../features/events/recentEventDefaults";
 import { formatDurationMinutes, formatTime, toLocalDateTimeInputValue } from "../lib/time";
 
 interface EventInputScreenProps {
@@ -20,6 +21,7 @@ interface EventInputScreenProps {
   editingEvent?: BabyEvent | null;
   events: BabyEvent[];
   hideAds?: boolean;
+  initialDate?: string | null;
   initialEventType?: EventType;
   initialFeedingMethod?: FeedingMethod;
   onSubmit: (input: CreateEventInput) => Promise<void>;
@@ -77,6 +79,12 @@ function combineDateAndTime(date: string, time: string): string {
   return `${date}T${time}`;
 }
 
+function addMinutesToInputDateTime(value: string, minutes: number): string {
+  const date = new Date(value);
+  date.setMinutes(date.getMinutes() + minutes);
+  return toLocalDateTimeInputValue(date);
+}
+
 function getSleepDuration(startIso: string, now: Date): string {
   const minutes = Math.max(0, Math.floor((now.getTime() - new Date(startIso).getTime()) / 60000));
   return formatDurationMinutes(minutes);
@@ -105,6 +113,7 @@ export function EventInputScreen({
   editingEvent,
   events,
   hideAds = false,
+  initialDate = null,
   initialEventType = "feed",
   initialFeedingMethod = "bottle",
   onSubmit,
@@ -146,21 +155,12 @@ export function EventInputScreen({
     () => events.find((event) => event.eventType === "sleep" && !event.endedAt) ?? null,
     [events],
   );
+  const activeOngoingSleep = initialDate ? null : ongoingSleep;
+  const recentDefaults = useMemo(() => getRecentEventDefaults(events), [events]);
   const latestSleepEventId = useMemo(
     () => events.find((event) => event.eventType === "sleep")?.id ?? null,
     [events],
   );
-  const latestFeedAmount = useMemo(
-    () =>
-      events.find(
-        (event) =>
-          event.eventType === "feed" &&
-          (event.feedingMethod ?? "bottle") === "bottle" &&
-          event.amountMl !== null,
-      )?.amountMl ?? 70,
-    [events],
-  );
-
   const feedEvents = useMemo(
     () =>
       events
@@ -192,10 +192,24 @@ export function EventInputScreen({
 
   useEffect(() => {
     if (!editingEvent) {
-      const current = toLocalDateTimeInputValue();
+      const currentTime = toLocalDateTimeInputValue();
+      const current = initialDate ? `${initialDate}${currentTime.slice(10)}` : currentTime;
       const normalizedInitialType = normalizeEventType(initialEventType);
-      const defaultSleepStart = ongoingSleep ? toInputDateTime(ongoingSleep.occurredAt) : current;
-      const defaultSleepEnd = normalizedInitialType === "sleep" && ongoingSleep ? current : "";
+      const todayKey = currentTime.slice(0, 10);
+      const isPastDate = Boolean(initialDate && initialDate < todayKey);
+      const defaultSleepStart = activeOngoingSleep ? toInputDateTime(activeOngoingSleep.occurredAt) : current;
+      const defaultSleepEnd =
+        normalizedInitialType === "sleep"
+          ? activeOngoingSleep
+            ? current
+            : isPastDate
+              ? addMinutesToInputDateTime(defaultSleepStart, 90)
+              : ""
+          : "";
+      const defaultPlayEnd =
+        normalizedInitialType === "play" && isPastDate
+          ? addMinutesToInputDateTime(current, 30)
+          : "";
       setEventType(normalizedInitialType);
       setOccurredAt(current);
       setQuickDate(toInputDate(current));
@@ -208,22 +222,22 @@ export function EventInputScreen({
       } else {
         setEndedAtFromDateTime("");
       }
-      setAmountMl(initialEventType === "feed" ? latestFeedAmount : 120);
+      setAmountMl(recentDefaults.bottleAmountMl);
       setBreastLeftMinutes("");
       setBreastRightMinutes("");
-      setDiaperType("wet");
-      setPoopAmount("normal");
-      setPoopColor("ocher");
-      setMedicineName("");
-      setMedicineDose("");
+      setDiaperType(recentDefaults.diaperType);
+      setPoopAmount(recentDefaults.poopAmount);
+      setPoopColor(recentDefaults.poopColor);
+      setMedicineName(recentDefaults.medicineName);
+      setMedicineDose(recentDefaults.medicineDose);
       setTemperatureC("");
-      setTemperatureLocation("forehead");
-      setMealName("");
-      setMealAmountG("");
-      setMealReaction("good");
+      setTemperatureLocation(recentDefaults.temperatureLocation);
+      setMealName(recentDefaults.mealName);
+      setMealAmountG(recentDefaults.mealAmountG);
+      setMealReaction(recentDefaults.mealReaction);
       setMemoText("");
       if (normalizedInitialType === "play") {
-        setEndedAtFromDateTime("");
+        setEndedAtFromDateTime(defaultPlayEnd);
       }
       return;
     }
@@ -252,7 +266,7 @@ export function EventInputScreen({
     setMealAmountG(editingEvent.mealAmountG ?? "");
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.note ?? "");
-  }, [editingEvent, initialEventType, initialFeedingMethod, latestFeedAmount, ongoingSleep]);
+  }, [activeOngoingSleep, editingEvent, initialDate, initialEventType, initialFeedingMethod, recentDefaults]);
 
   function showSavedToast(message: string) {
     setToastMessage(message);
@@ -386,6 +400,8 @@ export function EventInputScreen({
       setEndedAtFromDateTime("");
       setMemoText("");
       showSavedToast(message);
+    } catch (error) {
+      showSavedToast(error instanceof Error ? error.message : "기록을 저장하지 못했어요. 입력값은 그대로 유지했어요.");
     } finally {
       submitLockRef.current = false;
       setIsSubmitting(false);
@@ -416,6 +432,8 @@ export function EventInputScreen({
       setEndedAtFromDateTime("");
       setMemoText("");
       showSavedToast(message);
+    } catch (error) {
+      showSavedToast(error instanceof Error ? error.message : "기록을 수정하지 못했어요. 입력값은 그대로 유지했어요.");
     } finally {
       submitLockRef.current = false;
       setIsSubmitting(false);
@@ -451,7 +469,7 @@ export function EventInputScreen({
       return;
     }
 
-    if (ongoingSleep) {
+    if (activeOngoingSleep) {
       const current = toLocalDateTimeInputValue();
       const sleepEnd = endedAt || current;
       setEndedAtFromDateTime(sleepEnd);
@@ -459,11 +477,11 @@ export function EventInputScreen({
         {
           ...input,
           eventType: "sleep",
-          occurredAt: toInputDateTime(ongoingSleep.occurredAt),
+          occurredAt: toInputDateTime(activeOngoingSleep.occurredAt),
           endedAt: sleepEnd,
-          note: memoText.trim() || ongoingSleep.note,
+          note: memoText.trim() || activeOngoingSleep.note,
         },
-        ongoingSleep.id,
+        activeOngoingSleep.id,
         "수면 종료 저장",
       );
       return;
@@ -472,21 +490,30 @@ export function EventInputScreen({
     await submitQuick(input, "수면 시작 저장");
   }
 
-  const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : ongoingSleep?.occurredAt ?? occurredAt;
+  const sleepStatusStart = editingEvent?.eventType === "sleep" ? occurredAt : activeOngoingSleep?.occurredAt ?? occurredAt;
   const isEditingSleep = editingEvent?.eventType === "sleep";
+  const isHistoricalNewEvent = Boolean(
+    !editingEvent &&
+    initialDate &&
+    initialDate < toLocalDateTimeInputValue(now).slice(0, 10),
+  );
   const isEditingLatestSleep =
     isEditingSleep && latestSleepEventId !== null && editingEvent.id === latestSleepEventId;
   const sleepStatusTitle =
-    eventType === "sleep" && ongoingSleep && !editingEvent
-      ? `${getSleepDuration(ongoingSleep.occurredAt, now)}째 수면 중`
+    eventType === "sleep" && activeOngoingSleep && !editingEvent
+      ? `${getSleepDuration(activeOngoingSleep.occurredAt, now)}째 수면 중`
+      : eventType === "sleep" && isHistoricalNewEvent
+        ? "수면 기록"
       : isEditingSleep
         ? endedAt
           ? "수면 기록"
           : `${getSleepDuration(occurredAt, now)}째 수면 중`
         : "깨어 있음";
   const sleepStatusDescription =
-    eventType === "sleep" && ongoingSleep && !editingEvent
+    eventType === "sleep" && activeOngoingSleep && !editingEvent
       ? `${formatTime(sleepStatusStart)} 시작 · 예상 기상 ${formatTime(new Date(new Date(sleepStatusStart).getTime() + 90 * 60000).toISOString())}`
+      : eventType === "sleep" && isHistoricalNewEvent
+        ? "과거 기록은 시작과 종료 시간을 함께 확인해 주세요."
       : isEditingSleep
         ? endedAt
           ? `${formatTime(occurredAt)} 시작 · ${formatTime(endedAt)} 종료`
@@ -505,8 +532,10 @@ export function EventInputScreen({
     ? "저장 중..."
     : isEditingSleep && !isEditingLatestSleep
       ? "수면 기록 수정"
-      : ongoingSleep || (isEditingSleep && !endedAt)
+      : activeOngoingSleep || (isEditingSleep && !endedAt)
         ? "수면 종료"
+        : isHistoricalNewEvent
+          ? "수면 기록하기"
         : isEditingSleep
           ? "수면 기록 수정"
           : "수면 시작";
@@ -552,13 +581,21 @@ export function EventInputScreen({
             {eventType === "diaper" ? (
               <>
                 <strong>{diaperOptions.find((item) => item.value === diaperType)?.label}</strong>
-                <small>기저귀 상태를 한 번에 기록해요.</small>
+                <small>
+                  {!editingEvent && recentDefaults.hasDiaper
+                    ? "최근 입력값을 불러왔어요. 달라진 부분만 바꿔주세요."
+                    : "기저귀 상태를 한 번에 기록해요."}
+                </small>
               </>
             ) : null}
             {eventType === "medicine" ? (
               <>
                 <strong>약 복용</strong>
-                <small>약 이름, 용량, 복용 시간을 기록할 수 있어요.</small>
+                <small>
+                  {!editingEvent && recentDefaults.hasMedicine
+                    ? "최근 약 이름과 용량을 불러왔어요."
+                    : "약 이름, 용량, 복용 시간을 기록할 수 있어요."}
+                </small>
               </>
             ) : null}
             {eventType === "temperature" ? (
@@ -566,7 +603,9 @@ export function EventInputScreen({
                 <strong>{temperatureC === "" ? "체온" : `${temperatureC.toFixed(1)}도`}</strong>
                 <small>
                   {temperatureC === ""
-                    ? "시간만 기록해도 저장돼요."
+                    ? !editingEvent && recentDefaults.hasTemperatureLocation
+                      ? "최근 측정 위치를 불러왔어요. 체온 값은 새로 입력해 주세요."
+                      : "시간만 기록해도 저장돼요."
                     : temperatureC >= 38
                       ? "고열 경향"
                       : temperatureC >= 37.5
@@ -578,7 +617,11 @@ export function EventInputScreen({
             {eventType === "meal" ? (
               <>
                 <strong>{mealAmountG === "" ? "이유식" : `${mealAmountG}g`}</strong>
-                <small>시간만 기록하거나 종류와 반응을 함께 남겨요.</small>
+                <small>
+                  {!editingEvent && recentDefaults.hasMeal
+                    ? "최근 이유식 종류와 양, 반응을 불러왔어요."
+                    : "시간만 기록하거나 종류와 반응을 함께 남겨요."}
+                </small>
               </>
             ) : null}
             {eventType === "memo" ? (

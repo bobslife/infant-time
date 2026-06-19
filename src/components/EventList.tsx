@@ -4,7 +4,7 @@ import { formatDurationMinutes, formatTime } from "../lib/time";
 
 interface EventListProps {
   events: BabyEvent[];
-  onDelete: (eventId: string) => Promise<void>;
+  onDelete: (event: BabyEvent) => Promise<void>;
   onEdit: (event: BabyEvent) => void;
 }
 
@@ -314,9 +314,13 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
     }
   }
 
-  async function handleDelete(eventId: string) {
-    await onDelete(eventId);
-    setOpenedId(null);
+  async function handleDelete(event: BabyEvent) {
+    try {
+      await onDelete(event);
+      setOpenedId(null);
+    } catch {
+      // App-level feedback explains the failure and the row stays available for retry.
+    }
   }
 
   return (
@@ -342,7 +346,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                   <button
                     className="event-delete-button"
                     type="button"
-                    onClick={() => void handleDelete(event.id)}
+                    onClick={() => void handleDelete(event)}
                   >
                     삭제
                   </button>

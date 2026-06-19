@@ -124,13 +124,16 @@ create table if not exists push_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   baby_id uuid references babies(id) on delete cascade,
-  platform text not null default 'ios' check (platform in ('ios')),
+  platform text not null default 'ios' check (platform in ('ios', 'android')),
   token text not null unique,
   enabled boolean not null default true,
   last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table push_tokens drop constraint if exists push_tokens_platform_check;
+alter table push_tokens add constraint push_tokens_platform_check check (platform in ('ios', 'android'));
 
 create table if not exists feeding_reminder_settings (
   baby_id uuid not null references babies(id) on delete cascade,
@@ -160,6 +163,7 @@ create table if not exists feeding_reminder_deliveries (
   scheduled_for timestamptz not null,
   sent_at timestamptz,
   apns_id text,
+  provider_message_id text,
   status text not null default 'pending' check (status in ('pending', 'sent', 'failed')),
   error jsonb,
   created_at timestamptz not null default now()

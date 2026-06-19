@@ -14,7 +14,7 @@ type PushRegistrationResult = {
 export type ApnsPermissionState = "unsupported" | "granted" | "denied" | "prompt";
 
 export async function checkApnsPermissionState(): Promise<ApnsPermissionState> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
     return "unsupported";
   }
 
@@ -30,7 +30,7 @@ export async function checkApnsPermissionState(): Promise<ApnsPermissionState> {
   return "prompt";
 }
 
-async function saveApnsToken(user: AppUser, baby: BabyProfile, token: string) {
+async function savePushToken(user: AppUser, baby: BabyProfile, token: string) {
   const client = getSupabaseClient();
   if (!client) {
     throw new Error("Supabase 설정이 없어 푸시 토큰을 저장할 수 없어요.");
@@ -40,7 +40,7 @@ async function saveApnsToken(user: AppUser, baby: BabyProfile, token: string) {
     {
       user_id: user.id,
       baby_id: baby.id,
-      platform: "ios",
+      platform: Capacitor.getPlatform(),
       token,
       enabled: true,
       last_seen_at: new Date().toISOString(),
@@ -95,7 +95,7 @@ function waitForPushToken(): Promise<string> {
       if (!settled) {
         settled = true;
         cleanup();
-        reject(new Error("APNs 토큰 발급 시간이 초과됐어요."));
+        reject(new Error("푸시 토큰 발급 시간이 초과됐어요."));
       }
     }, 15000);
 
@@ -118,14 +118,14 @@ function waitForPushToken(): Promise<string> {
       settled = true;
       window.clearTimeout(timeout);
       cleanup();
-      reject(new Error(error.error || "APNs 등록에 실패했어요."));
+      reject(new Error(error.error || "푸시 알림 등록에 실패했어요."));
     }).then((handle) => handles.push(handle));
   });
 }
 
 export async function registerApnsToken(user: AppUser, baby: BabyProfile): Promise<string> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
-    throw new Error("iOS 앱에서만 푸시 토큰을 발급할 수 있어요.");
+  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
+    throw new Error("iOS 또는 Android 앱에서만 푸시 토큰을 발급할 수 있어요.");
   }
 
   if (user.isLocal) {
@@ -146,7 +146,7 @@ export async function registerApnsToken(user: AppUser, baby: BabyProfile): Promi
   await PushNotifications.register();
   const token = await tokenPromise;
 
-  await saveApnsToken(user, baby, token);
+  await savePushToken(user, baby, token);
 
   return token;
 }
@@ -155,7 +155,11 @@ export async function syncApnsTokenIfPermissionGranted(
   user: AppUser,
   baby: BabyProfile,
 ): Promise<string | null> {
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios" || user.isLocal) {
+  if (
+    !Capacitor.isNativePlatform() ||
+    !["ios", "android"].includes(Capacitor.getPlatform()) ||
+    user.isLocal
+  ) {
     return null;
   }
 
@@ -168,7 +172,7 @@ export async function syncApnsTokenIfPermissionGranted(
   await PushNotifications.register();
   const token = await tokenPromise;
 
-  await saveApnsToken(user, baby, token);
+  await savePushToken(user, baby, token);
   return token;
 }
 
@@ -246,6 +250,7 @@ export async function runApnsPushSpike(user: AppUser, baby: BabyProfile): Promis
   const { error } = await client.functions.invoke("send-test-push", {
     body: {
       babyId: baby.id,
+      platform: Capacitor.getPlatform(),
       token,
       title: "앙팡타임 푸시 테스트",
       body: `${baby.name}의 알림 연결이 준비됐어요.`,
