@@ -924,6 +924,16 @@ button {
   text-align: left;
 }
 
+.today-primary-summary-grid .today-feeding-value {
+  display: grid;
+  gap: 4px;
+}
+
+.today-primary-summary-grid .today-feeding-value span {
+  display: block;
+  white-space: nowrap;
+}
+
 .today-summary-grid .metric-value strong {
   font-size: clamp(1.03rem, 3.5vw, 1.18rem);
   line-height: 1.15;

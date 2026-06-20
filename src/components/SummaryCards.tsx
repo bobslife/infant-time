@@ -338,14 +338,20 @@ export function SummaryCards({
   const visibleFeedIntervalPresets = feedIntervalPresets.includes(feedIntervalMinutes)
     ? feedIntervalPresets
     : [...feedIntervalPresets, feedIntervalMinutes].sort((left, right) => left - right);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  const todayFeedEvents = events.filter((event) => {
+    const occurredAt = new Date(event.occurredAt).getTime();
+    return event.eventType === "feed" && occurredAt >= todayStart && occurredAt < tomorrowStart;
+  });
+  const hasTodayBottleFeed = todayFeedEvents.some(
+    (event) => (event.feedingMethod ?? "bottle") === "bottle",
+  );
+  const hasTodayBreastFeed = todayFeedEvents.some((event) => event.feedingMethod === "breast");
   const primarySummaryLabel = isMealMode ? "이유식량" : "오늘 수유";
-  const primarySummaryValue = isMealMode
-    ? summary.todayMealTotalG > 0
-      ? `${summary.todayMealTotalG}g`
-      : "아직 기록이 없어요"
-    : summary.todayFeedCount > 0
-      ? `분유 ${summary.todayFeedTotalMl}ml · 모유 ${summary.todayBreastMinutes}분`
-      : "아직 기록이 없어요";
+  const primarySummaryValue = summary.todayMealTotalG > 0
+    ? `${summary.todayMealTotalG}g`
+    : "아직 기록이 없어요";
   const sleepDurationLabel = summary.todaySleepMinutes > 0 ? formatDurationMinutes(summary.todaySleepMinutes) : "아직 기록이 없어요";
   const primarySummaryDetail = isMealMode
     ? summary.todayMealCount > 0
@@ -444,7 +450,16 @@ export function SummaryCards({
           <div className="metric-card metric-display metric-display-left">
             <span>{primarySummaryLabel}</span>
             <div className="metric-value">
-              <strong>{primarySummaryValue}</strong>
+              {isMealMode ? (
+                <strong>{primarySummaryValue}</strong>
+              ) : hasTodayBottleFeed || hasTodayBreastFeed ? (
+                <strong className="today-feeding-value">
+                  {hasTodayBottleFeed ? <span>분유 {summary.todayFeedTotalMl}ml</span> : null}
+                  {hasTodayBreastFeed ? <span>모유 {summary.todayBreastMinutes}분</span> : null}
+                </strong>
+              ) : (
+                <strong>아직 기록이 없어요</strong>
+              )}
             </div>
             <small>{primarySummaryDetail}</small>
           </div>
