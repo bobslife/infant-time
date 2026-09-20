@@ -458,7 +458,7 @@ export function SummaryCards({
               <div className="status-card-heading"><span>현재 수면 상태</span></div>
               <strong>{sleepStatusLabel}</strong>
               <small>{summary.activeSleepStartedAt
-                ? `${formatTime(summary.activeSleepStartedAt)} 시작 · ${formatDurationMinutes(getElapsedMinutes(summary.activeSleepStartedAt, now) ?? 0)}째`
+                ? `${formatDurationMinutes(getElapsedMinutes(summary.activeSleepStartedAt, now) ?? 0)}째 수면 중`
                 : "잠들면 수면 기록을 시작해주세요"}</small>
             </div>
             <div className="status-card-section intake-today-total">
