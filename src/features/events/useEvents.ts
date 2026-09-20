@@ -218,10 +218,11 @@ export function buildDailySummary(events: BabyEvent[], date: string): DailyEvent
   };
 }
 
-function buildSummary(events: BabyEvent[]): EventSummary {
-  const today = startOfToday();
+export function buildSummary(events: BabyEvent[], now = new Date()): EventSummary {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const todayEvents = events.filter(
-    (event) => new Date(event.occurredAt).getTime() >= today.getTime(),
+    (event) => new Date(event.occurredAt).getTime() >= today.getTime() && new Date(event.occurredAt).getTime() < tomorrow.getTime(),
   );
 
   const feedEvents = events.filter((event) => event.eventType === "feed");
@@ -541,7 +542,29 @@ export function useEvents() {
     };
   }, [client, loadForUser]);
 
-  const summary = useMemo(() => buildSummary(events), [events]);
+  const [summaryNow, setSummaryNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = () => {
+      const current = new Date();
+      setSummaryNow(current);
+      clearTimeout(timer);
+      const midnight = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1);
+      timer = setTimeout(refresh, Math.min(60000, midnight.getTime() - current.getTime()));
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", refresh);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+  const summary = useMemo(() => buildSummary(events, summaryNow), [events, summaryNow]);
 
   async function signUp(input: SignUpInput) {
     if (!client) {

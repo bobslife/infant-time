@@ -128,14 +128,6 @@ export function PrivacyPolicy() {
               <p>iOS 앱 배포, 앱 심사, 다운로드 및 업데이트 제공</p>
             </div>
             <div className="privacy-list-item">
-              <strong>Google Play</strong>
-              <p>Android 앱 배포, 앱 심사, 다운로드 및 업데이트 제공</p>
-            </div>
-            <div className="privacy-list-item">
-              <strong>Firebase Cloud Messaging</strong>
-              <p>사용자가 허용한 Android 푸시 알림 발송</p>
-            </div>
-            <div className="privacy-list-item">
               <strong>Google AdMob</strong>
               <p>광고 표시, 광고 성과 측정, 분석 및 부정 이용 방지</p>
             </div>
@@ -171,8 +163,8 @@ export function PrivacyPolicy() {
           <p>
             Infant Time은 Google AdMob을 통해 광고를 표시할 수 있습니다. 광고 SDK는 광고 제공, 성과
             측정, 분석 및 부정 이용 방지를 위해 IP 주소, 앱 상호작용, 진단 정보, 광고 ID를 포함한 기기
-            또는 앱 식별자를 처리할 수 있으며, 전송되는 정보는 암호화됩니다. 사용자는 Android 설정에서
-            광고 ID를 재설정하거나 삭제할 수 있습니다. Infant Time은 보호자가 입력한 아기 프로필이나
+            또는 앱 식별자를 처리할 수 있으며, 전송되는 정보는 암호화됩니다. 사용자는 운영체제 설정에서
+            광고 추적을 제한할 수 있습니다. Infant Time은 보호자가 입력한 아기 프로필이나
             돌봄 기록을 광고 개인화에 제공하지 않습니다.
           </p>
           <p>

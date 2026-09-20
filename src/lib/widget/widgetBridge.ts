@@ -120,7 +120,7 @@ export async function syncWidgetSummary(
   baby: BabyProfile,
   feedIntervalMinutes: number,
 ) {
-  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
     return;
   }
 
@@ -162,7 +162,7 @@ export async function syncWidgetSummary(
 }
 
 export async function clearWidgetSummary() {
-  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
     return;
   }
 

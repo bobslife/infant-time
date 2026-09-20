@@ -19,6 +19,8 @@ export type PoopColor = "ocher" | "brown" | "dark_brown" | "green" | "red_orange
 
 export type TemperatureLocation = "forehead" | "ear" | "armpit";
 
+export type MealStage = "early" | "middle" | "late";
+
 export type MealReaction = "good" | "normal" | "poor" | "allergy";
 
 export type FeedingMethod = "bottle" | "breast";
@@ -54,6 +56,8 @@ export interface BabyEvent {
   medicineNextAt?: string | null;
   temperatureC?: number | null;
   temperatureLocation?: TemperatureLocation | null;
+  mealStage?: MealStage | null;
+  mealToppings?: string[];
   mealName?: string | null;
   mealAmountG?: number | null;
   mealReaction?: MealReaction | null;
@@ -115,6 +119,8 @@ export interface CreateEventInput {
   medicineNextAt?: string | null;
   temperatureC?: number | null;
   temperatureLocation?: TemperatureLocation | null;
+  mealStage?: MealStage | null;
+  mealToppings?: string[];
   mealName?: string | null;
   mealAmountG?: number | null;
   mealReaction?: MealReaction | null;

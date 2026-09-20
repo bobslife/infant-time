@@ -7,6 +7,7 @@ import { formatAge, formatDurationMinutes, formatTime } from "../lib/time";
 import { BabyEvent, BabyProfile, EventType, FeedingMethod, PoopColor } from "../types";
 
 interface SummaryCardsProps {
+  previewEmptyIntake?: boolean;
   baby: BabyProfile;
   events: BabyEvent[];
   feedIntervalMinutes: number;
@@ -182,33 +183,6 @@ function getMealTimerStatus(elapsedMinutes: number | null): "soon" | null {
   return null;
 }
 
-function formatTodayMealNameCounts(events: BabyEvent[], now: Date): string | null {
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const counts = events.reduce<Map<string, number>>((mealCounts, event) => {
-    if (event.eventType !== "meal" || new Date(event.occurredAt).getTime() < todayStart.getTime()) {
-      return mealCounts;
-    }
-
-    const mealName = event.mealName?.trim();
-    if (!mealName) {
-      return mealCounts;
-    }
-
-    mealCounts.set(mealName, (mealCounts.get(mealName) ?? 0) + 1);
-    return mealCounts;
-  }, new Map<string, number>());
-
-  if (counts.size === 0) {
-    return null;
-  }
-
-  return Array.from(counts.entries())
-    .map(([mealName, count]) => `${mealName} ${count}회`)
-    .join(", ");
-}
-
 function formatFeedIntervalPreset(minutes: number): string {
   if (minutes % 60 === 0) {
     return `${minutes / 60}시간`;
@@ -277,6 +251,7 @@ function GenderMark({ gender }: { gender: BabyProfile["gender"] }) {
 }
 
 export function SummaryCards({
+  previewEmptyIntake = false,
   baby,
   events,
   feedIntervalMinutes,
@@ -292,26 +267,19 @@ export function SummaryCards({
   const quickScrollRef = useRef<HTMLDivElement | null>(null);
   const ongoingPlay = events.find((event) => event.eventType === "play" && !event.endedAt) ?? null;
   const orderedQuickActions = sortQuickActionsByUsage(events);
-  const isMealMode = events.some((event) => event.eventType === "meal");
+  const hasMeals = events.some((event) => event.eventType === "meal");
+  const hasFeeds = events.some((event) => event.eventType === "feed");
+  const intakeTypes = previewEmptyIntake ? ["meal", "feed"] : [hasMeals ? "meal" : null, hasFeeds || !hasMeals ? "feed" : null].filter(Boolean);
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
-  const warning = !isMealMode && feedStatus === "overdue";
+  const warning = !previewEmptyIntake && summary.todayFeedCount > 0 && hasFeeds && feedStatus === "overdue";
   const lastFeedTitle = formatElapsedTitle(summary.lastFeedAt, now);
   const lastMealTitle = formatMealElapsedTitle(summary.lastMealAt, now);
-  const mealTimerStatus = isMealMode ? getMealTimerStatus(getElapsedMinutes(summary.lastMealAt, now)) : null;
+  const mealTimerStatus = hasMeals ? getMealTimerStatus(getElapsedMinutes(summary.lastMealAt, now)) : null;
   const lastFeedDescription = summary.lastFeedAt
-    ? `${formatTime(summary.lastFeedAt)} 마지막 수유`
+    ? formatTime(summary.lastFeedAt)
     : "수유 기록을 남기면 다음 예측이 표시됩니다.";
   const quickActionItems = orderedQuickActions.map((action) => {
-    if (action.type === "sleep" && summary.activeSleepStartedAt) {
-      return {
-        ...action,
-        label: "수면 종료",
-        badge: formatDurationMinutes(getElapsedMinutes(summary.activeSleepStartedAt, now) ?? 0),
-        onClick: onWakeSleep,
-      };
-    }
-
     if (action.type === "play" && ongoingPlay) {
       return {
         ...action,
@@ -328,7 +296,7 @@ export function SummaryCards({
     };
   });
   const lastMealDescription = summary.lastMealAt
-    ? `${formatTime(summary.lastMealAt)} 마지막 이유식`
+    ? `${formatTime(summary.lastMealAt)} · ${summary.lastMealAmountG == null ? "양 미입력" : `${summary.lastMealAmountG}g`}`
     : "이유식 기록을 남기면 오늘의 흐름이 표시됩니다.";
   const lastFeedDetail =
     summary.lastFeedingMethod === "breast"
@@ -348,18 +316,19 @@ export function SummaryCards({
     (event) => (event.feedingMethod ?? "bottle") === "bottle",
   );
   const hasTodayBreastFeed = todayFeedEvents.some((event) => event.feedingMethod === "breast");
-  const primarySummaryLabel = isMealMode ? "이유식량" : "오늘 수유";
-  const primarySummaryValue = summary.todayMealTotalG > 0
-    ? `${summary.todayMealTotalG}g`
-    : "아직 기록이 없어요";
   const sleepDurationLabel = summary.todaySleepMinutes > 0 ? formatDurationMinutes(summary.todaySleepMinutes) : "아직 기록이 없어요";
-  const primarySummaryDetail = isMealMode
-    ? summary.todayMealCount > 0
-      ? formatTodayMealNameCounts(events, now) ?? `오늘 ${summary.todayMealCount}회 기록`
-      : "기록을 더 쌓는 중"
-    : summary.todayFeedCount > 0
-      ? `총 ${summary.todayFeedCount}회 기록`
-      : "아직 기록이 없어요";
+  const todayTemperature = events
+    .filter((event) => event.eventType === "temperature" && new Date(event.occurredAt).getTime() >= todayStart && new Date(event.occurredAt).getTime() < tomorrowStart)
+    .sort((left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime())[0]?.temperatureC;
+  const extraRecords: Array<{ type: EventType; label: string; icon: string; count: number; value: string }> = [
+    { type: "diaper", label: "기저귀", icon: "/icons/diaper.svg", count: summary.todayDiaperCount, value: `${summary.todayDiaperCount}회` },
+    { type: "medicine", label: "약", icon: "/icons/pill.svg", count: summary.todayMedicineCount, value: `${summary.todayMedicineCount}회` },
+    { type: "temperature", label: "체온", icon: "/icons/thermometer.svg", count: summary.todayTemperatureCount, value: todayTemperature != null ? `${todayTemperature.toFixed(1)}도` : "기록 없음" },
+    { type: "play", label: "놀이", icon: "/icons/play.svg", count: summary.todayPlayCount, value: formatDurationMinutes(summary.todayPlayMinutes) },
+    { type: "bath", label: "목욕", icon: "/icons/bath.svg", count: summary.todayBathCount, value: `${summary.todayBathCount}회` },
+  ];
+  const recordedExtras = extraRecords.filter((item) => item.count > 0);
+  const extraRecordCount = extraRecords.reduce((total, item) => total + (item.count ?? 0), 0);
   const sleepStatusLabel = getSleepStatusLabel(summary.activeSleepStartedAt);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
@@ -404,153 +373,150 @@ export function SummaryCards({
             수유기록이 {formatDurationMinutes(feedIntervalMinutes)} 기준을 넘었습니다.
           </p>
         ) : null}
-        <div className={`status-card ${isMealMode ? `meal${mealTimerStatus ? ` meal-timer-${mealTimerStatus}` : ""}` : feedStatus}`}>
-          <div className={`status-card-section status-current${isMealMode && mealTimerStatus ? ` meal-timer-${mealTimerStatus}` : ""}`}>
-            <div className="status-card-heading">
-              <span>{isMealMode ? "마지막 이유식" : "마지막 수유"}</span>
-            </div>
-            <strong>{isMealMode ? lastMealTitle : lastFeedTitle}</strong>
-            <small>
-              {isMealMode
-                ? lastMealDescription
-                : summary.lastFeedAt
-                  ? `${lastFeedDescription} · ${lastFeedDetail}`
-                  : lastFeedDescription}
-            </small>
-          </div>
+        {previewEmptyIntake ? <p className="intake-preview-notice">기록 없음 미리보기 · 저장된 기록은 그대로 유지돼요</p> : null}
+        {intakeTypes.map((intakeType) => {
+          const isMeal = intakeType === "meal";
+          const hasTodayRecords = !previewEmptyIntake && (isMeal ? summary.todayMealCount > 0 : summary.todayFeedCount > 0);
+          if (!hasTodayRecords) {
+            return (
+              <div key={intakeType} className={`status-card intake-empty-card ${isMeal ? "meal" : ""}`}>
+                <img src={isMeal ? "/icons/babyfood.svg" : "/icons/feeding.svg"} alt="" />
+                <div>
+                  <span>{isMeal ? "오늘 이유식" : "오늘 수유"}</span>
+                  <strong>{isMeal ? "오늘 이유식 기록이 없어요" : "오늘 분유·모유 수유 기록이 없어요"}</strong>
+                  <small>첫 기록을 남기면 오늘의 양과 횟수가 표시돼요.</small>
+                </div>
+                <button type="button" onClick={() => onQuickAdd(isMeal ? "meal" : "feed")}>{isMeal ? "이유식 기록" : "수유 기록"}</button>
+              </div>
+            );
+          }
+          return (
+            <div key={intakeType} className={`status-card ${isMeal ? `meal${mealTimerStatus ? ` meal-timer-${mealTimerStatus}` : ""}` : feedStatus}`}>
+              <div className={`intake-status-overview${isMeal ? " meal-priority" : ""}`}>
+              <div className={`status-card-section status-current${isMeal && mealTimerStatus ? ` meal-timer-${mealTimerStatus}` : ""}`}>
+                <div className="status-card-heading">
+                  <span>{isMeal ? "마지막 이유식" : "마지막 수유"}</span>
+                </div>
+                <strong>{isMeal ? lastMealTitle : lastFeedTitle}</strong>
+                <small>
+                  {isMeal
+                    ? lastMealDescription
+                    : summary.lastFeedAt
+                      ? `${lastFeedDescription} · ${lastFeedDetail}`
+                      : lastFeedDescription}
+                </small>
+              </div>
 
-          {!isMealMode ? (
-            <div className="status-card-section status-next">
-              <div className="status-card-heading">
-                <span>다음 수유 예측</span>
-                <small>{formatDurationMinutes(feedIntervalMinutes)} 기준</small>
+                <div className="status-card-section intake-today-total">
+                  <div className="status-card-heading"><span>{isMeal ? "오늘 이유식" : "오늘 수유"}</span></div>
+                  {isMeal ? (
+                    <strong>{summary.todayMealCount > 0 ? `${summary.todayMealTotalG}g` : "기록 없음"}</strong>
+                  ) : hasTodayBottleFeed || hasTodayBreastFeed ? (
+                    <strong className="intake-total-values">
+                      {hasTodayBottleFeed ? <span>분유 {summary.todayFeedTotalMl}ml</span> : null}
+                      {hasTodayBreastFeed ? <span>모유 {summary.todayBreastMinutes}분</span> : null}
+                    </strong>
+                  ) : <strong>기록 없음</strong>}
+                  <small>{isMeal
+                    ? summary.todayMealCount > 0 ? `${summary.todayMealCount}회` : "오늘 기록을 남겨주세요"
+                    : summary.todayFeedCount > 0 ? `총 ${summary.todayFeedCount}회` : "오늘 기록을 남겨주세요"}</small>
+                </div>
               </div>
-              <strong className="next-feed-copy">{nextFeedCopy}</strong>
-              <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
-                <i style={{ width: `${feedProgress}%` }} />
-              </div>
-              <small className="status-progress-label">평균 수유 간격 기준</small>
-              <div className="feed-interval-chips" aria-label="수유 간격 기준">
-                {visibleFeedIntervalPresets.map((minutes) => (
-                  <button
-                    aria-pressed={feedIntervalMinutes === minutes}
-                    className={feedIntervalMinutes === minutes ? "active" : ""}
-                    key={minutes}
-                    type="button"
-                    onClick={() => onFeedIntervalChange(minutes)}
-                  >
-                    <FeedIntervalPresetLabel minutes={minutes} />
+
+              {!isMeal ? (
+                <div className="status-card-section status-next">
+                  <div className="status-card-heading">
+                    <span>다음 수유 예측</span>
+                    <small>{formatDurationMinutes(feedIntervalMinutes)} 기준</small>
+                  </div>
+                  <strong className="next-feed-copy">{nextFeedCopy}</strong>
+                  <div className="feed-progress" aria-label={`수유 텀 진행률 ${feedProgress}%`}>
+                    <i style={{ width: `${feedProgress}%` }} />
+                  </div>
+                  <small className="status-progress-label">평균 수유 간격 기준</small>
+                  <div className="feed-interval-chips" aria-label="수유 간격 기준">
+                    {visibleFeedIntervalPresets.map((minutes) => (
+                      <button
+                        aria-pressed={feedIntervalMinutes === minutes}
+                        className={feedIntervalMinutes === minutes ? "active" : ""}
+                        key={minutes}
+                        type="button"
+                        onClick={() => onFeedIntervalChange(minutes)}
+                      >
+                        <FeedIntervalPresetLabel minutes={minutes} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        <div className="status-card home-sleep-card">
+          <div className="intake-status-overview">
+            <div className="status-card-section">
+              <div className="status-card-heading"><span>현재 수면 상태</span></div>
+              <strong>{sleepStatusLabel}</strong>
+              <small>{summary.activeSleepStartedAt
+                ? `${formatTime(summary.activeSleepStartedAt)} 시작 · ${formatDurationMinutes(getElapsedMinutes(summary.activeSleepStartedAt, now) ?? 0)}째`
+                : "잠들면 수면 기록을 시작해주세요"}</small>
+            </div>
+            <div className="status-card-section intake-today-total">
+              <div className="status-card-heading"><span>오늘 수면</span></div>
+              <strong>{sleepDurationLabel}</strong>
+              <small>{summary.todaySleepCount > 0 ? `총 ${summary.todaySleepCount}회` : "오늘 기록을 남겨주세요"}</small>
+            </div>
+          </div>
+          {summary.activeSleepStartedAt ? (
+            <button className="sleep-wake-button" type="button" onClick={onWakeSleep}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <span>깨우기</span>
+            </button>
+          ) : null}
+        </div>
+        <section className="home-extra-records" aria-label="오늘 추가 기록">
+          <button
+            aria-expanded={isExpandedSummaryOpen}
+            aria-controls="home-extra-records-content"
+            className="extra-records-toggle"
+            type="button"
+            onClick={() => setIsExpandedSummaryOpen((current) => !current)}
+          >
+            <span className="extra-records-copy">
+              <span className="extra-records-title">추가 기록 <span className="extra-records-count">오늘 {extraRecordCount}건</span></span>
+              {extraRecordCount === 0 ? (
+                <span className="extra-records-description">기저귀·약·체온·놀이·목욕을 기록해보세요</span>
+              ) : null}
+            </span>
+            <span className="extra-records-action">
+              {isExpandedSummaryOpen ? "접기" : "펼치기"}
+              <svg className={isExpandedSummaryOpen ? "expanded" : ""} width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </button>
+          {!isExpandedSummaryOpen && recordedExtras.length > 0 ? (
+            <div className="extra-records-preview">
+              {recordedExtras.map((item) => <span key={item.type}><img src={item.icon} alt="" />{item.label} {item.value}</span>)}
+            </div>
+          ) : null}
+          <div id="home-extra-records-content" hidden={!isExpandedSummaryOpen}>
+            {isExpandedSummaryOpen ? (
+              <div className="extra-records-grid">
+                {extraRecords.map((item) => (
+                  <button className="extra-record-item" key={item.type} type="button" onClick={() => onQuickAdd(item.type)} aria-label={`${item.label} 기록 추가`}>
+                    <span className="extra-record-item-heading"><img src={item.icon} alt="" /><span>{item.label}</span><span className="extra-record-add" aria-hidden="true">+</span></span>
+                    <strong>{item.count > 0 ? item.value : "기록 없음"}</strong>
+                    <small>기록 추가</small>
                   </button>
                 ))}
               </div>
-            </div>
-          ) : null}
-        </div>
-        <div className="summary-grid today-primary-summary-grid">
-          <div className="metric-card metric-display metric-display-left">
-            <span>{primarySummaryLabel}</span>
-            <div className="metric-value">
-              {isMealMode ? (
-                <strong>{primarySummaryValue}</strong>
-              ) : hasTodayBottleFeed || hasTodayBreastFeed ? (
-                <strong className="today-feeding-value">
-                  {hasTodayBottleFeed ? <span>분유 {summary.todayFeedTotalMl}ml</span> : null}
-                  {hasTodayBreastFeed ? <span>모유 {summary.todayBreastMinutes}분</span> : null}
-                </strong>
-              ) : (
-                <strong>아직 기록이 없어요</strong>
-              )}
-            </div>
-            <small>{primarySummaryDetail}</small>
-          </div>
-          <div className="metric-card metric-display metric-display-left">
-            <span>수면시간</span>
-            <div className="metric-value">
-              <strong>{sleepDurationLabel}</strong>
-            </div>
-            <div className="sleep-status-row">
-              <span className="sleep-status-chip">{sleepStatusLabel}</span>
-              {summary.activeSleepStartedAt ? (
-                <button className="sleep-wake-button" type="button" onClick={onWakeSleep}>
-                  깨우기
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-        <div className="summary-toggle-row">
-          <div className="summary-toggle-copy">
-            <button
-              aria-expanded={isExpandedSummaryOpen}
-              className="summary-toggle-button"
-              type="button"
-              onClick={() => setIsExpandedSummaryOpen((current) => !current)}
-            >
-              {isExpandedSummaryOpen ? "추가 기록 숨기기 ▲" : "추가 기록 보기 ▼"}
-            </button>
-            <span>{isMealMode ? "수유 · 기저귀 · 약 · 체온 · 놀이 · 목욕" : "기저귀 · 약 · 체온 · 놀이 · 목욕 · 이유식"}</span>
-          </div>
-        </div>
-        {isExpandedSummaryOpen ? (
-          <div className="summary-grid today-summary-grid today-extra-summary-grid">
-            {isMealMode ? (
-              <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("feed")}>
-                <span>분유</span>
-                <div className="metric-value">
-                  <strong>분유 {summary.todayFeedTotalMl}ml</strong>
-                </div>
-                <small>모유 {summary.todayBreastMinutes}분 · {summary.todayFeedCount}회</small>
-              </button>
-            ) : (
-              <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
-                <span>기저귀</span>
-                <div className="metric-value">
-                  <strong>{summary.todayDiaperCount}회</strong>
-                </div>
-              </button>
-            )}
-            {isMealMode ? (
-              <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("diaper")}>
-                <span>기저귀</span>
-                <div className="metric-value">
-                  <strong>{summary.todayDiaperCount}회</strong>
-                </div>
-              </button>
-            ) : null}
-            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("medicine")}>
-              <span>약</span>
-              <div className="metric-value">
-                <strong>{summary.todayMedicineCount}회</strong>
-              </div>
-            </button>
-            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("temperature")}>
-              <span>체온</span>
-              <div className="metric-value">
-                <strong>{summary.latestTemperatureC ? `${summary.latestTemperatureC.toFixed(1)}도` : "-"}</strong>
-              </div>
-            </button>
-            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("play")}>
-              <span>놀이</span>
-              <div className="metric-value">
-                <strong>{formatDurationMinutes(summary.todayPlayMinutes)}</strong>
-              </div>
-            </button>
-            <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("bath")}>
-              <span>목욕</span>
-              <div className="metric-value">
-                <strong>{summary.todayBathCount}회</strong>
-              </div>
-            </button>
-            {!isMealMode ? (
-              <button className="metric-card metric-button" type="button" onClick={() => onQuickAdd("meal")}>
-                <span>이유식</span>
-                <div className="metric-value">
-                  <strong>{summary.todayMealCount}회</strong>
-                </div>
-              </button>
             ) : null}
           </div>
-        ) : null}
+        </section>
       </section>
       <section className="panel home-quick-section" aria-label="기록">
         <div className="section-heading compact-heading">
@@ -598,6 +564,9 @@ interface AnalysisCardsProps {
 interface DayTrend {
   dateKey: string;
   label: string;
+  bottleCount: number;
+  breastCount: number;
+  mealCount: number;
   feedTotalMl: number;
   breastMinutes: number;
   feedAverageIntervalMinutes: number | null;
@@ -652,19 +621,6 @@ function getEventsForDate(events: BabyEvent[], dateKey: string): BabyEvent[] {
     const occurred = new Date(event.occurredAt).getTime();
     return occurred >= start.getTime() && occurred < end.getTime();
   });
-}
-
-function getFirstEventDateKey(events: BabyEvent[], eventType: "feed" | "meal"): string | null {
-  const matchingEvents = events.filter((event) => event.eventType === eventType);
-
-  if (matchingEvents.length === 0) {
-    return null;
-  }
-
-  return matchingEvents.reduce<string>((earliestDateKey, event) => {
-    const currentDateKey = toDateKey(new Date(event.occurredAt));
-    return currentDateKey < earliestDateKey ? currentDateKey : earliestDateKey;
-  }, toDateKey(new Date(matchingEvents[0].occurredAt)));
 }
 
 function getSleepMinutes(events: BabyEvent[], now: Date): number {
@@ -1071,9 +1027,8 @@ export function AnalysisCards({
   const selectedStart = new Date(`${selectedDate}T00:00:00`);
   const yesterdayKey = toDateKey(addDays(selectedStart, -1));
   const yesterdaySummary = buildDailySummary(events, yesterdayKey);
-  const firstMealDateKey = getFirstEventDateKey(events, "meal");
-  const isMealMode = firstMealDateKey !== null && selectedDate >= firstMealDateKey;
-  const rhythmDiff = isMealMode ? summary.mealTotalG - yesterdaySummary.mealTotalG : summary.feedTotalMl - yesterdaySummary.feedTotalMl;
+  const feedDiff = summary.feedTotalMl - yesterdaySummary.feedTotalMl;
+  const mealDiff = summary.mealTotalG - yesterdaySummary.mealTotalG;
   const trendData: DayTrend[] = Array.from({ length: RECENT_TREND_DAYS }, (_, index) => {
     const date = addDays(selectedStart, index - (RECENT_TREND_DAYS - 1));
     const dateKey = toDateKey(date);
@@ -1086,6 +1041,9 @@ export function AnalysisCards({
     return {
       dateKey,
       label: `${date.getMonth() + 1}/${date.getDate()}`,
+      bottleCount: dayFeedEvents.filter((event) => (event.feedingMethod ?? "bottle") === "bottle").length,
+      breastCount: dayFeedEvents.filter((event) => event.feedingMethod === "breast").length,
+      mealCount: dayMealEvents.length,
       feedTotalMl: dayFeedEvents.reduce(
         (total, event) =>
           total + ((event.feedingMethod ?? "bottle") === "bottle" ? event.amountMl ?? 0 : 0),
@@ -1131,7 +1089,14 @@ export function AnalysisCards({
         playMinutes: getPlayMinutes(selectedEvents, now),
       }
     : summary;
-  const insight = isMealMode
+  const insight = mealEvents.length > 0 && feedEvents.length > 0
+    ? {
+        tone: "neutral",
+        title: "수유와 이유식을 함께 기록했어요",
+        detail: `수유 ${summary.feedCount}회 · 평균 간격 ${formatAverageInterval(averageInterval)}, 이유식 ${summary.mealCount}회 · 평균 간격 ${formatAverageInterval(averageMealInterval)}. 양과 간격은 각각 집계해요.`,
+        focus: "none" as const,
+      }
+    : mealEvents.length > 0
     ? getMealInsight(displaySummary, averageMealInterval, sevenDaySleepAverage)
     : getInsight(displaySummary, averageInterval, sevenDaySleepAverage);
   const sleepDiff = displaySummary.sleepMinutes - yesterdaySummary.sleepMinutes;
@@ -1140,27 +1105,22 @@ export function AnalysisCards({
   const hasEnoughMealsForIntervalChart = mealEvents.length >= 2;
   const recordedTrendDays = trendData.filter(
     (item) =>
-      item.feedTotalMl > 0 ||
-      item.breastMinutes > 0 ||
-      item.mealTotalG > 0 ||
+      item.bottleCount > 0 ||
+      item.breastCount > 0 ||
+      item.mealCount > 0 ||
       item.sleepMinutes > 0,
   );
-  const feedingTrendDays = trendData.filter((item) =>
-    isMealMode ? item.mealTotalG > 0 : item.feedTotalMl > 0 || item.breastMinutes > 0,
-  );
   const sleepTrendDays = trendData.filter((item) => item.sleepMinutes > 0);
-  const bottleTrendDays = trendData.filter((item) => item.feedTotalMl > 0);
-  const breastTrendDays = trendData.filter((item) => item.breastMinutes > 0);
-  const mealTrendDays = trendData.filter((item) => item.mealTotalG > 0);
-  const averageRecordedFeedMl = feedingTrendDays.length
-    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.feedTotalMl, 0) / feedingTrendDays.length)
-    : 0;
-  const averageRecordedBreastMinutes = feedingTrendDays.length
-    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.breastMinutes, 0) / feedingTrendDays.length)
-    : 0;
-  const averageRecordedMealG = feedingTrendDays.length
-    ? Math.round(feedingTrendDays.reduce((total, item) => total + item.mealTotalG, 0) / feedingTrendDays.length)
-    : 0;
+  const bottleTrendDays = trendData.filter((item) => item.bottleCount > 0);
+  const breastTrendDays = trendData.filter((item) => item.breastCount > 0);
+  const mealTrendDays = trendData.filter((item) => item.mealCount > 0);
+  const intakeTypes = [bottleTrendDays.length || breastTrendDays.length ? "feed" : null, mealTrendDays.length ? "meal" : null].filter(Boolean);
+  const averageRecordedFeedMl = bottleTrendDays.length
+    ? Math.round(bottleTrendDays.reduce((total, item) => total + item.feedTotalMl, 0) / bottleTrendDays.length) : 0;
+  const averageRecordedBreastMinutes = breastTrendDays.length
+    ? Math.round(breastTrendDays.reduce((total, item) => total + item.breastMinutes, 0) / breastTrendDays.length) : 0;
+  const averageRecordedMealG = mealTrendDays.length
+    ? Math.round(mealTrendDays.reduce((total, item) => total + item.mealTotalG, 0) / mealTrendDays.length) : 0;
   const averageRecordedSleepMinutes = sleepTrendDays.length
     ? Math.round(sleepTrendDays.reduce((total, item) => total + item.sleepMinutes, 0) / sleepTrendDays.length)
     : 0;
@@ -1268,39 +1228,24 @@ export function AnalysisCards({
     );
   }
 
-  if (selectedEvents.length === 1) {
-    const onlyEvent = selectedEvents[0];
-    const nextEventType: EventType = onlyEvent.eventType === "sleep" ? "feed" : "sleep";
-
-    return (
-      <section className="analysis-stack">
-        <section className="panel analysis-header">
-          <div>
-            <h2>하루 요약</h2>
-          </div>
-          <DateNavigator ariaLabel="분석 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
-        </section>
-        <section className="panel sparse-day-summary">
-          <span>현재 1개 기록</span>
-          <strong>{formatTime(onlyEvent.occurredAt)} · {getEventFeedbackLabelForAnalysis(onlyEvent)}</strong>
-          <p>한 건의 기록만으로 하루 전체 흐름을 단정하지 않아요. 수유와 수면이 함께 쌓이면 먹고 자는 간격을 비교할 수 있어요.</p>
-          <div>
-            <button type="button" onClick={() => onEditEvent(onlyEvent)}>이 기록 수정</button>
-            <button type="button" onClick={() => onViewEventInPattern(onlyEvent)}>리듬에서 보기</button>
-            <button type="button" onClick={() => onQuickAdd(nextEventType)}>
-              {nextEventType === "feed" ? "수유 추가" : "수면 추가"}
-            </button>
-          </div>
-        </section>
-      </section>
-    );
-  }
 
   return (
     <section className="analysis-stack">
       <section className="panel analysis-header">
         <DateNavigator ariaLabel="분석 날짜" selectedDate={selectedDate} onDateChange={onDateChange} />
       </section>
+
+      {selectedEvents.length === 1 ? (
+        <section className="panel sparse-day-summary">
+          <span>현재 1개 기록</span>
+          <strong>{formatTime(selectedEvents[0].occurredAt)} · {getEventFeedbackLabelForAnalysis(selectedEvents[0])}</strong>
+          <p>기록이 더 쌓이면 간격과 날짜별 변화를 비교할 수 있어요.</p>
+          <div>
+            <button type="button" onClick={() => onEditEvent(selectedEvents[0])}>이 기록 수정</button>
+            <button type="button" onClick={() => onViewEventInPattern(selectedEvents[0])}>리듬에서 보기</button>
+          </div>
+        </section>
+      ) : null}
 
       <section className={`panel analysis-insight ${insight.tone}`}>
         <span>Insight</span>
@@ -1324,15 +1269,9 @@ export function AnalysisCards({
         </div>
         {recordedTrendDays.length >= 2 ? (
           <div className="weekly-overview-grid">
-            <div>
-              <span>{isMealMode ? "이유식" : "수유"}</span>
-              <strong>
-                {isMealMode
-                  ? `${averageRecordedMealG}g`
-                  : `분유 ${averageRecordedFeedMl}ml`}
-              </strong>
-              {!isMealMode ? <small>모유 {averageRecordedBreastMinutes}분</small> : null}
-            </div>
+            {bottleTrendDays.length > 0 ? <div><span>분유</span><strong>{averageRecordedFeedMl}ml</strong><small>{bottleTrendDays.length}일 기록 기준</small></div> : null}
+            {breastTrendDays.length > 0 ? <div><span>모유</span><strong>{averageRecordedBreastMinutes}분</strong><small>{breastTrendDays.length}일 기록 기준</small></div> : null}
+            {mealTrendDays.length > 0 ? <div><span>이유식</span><strong>{averageRecordedMealG}g</strong><small>{mealTrendDays.length}일 기록 기준</small></div> : null}
             <div>
               <span>수면</span>
               <strong>{formatDurationMinutes(averageRecordedSleepMinutes)}</strong>
@@ -1345,18 +1284,48 @@ export function AnalysisCards({
       </section>
 
       <section className="analysis-metric-grid">
-        {isMealMode ? (
+        {mealEvents.length > 0 ? (
           <>
             <article className="panel analysis-metric meal">
               <p>이유식</p>
               <strong>{summary.mealTotalG}g</strong>
               <small>
-                {summary.mealCount}회 · 수유 {summary.feedCount}회 병행
+                {summary.mealCount}회{summary.feedCount > 0 ? ` · 수유 ${summary.feedCount}회 병행` : ""}
               </small>
-              <em className={rhythmDiff >= 0 ? "up" : "down"}>
-                {formatSignedAmount(rhythmDiff, "g")}
+              <em className={mealDiff >= 0 ? "up" : "down"}>
+                {formatSignedAmount(mealDiff, "g")}
               </em>
             </article>
+          </>
+        ) : null}
+        {feedEvents.length > 0 ? (
+          <>
+            <article className="panel analysis-metric feed">
+              <p>총 수유</p>
+              <strong>{summary.feedCount}회</strong>
+              <small>평균 간격 {formatAverageInterval(averageInterval)}</small>
+              <em>{summary.feedCount > 0 ? "분유 + 모유" : "기록 없음"}</em>
+            </article>
+            {feedEvents.some((event) => (event.feedingMethod ?? "bottle") === "bottle") ? (
+            <article className="panel analysis-metric bottle">
+              <p>분유 총량</p>
+              <strong>{summary.feedTotalMl}ml</strong>
+              <small>모유 시간과 별도 집계</small>
+              <em className={feedDiff >= 0 ? "up" : "down"}>
+                {formatSignedAmount(feedDiff, "ml")}
+              </em>
+            </article>
+            ) : null}
+            {feedEvents.some((event) => event.feedingMethod === "breast") ? (
+            <article className="panel analysis-metric breast">
+              <p>모유 시간</p>
+              <strong>{summary.breastMinutes}분</strong>
+              <small>좌우 수유 시간 합계</small>
+              <em className={breastDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(breastDiff)}</em>
+            </article>
+            ) : null}
+          </>
+        ) : null}
             <article className="panel analysis-metric sleep">
               <p>수면</p>
               <strong>{formatDurationMinutes(displaySummary.sleepMinutes)}</strong>
@@ -1369,31 +1338,6 @@ export function AnalysisCards({
               <small>소변/대변 통합</small>
               <em>{poopEvents[0]?.poopColor ? poopColorLabels[poopEvents[0].poopColor] : "상태 기록 없음"}</em>
             </article>
-          </>
-        ) : (
-          <>
-            <article className="panel analysis-metric feed">
-              <p>총 수유</p>
-              <strong>{summary.feedCount}회</strong>
-              <small>평균 간격 {formatAverageInterval(averageInterval)}</small>
-              <em>{summary.feedCount > 0 ? "분유 + 모유" : "기록 없음"}</em>
-            </article>
-            <article className="panel analysis-metric bottle">
-              <p>분유 총량</p>
-              <strong>{summary.feedTotalMl}ml</strong>
-              <small>모유 시간과 별도 집계</small>
-              <em className={rhythmDiff >= 0 ? "up" : "down"}>
-                {formatSignedAmount(rhythmDiff, "ml")}
-              </em>
-            </article>
-            <article className="panel analysis-metric breast">
-              <p>모유 시간</p>
-              <strong>{summary.breastMinutes}분</strong>
-              <small>좌우 수유 시간 합계</small>
-              <em className={breastDiff >= 0 ? "up" : "down"}>{formatSignedMinutes(breastDiff)}</em>
-            </article>
-          </>
-        )}
       </section>
 
       <nav className="analysis-detail-switch" aria-label="분석 상세 항목">
@@ -1414,151 +1358,152 @@ export function AnalysisCards({
         ))}
       </nav>
 
-      {detailSection === "intake" ? (
-        <div className="analysis-detail-stack">
-          <section className="panel chart-panel">
-            <div className="chart-heading">
-              <div>
-                <p className="eyebrow">{isMealMode ? "이유식 타임라인" : "수유 타임라인"}</p>
-                <h3>{isMealMode ? "시간대별 이유식량" : "분유량과 모유 시간"}</h3>
-              </div>
-            </div>
-            {isMealMode ? (
-              mealEvents.length > 0 ? (
-                <MealTimelineChart meals={mealEvents} />
-              ) : (
-                <AnalysisDataRequirement
-                  actionLabel="이유식 기록"
-                  message="이유식 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
-                  onAction={() => onQuickAdd("meal")}
-                />
-              )
-            ) : feedEvents.length > 0 ? (
-              <FeedTimelineChart feeds={feedEvents} />
-            ) : (
-              <AnalysisDataRequirement
-                actionLabel="수유 기록"
-                message="수유 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
-                onAction={() => onQuickAdd("feed")}
-              />
-            )}
-          </section>
-
-          <section className="panel chart-panel">
-            <div className="chart-heading">
-              <div>
-                <p className="eyebrow">{isMealMode ? "이유식 간격" : "통합 수유 간격"}</p>
-                <h3>날짜별 평균 간격</h3>
-              </div>
-            </div>
-            {isMealMode ? (
-              hasEnoughMealsForIntervalChart ? (
-                <IntervalLineChart
-                  data={trendData}
-                  maxInterval={maxMealTrendInterval}
-                  selectedDate={selectedDate}
-                  valueKey="mealAverageIntervalMinutes"
-                  emptyMessage="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다."
-                />
-              ) : (
-                <AnalysisDataRequirement
-                  actionLabel="이유식 한 번 더 기록"
-                  message="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있어요."
-                  onAction={() => onQuickAdd("meal")}
-                />
-              )
-            ) : hasEnoughFeedsForIntervalChart ? (
-              <IntervalLineChart
-                data={trendData}
-                maxInterval={maxTrendInterval}
-                selectedDate={selectedDate}
-                valueKey="feedAverageIntervalMinutes"
-                emptyMessage="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다."
-              />
-            ) : (
-              <AnalysisDataRequirement
-                actionLabel="수유 한 번 더 기록"
-                message="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있어요."
-                onAction={() => onQuickAdd("feed")}
-              />
-            )}
-          </section>
-
-          {isMealMode ? (
-            <>
-              <section className="panel analysis-companion-feed">
-                <span>병행 수유</span>
-                <strong>
-                  {summary.feedCount}회 · 분유 {summary.feedTotalMl}ml · 모유 {summary.breastMinutes}분
-                </strong>
-              </section>
-              <section className="panel chart-panel">
-                <div className="chart-heading">
-                  <div>
-                    <p className="eyebrow">최근 7일</p>
-                    <h3>이유식량</h3>
-                  </div>
+      {detailSection === "intake" ? intakeTypes.map((intakeType) => {
+        const isMeal = intakeType === "meal";
+        return (
+          <div key={intakeType} className="analysis-detail-stack">
+            <section className="panel chart-panel">
+              <div className="chart-heading">
+                <div>
+                  <p className="eyebrow">{isMeal ? "이유식 타임라인" : "수유 타임라인"}</p>
+                  <h3>{isMeal ? "시간대별 이유식량" : "분유량과 모유 시간"}</h3>
                 </div>
-                {mealTrendDays.length >= 2 ? (
-                  <div className="chart-with-y-axis">
-                    <ChartAxisLabels labels={[`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]} />
-                    <TrendBars data={trendData} valueKey="mealTotalG" maxValue={maxSevenDayMeal} tone="meal" selectedDate={selectedDate} />
-                  </div>
+              </div>
+              {isMeal ? (
+                mealEvents.length > 0 ? (
+                  <MealTimelineChart meals={mealEvents} />
                 ) : (
                   <AnalysisDataRequirement
                     actionLabel="이유식 기록"
-                    message="최근 7일 중 이틀 이상 이유식을 기록하면 날짜별 변화를 비교할 수 있어요."
+                    message="이유식 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
                     onAction={() => onQuickAdd("meal")}
                   />
-                )}
-              </section>
-            </>
-          ) : (
-            <div className="analysis-trend-grid">
-              <section className="panel chart-panel">
-                <div className="chart-heading">
-                  <div>
-                    <p className="eyebrow">최근 7일</p>
-                    <h3>분유량</h3>
-                  </div>
+                )
+              ) : feedEvents.length > 0 ? (
+                <FeedTimelineChart feeds={feedEvents} />
+              ) : (
+                <AnalysisDataRequirement
+                  actionLabel="수유 기록"
+                  message="수유 기록을 한 건 남기면 먹은 시간과 양을 타임라인으로 볼 수 있어요."
+                  onAction={() => onQuickAdd("feed")}
+                />
+              )}
+            </section>
+
+            <section className="panel chart-panel">
+              <div className="chart-heading">
+                <div>
+                  <p className="eyebrow">{isMeal ? "이유식 간격" : "통합 수유 간격"}</p>
+                  <h3>날짜별 평균 간격</h3>
                 </div>
-                {bottleTrendDays.length >= 2 ? (
-                  <div className="chart-with-y-axis">
-                    <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
-                    <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" selectedDate={selectedDate} />
-                  </div>
+              </div>
+              {isMeal ? (
+                hasEnoughMealsForIntervalChart ? (
+                  <IntervalLineChart
+                    data={trendData}
+                    maxInterval={maxMealTrendInterval}
+                    selectedDate={selectedDate}
+                    valueKey="mealAverageIntervalMinutes"
+                    emptyMessage="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있습니다."
+                  />
                 ) : (
                   <AnalysisDataRequirement
-                    actionLabel="분유 기록"
-                    message="최근 7일 중 이틀 이상 분유를 기록하면 하루 총량 변화를 비교할 수 있어요."
-                    onAction={() => onQuickAdd("feed", "bottle")}
+                    actionLabel="이유식 한 번 더 기록"
+                    message="선택한 날짜의 이유식 기록이 2개 이상이면 평균 간격을 확인할 수 있어요."
+                    onAction={() => onQuickAdd("meal")}
                   />
-                )}
-              </section>
-              <section className="panel chart-panel">
-                <div className="chart-heading">
-                  <div>
-                    <p className="eyebrow">최근 7일</p>
-                    <h3>모유 시간</h3>
+                )
+              ) : hasEnoughFeedsForIntervalChart ? (
+                <IntervalLineChart
+                  data={trendData}
+                  maxInterval={maxTrendInterval}
+                  selectedDate={selectedDate}
+                  valueKey="feedAverageIntervalMinutes"
+                  emptyMessage="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있습니다."
+                />
+              ) : (
+                <AnalysisDataRequirement
+                  actionLabel="수유 한 번 더 기록"
+                  message="분유와 모유를 합쳐 2개 이상 기록하면 평균 간격을 확인할 수 있어요."
+                  onAction={() => onQuickAdd("feed")}
+                />
+              )}
+            </section>
+
+            {isMeal ? (
+              <>
+                <section className="panel chart-panel">
+                  <div className="chart-heading">
+                    <div>
+                      <p className="eyebrow">최근 7일</p>
+                      <h3>이유식량</h3>
+                    </div>
                   </div>
-                </div>
-                {breastTrendDays.length >= 2 ? (
-                  <div className="chart-with-y-axis">
-                    <ChartAxisLabels labels={[`${maxSevenDayBreast}분`, `${Math.round(maxSevenDayBreast / 2)}분`, "0분"]} />
-                    <TrendBars data={trendData} valueKey="breastMinutes" maxValue={maxSevenDayBreast} tone="breast" selectedDate={selectedDate} />
+                  {mealTrendDays.length >= 2 ? (
+                    <div className="chart-with-y-axis">
+                      <ChartAxisLabels labels={[`${maxSevenDayMeal}g`, `${Math.round(maxSevenDayMeal / 2)}g`, "0g"]} />
+                      <TrendBars data={trendData} valueKey="mealTotalG" maxValue={maxSevenDayMeal} tone="meal" selectedDate={selectedDate} />
+                    </div>
+                  ) : (
+                    <AnalysisDataRequirement
+                      actionLabel="이유식 기록"
+                      message="최근 7일 중 이틀 이상 이유식을 기록하면 날짜별 변화를 비교할 수 있어요."
+                      onAction={() => onQuickAdd("meal")}
+                    />
+                  )}
+                </section>
+              </>
+            ) : (
+              <div className="analysis-trend-grid">
+                {bottleTrendDays.length > 0 ? (
+                <section className="panel chart-panel">
+                  <div className="chart-heading">
+                    <div>
+                      <p className="eyebrow">최근 7일</p>
+                      <h3>분유량</h3>
+                    </div>
                   </div>
-                ) : (
-                  <AnalysisDataRequirement
-                    actionLabel="모유 기록"
-                    message="최근 7일 중 이틀 이상 모유 시간을 기록하면 날짜별 변화를 비교할 수 있어요."
-                    onAction={() => onQuickAdd("feed", "breast")}
-                  />
-                )}
-              </section>
-            </div>
-          )}
-        </div>
-      ) : null}
+                  {bottleTrendDays.length >= 2 ? (
+                    <div className="chart-with-y-axis">
+                      <ChartAxisLabels labels={[`${maxSevenDayFeed}ml`, `${Math.round(maxSevenDayFeed / 2)}ml`, "0ml"]} />
+                      <TrendBars data={trendData} valueKey="feedTotalMl" maxValue={maxSevenDayFeed} tone="feed" selectedDate={selectedDate} />
+                    </div>
+                  ) : (
+                    <AnalysisDataRequirement
+                      actionLabel="분유 기록"
+                      message="최근 7일 중 이틀 이상 분유를 기록하면 하루 총량 변화를 비교할 수 있어요."
+                      onAction={() => onQuickAdd("feed", "bottle")}
+                    />
+                  )}
+                </section>
+                ) : null}
+                {breastTrendDays.length > 0 ? (
+                <section className="panel chart-panel">
+                  <div className="chart-heading">
+                    <div>
+                      <p className="eyebrow">최근 7일</p>
+                      <h3>모유 시간</h3>
+                    </div>
+                  </div>
+                  {breastTrendDays.length >= 2 ? (
+                    <div className="chart-with-y-axis">
+                      <ChartAxisLabels labels={[`${maxSevenDayBreast}분`, `${Math.round(maxSevenDayBreast / 2)}분`, "0분"]} />
+                      <TrendBars data={trendData} valueKey="breastMinutes" maxValue={maxSevenDayBreast} tone="breast" selectedDate={selectedDate} />
+                    </div>
+                  ) : (
+                    <AnalysisDataRequirement
+                      actionLabel="모유 기록"
+                      message="최근 7일 중 이틀 이상 모유 시간을 기록하면 날짜별 변화를 비교할 수 있어요."
+                      onAction={() => onQuickAdd("feed", "breast")}
+                    />
+                  )}
+                </section>
+                ) : null}
+              </div>
+            )}
+          </div>
+        );
+      }) : null}
 
       {detailSection === "sleep" ? (
         <section className="panel chart-panel">
@@ -1613,9 +1558,7 @@ export function AnalysisCards({
       <section className="panel analysis-action">
         <strong>해석이 필요한 날은 기록을 더 촘촘히 남겨보세요.</strong>
         <p>
-          {isMealMode
-            ? "이유식량, 식재료 반응, 수면 종료 시간이 채워질수록 이유식 흐름을 더 정확히 볼 수 있습니다."
-            : "수유량, 대변 색상, 수면 종료 시간이 채워질수록 흐름을 더 정확히 볼 수 있습니다."}
+          수유량, 이유식량, 식재료 반응, 대변 색상, 수면 종료 시간이 채워질수록 흐름을 더 정확히 볼 수 있습니다.
         </p>
       </section>
       <AdBanner placement="analysis-bottom" />

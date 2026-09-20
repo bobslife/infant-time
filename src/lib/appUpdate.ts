@@ -45,20 +45,12 @@ export function getUpdateUrl(): string {
     return import.meta.env.VITE_IOS_APP_STORE_URL ?? import.meta.env.NEXT_PUBLIC_IOS_APP_STORE_URL ?? "https://apps.apple.com/";
   }
 
-  if (platform === "android") {
-    return (
-      import.meta.env.VITE_ANDROID_PLAY_STORE_URL ??
-      import.meta.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL ??
-      "https://play.google.com/store/apps/details?id=com.infanttime.app"
-    );
-  }
-
   return "https://infant-time.vercel.app/";
 }
 
 export async function getInstalledAppVersion(): Promise<string | null> {
   const platform = Capacitor.getPlatform();
-  if (platform !== "ios" && platform !== "android") {
+  if (platform !== "ios") {
     return null;
   }
 

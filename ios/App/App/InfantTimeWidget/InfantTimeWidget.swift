@@ -143,10 +143,17 @@ struct InfantTimeWidgetView: View {
     private var mediumBody: some View {
         VStack(alignment: .leading, spacing: WidgetTheme.Spacing.section) {
             Header(model: model)
-            if model.isMealMode {
-                MealMainStatus(model: model)
-            } else {
-                MainCountdown(model: model)
+            HStack(alignment: .top, spacing: 12) {
+                if model.hasFeeds || !model.hasMeals {
+                    MainCountdown(model: model)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if model.hasMeals {
+                    MealMainStatus(model: model)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            if model.hasFeeds {
                 ProgressBar(model: model)
             }
             MetricGrid(model: model)
@@ -424,7 +431,11 @@ private struct FeedingWidgetViewModel {
         entry.lastFeedingMethod == "breast" ? "마지막 모유 시간" : "마지막 분유 시간"
     }
 
-    var isMealMode: Bool {
+    var hasFeeds: Bool {
+        entry.lastFeedAt != nil
+    }
+
+    var hasMeals: Bool {
         entry.lastMealAt != nil
     }
 
@@ -580,7 +591,7 @@ private struct Header: View {
 
             Spacer(minLength: 6)
 
-            if !model.isMealMode {
+            if model.hasFeeds {
                 StatusBadge(urgency: model.urgency, color: model.urgencyColor)
             }
         }
@@ -759,20 +770,15 @@ private struct MetricGrid: View {
     let model: FeedingWidgetViewModel
 
     var body: some View {
-        if model.isMealMode {
-            HStack(alignment: .top, spacing: 8) {
-                MetricCell(title: "오늘 총 이유식량", value: "\(model.entry.mealTotalG)g", alignment: .center)
-                MetricCell(title: "마지막 이유식 시간", value: model.lastMealTimeText, alignment: .center)
-                SleepMetricCell(model: model)
-                    .frame(maxWidth: .infinity, alignment: .center)
+        HStack(alignment: .top, spacing: 8) {
+            if model.hasFeeds || !model.hasMeals {
+                MetricCell(title: "오늘 분유 · 모유", value: model.todayFeedingValueText, alignment: .center)
             }
-        } else {
-            HStack(alignment: .top, spacing: 8) {
-                MetricCell(title: "분유 · 모유", value: model.todayFeedingValueText, alignment: .center)
-                MetricCell(title: model.lastFeedMetricTitle, value: model.lastFeedTimeText, alignment: .center)
-                SleepMetricCell(model: model)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            if model.hasMeals {
+                MetricCell(title: "오늘 이유식", value: "\(model.entry.mealTotalG)g", alignment: .center)
             }
+            SleepMetricCell(model: model)
+                .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 }
@@ -916,7 +922,7 @@ struct InfantTimeWidgetHome: Widget {
             InfantTimeWidgetView(entry: entry)
         }
         .configurationDisplayName("앙팡타임")
-        .description("오늘의 수유와 수면 기록을 확인해요.")
+        .description("오늘의 수유, 이유식과 수면 기록을 확인해요.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

@@ -41,6 +41,8 @@ interface EventRow {
   medicine_next_at: string | null;
   temperature_c: number | null;
   temperature_location: BabyEvent["temperatureLocation"];
+  meal_stage?: BabyEvent["mealStage"];
+  meal_toppings?: string[];
   meal_name: string | null;
   meal_amount_g: number | null;
   meal_reaction: BabyEvent["mealReaction"];
@@ -118,6 +120,8 @@ function mapEvent(row: EventRow): BabyEvent {
     medicineNextAt: row.medicine_next_at,
     temperatureC: row.temperature_c,
     temperatureLocation: row.temperature_location,
+    mealStage: row.meal_stage ?? null,
+    mealToppings: row.meal_toppings ?? [],
     mealName: row.meal_name,
     mealAmountG: row.meal_amount_g,
     mealReaction: row.meal_reaction,
@@ -140,9 +144,9 @@ function mapGrowthRecord(row: GrowthRecordRow): GrowthRecord {
 }
 
 const eventSelectColumns =
-  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, feeding_method, breast_left_minutes, breast_right_minutes, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
+  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, feeding_method, breast_left_minutes, breast_right_minutes, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, meal_stage, meal_toppings, note, created_at";
 const legacyEventSelectColumns =
-  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, note, created_at";
+  "id, user_id, baby_id, event_type, occurred_at, ended_at, amount_ml, diaper_type, poop_amount, poop_color, medicine_name, medicine_dose, medicine_next_at, temperature_c, temperature_location, meal_name, meal_amount_g, meal_reaction, meal_stage, meal_toppings, note, created_at";
 const growthRecordSelectColumns =
   "id, baby_id, measured_at, weight_kg, height_cm, head_cm, note, created_at";
 
@@ -332,6 +336,8 @@ export async function createSupabaseEvent(
       medicine_next_at: input.medicineNextAt ? new Date(input.medicineNextAt).toISOString() : null,
       temperature_c: input.temperatureC ?? null,
       temperature_location: input.temperatureLocation ?? null,
+      meal_stage: input.eventType === "meal" ? input.mealStage ?? null : null,
+      meal_toppings: input.eventType === "meal" ? input.mealToppings ?? [] : [],
       meal_name: input.mealName || null,
       meal_amount_g: input.mealAmountG ?? null,
       meal_reaction: input.mealReaction ?? null,
@@ -369,6 +375,8 @@ export async function updateSupabaseEvent(
       medicine_next_at: input.medicineNextAt ? new Date(input.medicineNextAt).toISOString() : null,
       temperature_c: input.temperatureC ?? null,
       temperature_location: input.temperatureLocation ?? null,
+      meal_stage: input.eventType === "meal" ? input.mealStage ?? null : null,
+      meal_toppings: input.eventType === "meal" ? input.mealToppings ?? [] : [],
       meal_name: input.mealName || null,
       meal_amount_g: input.mealAmountG ?? null,
       meal_reaction: input.mealReaction ?? null,

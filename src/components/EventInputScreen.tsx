@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MealToppingChips } from "./MealToppingChips";
+import { createCustomToppingId, MAX_TOPPING_NAME_LENGTH, MAX_TOPPINGS, getMealCombination, getRememberedMealStage, getStageToppings, mealStages, mealToppings, rememberMealStage } from "../features/meals/toppings";
 import { AdBanner } from "./ads/AdBanner";
 import {
   BabyEvent,
@@ -8,6 +10,7 @@ import {
   EventType,
   FeedingMethod,
   MealReaction,
+  MealStage,
   PoopAmount,
   PoopColor,
   TemperatureLocation,
@@ -143,6 +146,48 @@ export function EventInputScreen({
   const [temperatureC, setTemperatureC] = useState<number | "">("");
   const [temperatureLocation, setTemperatureLocation] = useState<TemperatureLocation>("forehead");
   const [mealName, setMealName] = useState("");
+  const [mealStage, setMealStage] = useState<MealStage>(() => editingEvent?.mealStage ?? getRememberedMealStage(baby.id, events));
+  const [selectedToppings, setSelectedToppings] = useState<string[]>(editingEvent?.mealToppings ?? []);
+  const [showAllToppings, setShowAllToppings] = useState(false);
+  const [isToppingCatalogExpanded, setIsToppingCatalogExpanded] = useState(
+    () => !(editingEvent?.mealToppings?.length),
+  );
+  const [isCustomToppingOpen, setIsCustomToppingOpen] = useState(false);
+  const [customToppingName, setCustomToppingName] = useState("");
+  const [customToppingError, setCustomToppingError] = useState("");
+  const customToppingRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (isCustomToppingOpen) customToppingRef.current?.focus();
+  }, [isCustomToppingOpen]);
+  function addCustomTopping() {
+    try {
+      const id = createCustomToppingId(customToppingName);
+      if (selectedToppings.includes(id)) {
+        setCustomToppingError("이미 선택한 재료예요");
+        return;
+      }
+      if (selectedToppings.length >= MAX_TOPPINGS) {
+        setCustomToppingError(`토핑은 최대 ${MAX_TOPPINGS}개까지 선택할 수 있어요`);
+        return;
+      }
+      setSelectedToppings((current) => [...current, id]);
+      setCustomToppingName("");
+      setCustomToppingError("");
+      setIsCustomToppingOpen(false);
+    } catch (error) {
+      setCustomToppingError(error instanceof Error ? error.message : "재료 이름을 확인해 주세요");
+    }
+  }
+  const visibleToppings = showAllToppings ? mealToppings : getStageToppings(mealStage);
+  function toggleTopping(id: string) {
+    if (!selectedToppings.includes(id) && selectedToppings.length >= MAX_TOPPINGS) {
+      setCustomToppingError(`토핑은 최대 ${MAX_TOPPINGS}개까지 선택할 수 있어요`);
+      return;
+    }
+    setCustomToppingError("");
+    setSelectedToppings((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  }
+
   const [mealAmountG, setMealAmountG] = useState<number | "">("");
   const [mealReaction, setMealReaction] = useState<MealReaction>("good");
   const [memoText, setMemoText] = useState("");
@@ -232,7 +277,14 @@ export function EventInputScreen({
       setMedicineDose(recentDefaults.medicineDose);
       setTemperatureC("");
       setTemperatureLocation(recentDefaults.temperatureLocation);
-      setMealName(recentDefaults.mealName);
+      setMealName("");
+      setMealStage(getRememberedMealStage(baby.id, events));
+      setSelectedToppings([]);
+      setShowAllToppings(false);
+      setIsToppingCatalogExpanded(true);
+      setIsCustomToppingOpen(false);
+      setCustomToppingName("");
+      setCustomToppingError("");
       setMealAmountG(recentDefaults.mealAmountG);
       setMealReaction(recentDefaults.mealReaction);
       setMemoText("");
@@ -262,11 +314,18 @@ export function EventInputScreen({
     setMedicineDose(editingEvent.medicineDose ?? "");
     setTemperatureC(editingEvent.temperatureC ?? "");
     setTemperatureLocation(editingEvent.temperatureLocation ?? "forehead");
-    setMealName(editingEvent.mealName ?? "");
+    setMealName(editingEvent.mealToppings?.length && editingEvent.mealName === getMealCombination(editingEvent.mealToppings) ? "" : editingEvent.mealName ?? "");
+    setMealStage(editingEvent.mealStage ?? getRememberedMealStage(baby.id, events));
+    setSelectedToppings(editingEvent.mealToppings ?? []);
+    setShowAllToppings(false);
+    setIsToppingCatalogExpanded(!(editingEvent.mealToppings?.length));
+    setIsCustomToppingOpen(false);
+    setCustomToppingName("");
+    setCustomToppingError("");
     setMealAmountG(editingEvent.mealAmountG ?? "");
     setMealReaction(editingEvent.mealReaction ?? "good");
     setMemoText(editingEvent.note ?? "");
-  }, [activeOngoingSleep, editingEvent, initialDate, initialEventType, initialFeedingMethod, recentDefaults]);
+  }, [baby.id, activeOngoingSleep, editingEvent, initialDate, initialEventType, initialFeedingMethod, recentDefaults]);
 
   function showSavedToast(message: string) {
     setToastMessage(message);
@@ -326,7 +385,9 @@ export function EventInputScreen({
       medicineNextAt: null,
       temperatureC: eventType === "temperature" && temperatureC !== "" ? temperatureC : null,
       temperatureLocation: eventType === "temperature" ? temperatureLocation : null,
-      mealName: eventType === "meal" ? mealName.trim() : null,
+      mealStage: eventType === "meal" ? mealStage : null,
+      mealToppings: eventType === "meal" ? selectedToppings : [],
+      mealName: eventType === "meal" ? mealName.trim() || null : null,
       mealAmountG: eventType === "meal" && mealAmountG !== "" ? mealAmountG : null,
       mealReaction: eventType === "meal" ? mealReaction : null,
       note: memoText.trim() || undefined,
@@ -334,6 +395,13 @@ export function EventInputScreen({
   }
 
   function validateInput(input: CreateEventInput): string | null {
+    if (input.eventType === "meal" && customToppingName.trim()) {
+      return "직접 입력한 재료의 추가 버튼을 눌러 조합에 넣어주세요";
+    }
+    if (input.eventType === "meal" && input.mealAmountG != null &&
+      (!Number.isInteger(input.mealAmountG) || input.mealAmountG < 0 || input.mealAmountG > 500)) {
+      return "이유식 양은 0~500g 사이의 정수로 입력해 주세요";
+    }
     if (input.eventType === "feed" && input.feedingMethod === "breast") {
       const leftMinutes = input.breastLeftMinutes ?? 0;
       const rightMinutes = input.breastRightMinutes ?? 0;
@@ -391,6 +459,9 @@ export function EventInputScreen({
         await onUpdateEvent({ ...input, id: editingEvent.id });
       } else {
         await onSubmit(input);
+      }
+      if (input.eventType === "meal" && input.mealStage && !editingEvent) {
+        rememberMealStage(baby.id, input.mealStage);
       }
       triggerHaptic();
       const current = toLocalDateTimeInputValue();
@@ -619,8 +690,8 @@ export function EventInputScreen({
                 <strong>{mealAmountG === "" ? "이유식" : `${mealAmountG}g`}</strong>
                 <small>
                   {!editingEvent && recentDefaults.hasMeal
-                    ? "최근 이유식 종류와 양, 반응을 불러왔어요."
-                    : "시간만 기록하거나 종류와 반응을 함께 남겨요."}
+                    ? "최근 이유식 양과 반응을 불러왔어요. 토핑은 새로 선택해 주세요."
+                    : "먹은 양과 토핑 조합, 반응을 함께 남겨요."}
                 </small>
               </>
             ) : null}
@@ -802,9 +873,79 @@ export function EventInputScreen({
 
         {eventType === "meal" ? (
           <div className="stacked-fields">
+            <section className="meal-topping-picker" aria-label="이유식 토핑 선택">
+              <div className="meal-picker-heading"><strong>어떤 토핑을 먹었나요?</strong><span>여러 개 선택</span></div>
+              <div className="meal-stage-tabs" aria-label="이유식 단계">
+                {mealStages.map((stage) => (
+                  <button key={stage.value} type="button" aria-pressed={mealStage === stage.value} className={mealStage === stage.value ? "active" : ""}
+                    onClick={() => { setMealStage(stage.value); if (!editingEvent) rememberMealStage(baby.id, stage.value); }}>
+                    {stage.label}
+                  </button>
+                ))}
+              </div>
+              <p className="meal-picker-help">우리 아기의 단계로 선택하세요. 단계별 목록 외 재료도 전체 재료에서 고를 수 있어요.</p>
+              <button
+                type="button"
+                className="meal-catalog-toggle meal-catalog-disclosure"
+                aria-expanded={isToppingCatalogExpanded}
+                aria-controls="meal-topping-catalog"
+                onClick={() => setIsToppingCatalogExpanded((value) => !value)}
+              >
+                {isToppingCatalogExpanded
+                  ? "재료 선택 접기"
+                  : `재료 선택하기${selectedToppings.length ? ` · ${selectedToppings.length}개 선택` : ""}`}
+              </button>
+              <div id="meal-topping-catalog" hidden={!isToppingCatalogExpanded}>
+                {isToppingCatalogExpanded ? (
+                  <div className="meal-topping-catalog-content">
+                    <button type="button" className="meal-catalog-toggle" aria-pressed={showAllToppings} onClick={() => setShowAllToppings((value) => !value)}>
+                      {showAllToppings ? "단계별 재료 보기" : "전체 재료 보기"}
+                    </button>
+                    <div className="meal-topping-grid">
+                      {visibleToppings.map((item) => (
+                        <button type="button" key={item.id} className={selectedToppings.includes(item.id) ? "selected" : ""}
+                          aria-pressed={selectedToppings.includes(item.id)} onClick={() => toggleTopping(item.id)}>
+                          <img src={`/icons/toppings/${item.id}.svg`} alt="" />
+                          <span>{item.label}</span>
+                          {selectedToppings.includes(item.id) ? <span className="topping-check" aria-hidden="true">✓</span> : null}
+                        </button>
+                      ))}
+                      <button type="button" className="meal-custom-add" aria-expanded={isCustomToppingOpen} aria-controls="custom-topping-editor"
+                        onClick={() => setIsCustomToppingOpen(true)}>
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+                        <span>직접 추가</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div id="custom-topping-editor" hidden={!isCustomToppingOpen || !isToppingCatalogExpanded}>
+                {isCustomToppingOpen && isToppingCatalogExpanded ? (
+                  <div className="meal-custom-editor">
+                    <label htmlFor="custom-topping-name">재료 이름</label>
+                    <div className="meal-custom-input-row">
+                      <input id="custom-topping-name" ref={customToppingRef} value={customToppingName} maxLength={MAX_TOPPING_NAME_LENGTH}
+                        placeholder="예: 비트, 연근" aria-describedby={customToppingError ? "custom-topping-error" : undefined}
+                        onChange={(event) => { setCustomToppingName(event.target.value); setCustomToppingError(""); }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); addCustomTopping(); }
+                        }} />
+                      <button type="button" onClick={addCustomTopping}>추가</button>
+                      <button type="button" className="meal-custom-cancel" onClick={() => { setIsCustomToppingOpen(false); setCustomToppingName(""); setCustomToppingError(""); }}>취소</button>
+                    </div>
+                    <small>재료를 하나씩 추가해주세요. 아이콘 대신 이름으로 표시돼요.</small>
+                  </div>
+                ) : null}
+              </div>
+              {customToppingError ? <p id="custom-topping-error" className="meal-custom-error" role="alert">{customToppingError}</p> : null}
+              <div className="meal-selection-summary">
+                <strong>선택한 조합 · {selectedToppings.length}개</strong>
+                {selectedToppings.length ? <MealToppingChips ids={selectedToppings} onRemove={toggleTopping} /> : <p>오늘 먹은 재료를 눌러 조합해주세요.</p>}
+              </div>
+            </section>
             <label className="medicine-name-field">
-              <span>종류</span>
-              <input value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="예: 쌀미음" />
+              <span>이유식 이름 (선택)</span>
+              <input value={mealName} onChange={(event) => setMealName(event.target.value)} placeholder="예: 소고기 채소죽" />
             </label>
             <label className="medicine-name-field">
               <span>양(g)</span>

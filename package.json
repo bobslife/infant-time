@@ -10,18 +10,12 @@
     "cap:sync": "CAPACITOR=1 npm run build && cap sync",
     "cap:sync:remote": "CAPACITOR=1 npm run build && CAP_SERVER_URL=https://infant-time.vercel.app cap sync",
     "cap:check:remote": "node scripts/check-capacitor-remote-url.mjs",
-    "cap:add:android": "cap add android",
     "cap:add:ios": "cap add ios",
-    "cap:open:android": "cap open android",
     "cap:open:ios": "cap open ios",
-    "cap:run:android": "cap run android",
-    "cap:run:ios": "cap run ios",
-    "android:assemble:debug": "cd android && ./gradlew assembleDebug",
-    "android:bundle:release": "cd android && ./gradlew bundleRelease"
+    "cap:run:ios": "cap run ios"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",
-    "@capacitor/android": "^8.3.1",
     "@capacitor/app": "^8.1.0",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",

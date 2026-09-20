@@ -51,19 +51,8 @@
 - 주간 요약은 기록하지 않은 날의 0을 평균에 섞지 않아 실제 돌봄 흐름을 왜곡하지 않는다.
 - 패턴에서 잘못된 시간을 발견했을 때 홈으로 돌아가 원기록을 찾을 필요가 없다.
 
-## Android 진행
-
-- Android 홈 위젯 구현
-- Android 위젯 공통 요약 브리지 연결
-- Android 알림 권한과 FCM 토큰 저장 지원
-- Edge Function FCM HTTP v1 발송 경로 구현
-- Android push schema migration 추가
-- 상세 출시 절차는 `docs/android-release-handoff.md`에서 관리
-
 ## 남은 개선
 
 - 분석과 패턴의 focus 이동을 수유·수면 section 단위까지 세분화
-- Android Gradle debug/release 빌드, 실기기 위젯·알림 검증
-- Play Console 내부 테스트, 서명, Data safety, 스토어 등록
 
 분석 section 단위 focus는 현재 이벤트 단위 이동으로 충분히 찾을 수 있는지 실사용을 먼저 확인하고, 필요할 때만 추가한다.

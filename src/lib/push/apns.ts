@@ -14,7 +14,7 @@ type PushRegistrationResult = {
 export type ApnsPermissionState = "unsupported" | "granted" | "denied" | "prompt";
 
 export async function checkApnsPermissionState(): Promise<ApnsPermissionState> {
-  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
     return "unsupported";
   }
 
@@ -40,7 +40,7 @@ async function savePushToken(user: AppUser, baby: BabyProfile, token: string) {
     {
       user_id: user.id,
       baby_id: baby.id,
-      platform: Capacitor.getPlatform(),
+      platform: "ios",
       token,
       enabled: true,
       last_seen_at: new Date().toISOString(),
@@ -124,8 +124,8 @@ function waitForPushToken(): Promise<string> {
 }
 
 export async function registerApnsToken(user: AppUser, baby: BabyProfile): Promise<string> {
-  if (!Capacitor.isNativePlatform() || !["ios", "android"].includes(Capacitor.getPlatform())) {
-    throw new Error("iOS 또는 Android 앱에서만 푸시 토큰을 발급할 수 있어요.");
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+    throw new Error("iOS 앱에서만 푸시 토큰을 발급할 수 있어요.");
   }
 
   if (user.isLocal) {
@@ -157,7 +157,7 @@ export async function syncApnsTokenIfPermissionGranted(
 ): Promise<string | null> {
   if (
     !Capacitor.isNativePlatform() ||
-    !["ios", "android"].includes(Capacitor.getPlatform()) ||
+    Capacitor.getPlatform() !== "ios" ||
     user.isLocal
   ) {
     return null;
@@ -250,7 +250,6 @@ export async function runApnsPushSpike(user: AppUser, baby: BabyProfile): Promis
   const { error } = await client.functions.invoke("send-test-push", {
     body: {
       babyId: baby.id,
-      platform: Capacitor.getPlatform(),
       token,
       title: "앙팡타임 푸시 테스트",
       body: `${baby.name}의 알림 연결이 준비됐어요.`,

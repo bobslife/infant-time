@@ -59,6 +59,8 @@ create table if not exists events (
   medicine_next_at timestamptz,
   temperature_c numeric(4,1),
   temperature_location text check (temperature_location is null or temperature_location in ('forehead', 'ear', 'armpit')),
+  meal_stage text check (meal_stage is null or meal_stage in ('early', 'middle', 'late')),
+  meal_toppings text[] not null default '{}' check (cardinality(meal_toppings) <= 32),
   meal_name text,
   meal_amount_g integer check (meal_amount_g is null or (meal_amount_g >= 0 and meal_amount_g <= 500)),
   meal_reaction text check (meal_reaction is null or meal_reaction in ('good', 'normal', 'poor', 'allergy')),
@@ -90,6 +92,8 @@ alter table events add column if not exists medicine_next_at timestamptz;
 alter table events add column if not exists temperature_c numeric(4,1);
 alter table events add column if not exists temperature_location text;
 alter table events add column if not exists meal_name text;
+alter table events add column if not exists meal_stage text;
+alter table events add column if not exists meal_toppings text[] not null default '{}';
 alter table events add column if not exists meal_amount_g integer;
 alter table events add column if not exists meal_reaction text;
 alter table events drop constraint if exists events_event_type_check;
@@ -124,7 +128,7 @@ create table if not exists push_tokens (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles(id) on delete cascade,
   baby_id uuid references babies(id) on delete cascade,
-  platform text not null default 'ios' check (platform in ('ios', 'android')),
+  platform text not null default 'ios' check (platform = 'ios'),
   token text not null unique,
   enabled boolean not null default true,
   last_seen_at timestamptz not null default now(),
@@ -133,7 +137,7 @@ create table if not exists push_tokens (
 );
 
 alter table push_tokens drop constraint if exists push_tokens_platform_check;
-alter table push_tokens add constraint push_tokens_platform_check check (platform in ('ios', 'android'));
+alter table push_tokens add constraint push_tokens_platform_check check (platform = 'ios');
 
 create table if not exists feeding_reminder_settings (
   baby_id uuid not null references babies(id) on delete cascade,

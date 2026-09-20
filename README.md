@@ -71,7 +71,6 @@
 서비스 사용성이 검증되면 외부 저장소 기반으로 확장합니다.
 
 - 후보 방향
-  - Firebase
   - Supabase
   - 계정 기반 데이터 동기화
   - 공유 가족 계정 또는 초대 기반 공동 기록
@@ -122,7 +121,7 @@ MVP 1차 구현 스택은 `React + Vite + Supabase + Vercel`로 정합니다.
   - Vercel
 - 앱 확장 전략
   - 우선은 웹사이트로 운영
-  - 향후 동일한 웹 자산을 기반으로 iOS와 Android 앱 래핑 검토
+  - 동일한 웹 자산을 기반으로 iOS 앱 래핑
 - 알림
   - 초기: UI 경고 중심
   - 향후: 앱 전환 또는 서버 기반 알림 시스템 검토
@@ -132,7 +131,7 @@ MVP 1차 구현 스택은 `React + Vite + Supabase + Vercel`로 정합니다.
 - React + Vite는 단일 페이지 MVP를 빠르게 구현하고 유지보수하기에 적합하다.
 - Supabase는 무료 플랜에서 인증, 데이터베이스, 향후 동기화 확장을 함께 다루기 좋다.
 - Vercel은 프론트엔드 배포와 미리보기 배포, 커스텀 도메인 연결이 단순하다.
-- 이 조합은 웹 MVP를 먼저 출시한 뒤, 추후 iOS와 Android 앱 형태로 확장하기에도 유리하다.
+- 이 조합은 웹 MVP를 먼저 출시한 뒤 iOS 앱 형태로 확장하기에도 유리하다.
 
 ## MVP 범위
 
@@ -215,22 +214,8 @@ Vite 설정에서 `NEXT_PUBLIC_*` 환경변수도 읽을 수 있게 열어두었
 주의:
 
 - AdSense는 승인을 받은 도메인에서만 실제 광고가 정상 표시됩니다.
-- iOS/Android 앱으로 패키징할 경우 WebView 안의 AdSense보다 네이티브 AdMob 배너를 별도로 검토해야 합니다.
+- iOS 앱으로 패키징할 경우 WebView 안의 AdSense보다 네이티브 AdMob 배너를 별도로 검토해야 합니다.
 - 광고는 앱의 핵심 기록 UX보다 우선하지 않습니다.
-
-## Android 빌드
-
-Android는 iOS와 동일한 앱 버전 `1.0.8`을 사용합니다.
-
-```bash
-npm run cap:sync
-npm run android:assemble:debug
-npm run android:bundle:release
-```
-
-- Android 홈 위젯은 마지막 수유, 오늘 수유량, 수면 상태, 기저귀 횟수를 표시합니다.
-- Android 푸시는 Firebase 설정과 Supabase secrets 및 migration 적용 후 동작합니다.
-- 서명, Play Console, Data safety, 실기기 검증 절차는 `docs/android-release-handoff.md`를 따릅니다.
 
 ## AdMob app-ads.txt 설정
 

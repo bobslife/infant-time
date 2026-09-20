@@ -1,3 +1,4 @@
+import { SHOW_EMPTY_INTAKE_PREVIEW } from "./features/meals/homeIntakePreview";
 import { lazy, Suspense, useEffect, useRef, useState, type TouchEvent } from "react";
 import { Capacitor } from "@capacitor/core";
 import { AppFeedbackSnackbar, type AppFeedback } from "./components/AppFeedbackSnackbar";
@@ -11,9 +12,10 @@ import { PrivacyPolicy } from "./components/PrivacyPolicy";
 import { ProfileScreen } from "./components/ProfileScreen";
 import { RequiredUpdateScreen } from "./components/RequiredUpdateScreen";
 import { SupportPage } from "./components/SupportPage";
-import { AnalysisCards, SummaryCards } from "./components/SummaryCards";
+import { RhythmAnalysisCards } from "./components/RhythmAnalysisCards";
+import { SummaryCards } from "./components/SummaryCards";
 import { useAppUpdateGate } from "./features/app/useAppUpdateGate";
-import { buildDailySummary, useEvents } from "./features/events/useEvents";
+import { useEvents } from "./features/events/useEvents";
 import {
   checkApnsPermissionState,
   loadFeedingReminderInterval,
@@ -21,16 +23,14 @@ import {
   saveFeedingReminderInterval,
   syncApnsTokenIfPermissionGranted,
 } from "./lib/push/apns";
-import { toLocalDateTimeInputValue } from "./lib/time";
 import { clearWidgetSummary, syncWidgetSummary } from "./lib/widget/widgetBridge";
 import { BabyEvent, CreateEventInput, EventType, FeedingMethod } from "./types";
 
-type AppTab = "home" | "analysis" | "pattern" | "growth" | "profile";
+type AppTab = "home" | "pattern" | "growth" | "profile";
 
 const tabs: Array<{ id: AppTab; icon: string; label: string }> = [
   { id: "home", icon: "/icons/home.svg", label: "홈" },
   { id: "pattern", icon: "/icons/pattern.svg", label: "리듬" },
-  { id: "analysis", icon: "/icons/analysis.svg", label: "분석" },
   { id: "growth", icon: "/icons/grow-up.svg", label: "성장" },
   { id: "profile", icon: "/icons/profile.svg", label: "프로필" },
 ];
@@ -42,9 +42,6 @@ const MAX_PULL_DISTANCE = 112;
 const PULL_FRICTION = 0.45;
 const GrowthScreen = lazy(() =>
   import("./components/GrowthScreen").then((module) => ({ default: module.GrowthScreen })),
-);
-const PatternCards = lazy(() =>
-  import("./components/PatternCards").then((module) => ({ default: module.PatternCards })),
 );
 const rawAdMode = String(import.meta.env.VITE_AD_MODE ?? import.meta.env.NEXT_PUBLIC_AD_MODE ?? "mock")
   .trim()
@@ -151,8 +148,6 @@ export function App() {
   const [inputFeedingMethod, setInputFeedingMethod] = useState<FeedingMethod>("bottle");
   const [inputInitialDate, setInputInitialDate] = useState<string | null>(null);
   const [isInputModalOpen, setIsInputModalOpen] = useState(false);
-  const [analysisDate, setAnalysisDate] = useState(toLocalDateTimeInputValue().slice(0, 10));
-  const [focusEventId, setFocusEventId] = useState<string | null>(null);
   const [feedIntervalMinutes, setFeedIntervalMinutes] = useState(DEFAULT_FEED_INTERVAL_MINUTES);
   const [isFeedIntervalReady, setIsFeedIntervalReady] = useState(false);
   const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
@@ -576,20 +571,6 @@ export function App() {
     setIsInputModalOpen(true);
   }
 
-  function handleViewEventInPattern(event: BabyEvent) {
-    setAnalysisDate(toLocalDateTimeInputValue(new Date(event.occurredAt)).slice(0, 10));
-    setFocusEventId(event.id);
-    setActiveTab("pattern");
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }
-
-  function handleViewEventInAnalysis(event: BabyEvent) {
-    setAnalysisDate(toLocalDateTimeInputValue(new Date(event.occurredAt)).slice(0, 10));
-    setFocusEventId(null);
-    setActiveTab("analysis");
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }
-
   function handleQuickAdd(
     eventType: EventType,
     feedingMethod: FeedingMethod = "bottle",
@@ -604,7 +585,6 @@ export function App() {
 
   function handleTabChange(tab: AppTab) {
     setEditingEvent(null);
-    setFocusEventId(null);
     setActiveTab(tab);
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
@@ -631,8 +611,6 @@ export function App() {
       : editingEvent
         ? "기록 수정"
         : "바로 남기기";
-  const nativePlatformLabel = Capacitor.getPlatform() === "android" ? "Android" : "iOS";
-
   function resetPullState() {
     touchStartRef.current = null;
     pullDistanceRef.current = 0;
@@ -762,6 +740,7 @@ export function App() {
         {activeTab === "home" ? (
           <section className="screen-stack">
             <SummaryCards
+              previewEmptyIntake={SHOW_EMPTY_INTAKE_PREVIEW}
               baby={baby}
               events={events}
               feedIntervalMinutes={feedIntervalMinutes}
@@ -775,35 +754,9 @@ export function App() {
             <AdBanner placement="home-bottom" />
           </section>
         ) : null}
-        {activeTab === "analysis" ? (
-          <section className="screen-stack">
-            <AnalysisCards
-              events={events}
-              selectedDate={analysisDate}
-              summary={buildDailySummary(events, analysisDate)}
-              onDateChange={setAnalysisDate}
-              onEditEvent={handleEditEvent}
-              onQuickAdd={(eventType, feedingMethod) =>
-                handleQuickAdd(eventType, feedingMethod ?? "bottle", analysisDate)
-              }
-              onViewEventInPattern={handleViewEventInPattern}
-            />
-          </section>
-        ) : null}
         {activeTab === "pattern" ? (
           <section className="screen-stack">
-            <Suspense fallback={<p className="empty-copy">리듬을 불러오는 중입니다.</p>}>
-              <PatternCards
-                events={events}
-                focusEventId={focusEventId}
-                selectedDate={analysisDate}
-                summary={buildDailySummary(events, analysisDate)}
-                onDateChange={setAnalysisDate}
-                onEditEvent={handleEditEvent}
-                onQuickAdd={(eventType) => handleQuickAdd(eventType, "bottle", analysisDate)}
-                onViewEventInAnalysis={handleViewEventInAnalysis}
-              />
-            </Suspense>
+            <RhythmAnalysisCards events={events} />
           </section>
         ) : null}
         {activeTab === "growth" ? (
@@ -867,10 +820,10 @@ export function App() {
             ) : (
               <>
                 <p className="push-permission-kicker">알림 꺼짐</p>
-                <h2>{nativePlatformLabel} 설정에서 알림을 켜주세요</h2>
+                <h2>iOS 설정에서 알림을 켜주세요</h2>
                 <p>
                   알림 권한이 꺼져 있어 수유 리마인드를 보낼 수 없어요.
-                  {nativePlatformLabel} 설정의 앙팡타임 알림에서 권한을 허용해 주세요.
+                  iOS 설정의 앙팡타임 알림에서 권한을 허용해 주세요.
                 </p>
                 <div className="push-permission-actions">
                   <button className="primary-button" type="button" onClick={dismissPushPermissionPrompt}>

@@ -243,10 +243,6 @@
 - 아기별 수유 알림 간격은 localStorage와 원격 저장소에서 로드/저장한다.
 - 로그인/아기/이벤트/수유 간격이 준비되면 위젯 요약을 동기화한다.
 - 사용자나 아기가 없으면 위젯 요약을 지운다.
-- Android 홈 위젯은 아기 이름, 마지막 수유, 오늘 수유량, 수면 상태, 기저귀 횟수를 표시한다.
-- Android 위젯을 누르면 메인 앱을 연다.
-- Android는 FCM 토큰 저장과 FCM HTTP v1 발송 경로를 지원한다.
-- Android 푸시 운영에는 Firebase 설정 파일, Supabase Firebase secrets, Android push migration과 Edge Function 재배포가 필요하다.
 - 입력 모달 또는 알림 권한 모달이 열리면 AdMob 네이티브 배너 가시성을 숨기는 이벤트를 발행한다.
 - 광고 모드는 환경 변수에 따라 mock 또는 AdMob 모드로 동작한다.
 

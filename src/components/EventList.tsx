@@ -1,4 +1,6 @@
 import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { MealToppingChips } from "./MealToppingChips";
+import { getMealCombination } from "../features/meals/toppings";
 import { BabyEvent } from "../types";
 import { formatDurationMinutes, formatTime } from "../lib/time";
 
@@ -114,7 +116,7 @@ function eventDetail(event: BabyEvent): string {
   }
 
   if (event.eventType === "meal") {
-    return `${event.mealAmountG ?? 0}g`;
+    return event.mealAmountG == null ? "양 미입력" : `${event.mealAmountG}g`;
   }
 
   if (event.eventType === "memo") {
@@ -174,6 +176,12 @@ function eventIcon(event: BabyEvent): string {
 function eventLabel(event: BabyEvent): string {
   if (event.eventType === "feed") {
     return (event.feedingMethod ?? "bottle") === "breast" ? "모유" : "분유";
+  }
+
+  if (event.eventType === "meal") {
+    const mealName = event.mealName?.trim();
+    const generatedCombination = getMealCombination(event.mealToppings ?? []);
+    return mealName && mealName !== generatedCombination ? `이유식 (${mealName})` : "이유식";
   }
 
   return eventLabels[event.eventType];
@@ -237,8 +245,19 @@ function groupEventsByDate(events: BabyEvent[]) {
         return total + Math.max(0, Math.round((end - start) / 60000));
       }, 0);
 
+    const mealTotalG = groupEvents
+      .filter((event) => event.eventType === "meal")
+      .reduce((total, event) => total + (event.mealAmountG ?? 0), 0);
+    const totalsLabel = [
+      mealTotalG > 0 ? `이유식 ${mealTotalG}g` : null,
+      feedTotalMl > 0 ? `분유 ${feedTotalMl}ml` : null,
+      breastMinutes > 0 ? `모유 ${breastMinutes}분` : null,
+      sleepMinutes > 0 ? `수면 ${formatDurationMinutes(sleepMinutes)}` : null,
+    ].filter(Boolean).join(" · ");
+
     return {
       dateKey,
+      totalsLabel,
       events: groupEvents,
       feedTotalMl,
       breastMinutes,
@@ -335,10 +354,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
           <section className="event-date-group" key={group.dateKey}>
             <div className="event-date-heading">
               <strong>{formatDateHeader(group.dateKey)}</strong>
-              <span>
-                분유 {group.feedTotalMl}ml · 모유 {group.breastMinutes}분 · 수면{" "}
-                {formatDurationMinutes(group.sleepMinutes)}
-              </span>
+              {group.totalsLabel ? <span>{group.totalsLabel}</span> : null}
             </div>
             <div className="event-date-list">
               {group.events.map((event) => (
@@ -351,7 +367,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     삭제
                   </button>
                   <article
-                    className={`event-row ${openedId === event.id ? "delete-open" : ""}`}
+                    className={`event-row ${event.eventType === "meal" ? "event-row-meal" : ""} ${openedId === event.id ? "delete-open" : ""}`}
                     onPointerDown={(pointerEvent) => handlePointerDown(pointerEvent, event)}
                     onPointerUp={(pointerEvent) => handlePointerUp(pointerEvent, event)}
                   >
@@ -361,9 +377,16 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     </div>
                     <div className="event-copy">
                       <strong>{eventLabel(event)}</strong>
-                      <span>{eventDetail(event)}</span>
+                      {event.eventType !== "meal" ? <span>{eventDetail(event)}</span> : null}
+                      {event.eventType === "meal" ? (
+                        <>
+                          <MealToppingChips ids={event.mealToppings ?? []} maxVisible={3} />
+                          {event.note?.trim() ? <small>{event.note}</small> : null}
+                        </>
+                      ) : null}
                       {event.eventType !== "meal" && event.note?.trim() ? <small>{event.note.trim()}</small> : null}
                     </div>
+                    {event.eventType === "meal" ? <strong className="event-meal-amount">{eventDetail(event)}</strong> : null}
                   </article>
                 </div>
               ))}

@@ -18,12 +18,6 @@ const checks = [
       return JSON.parse(readFileSync(this.path, "utf8")).server?.url ?? null;
     },
   },
-  {
-    path: "android/app/src/main/assets/capacitor.config.json",
-    readUrl() {
-      return JSON.parse(readFileSync(this.path, "utf8")).server?.url ?? null;
-    },
-  },
 ];
 
 const failures = checks.flatMap((check) => {

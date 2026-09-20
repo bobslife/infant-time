@@ -1,13 +1,12 @@
 # Infant Time AdMob Native Banner Checklist
 
-`Infant Time`은 Capacitor 기반 iOS/Android 앱이므로, AdMob 배너는 웹용 AdSense와 분리해서 검토한다.
+`Infant Time`은 Capacitor 기반 iOS 앱이므로, AdMob 배너는 웹용 AdSense와 분리해서 검토한다.
 
 ## 1. 준비물
 
 - Google AdMob 계정
 - iOS 앱 등록
-- Android 앱 등록
-- 각 플랫폼별 Ad Unit ID
+- iOS Ad Unit ID
 - App Store Connect 개인정보처리방침 URL
 - 앱 심사용 테스트 계정
 
@@ -21,12 +20,6 @@
 - 필요하면 ATT 동의 흐름 추가
 - Xcode에서 Google Mobile Ads SDK 또는 AdMob 플러그인 연결
 
-### Android
-
-- `com.google.android.gms.ads.APPLICATION_ID`를 `android/app/src/main/AndroidManifest.xml`에 추가
-- `android/app/src/main/res/values/strings.xml`에 AdMob App ID 추가
-- Google Mobile Ads SDK 연결
-
 ## 3. Capacitor 플러그인
 
 - AdMob 플러그인 선택
@@ -39,13 +32,11 @@
 
 - `VITE_AD_MODE=off | mock | sponsor | admob`
 - `VITE_ADMOB_IOS_APP_ID`
-- `VITE_ADMOB_ANDROID_APP_ID`
 - `VITE_ADMOB_IOS_BANNER_HOME_BOTTOM`
 - `VITE_ADMOB_IOS_BANNER_ACTIVITY_BOTTOM`
 - `VITE_ADMOB_IOS_BANNER_ANALYSIS_BOTTOM`
 - `VITE_ADMOB_IOS_BANNER_GROWTH_BOTTOM`
 - `VITE_ADMOB_IOS_BANNER_PROFILE_BOTTOM`
-- Android용 slot도 동일하게 분리
 
 ## 5. 코드 작업
 
@@ -90,9 +81,8 @@
 ## 10. 이번 프로젝트에서 당장 해야 할 일
 
 - AdMob 플러그인 선정
-- iOS / Android App ID 발급
+- iOS App ID 발급
 - 배너 Ad Unit 생성
 - 테스트 광고로 배너 컴포넌트 연결
 - `README.md`와 `.env.example`에 AdMob 항목 추가
 - App Privacy와 개인정보처리방침 업데이트
-

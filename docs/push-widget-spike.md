@@ -70,7 +70,7 @@ curl -X POST \
 
 ## Push
 
-현재 스파이크는 Firebase 없이 APNs를 직접 사용한다.
+현재 스파이크는 APNs를 직접 사용한다.
 
 흐름:
 
@@ -78,17 +78,6 @@ curl -X POST \
 2. Capacitor Push Notifications 플러그인이 APNs device token을 전달한다.
 3. 앱이 `push_tokens` 테이블에 token을 저장한다.
 4. `send-test-push` Supabase Edge Function이 APNs HTTP/2 API로 테스트 알림을 발송한다.
-
-### Android 확장
-
-- Android는 Capacitor Push Notifications가 전달하는 FCM registration token을 사용한다.
-- 토큰은 동일한 `push_tokens` 테이블에 `platform = android`로 저장한다.
-- `send-feeding-reminders`와 `send-test-push`는 FCM HTTP v1 API를 사용한다.
-- 필요한 Supabase secrets:
-  - `FIREBASE_PROJECT_ID`
-  - `FIREBASE_CLIENT_EMAIL`
-  - `FIREBASE_PRIVATE_KEY`
-- Android 운영 전 `supabase/migrations/20260619_android_push.sql` 적용과 Edge Function 재배포가 필요하다.
 
 필요한 Supabase secrets:
 

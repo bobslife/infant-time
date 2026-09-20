@@ -6,7 +6,6 @@
 - `docs/service-improvement-handoff.md`
 - `docs/service-improvement-progress.md`
 - `docs/current-feature-inventory.md`
-- `docs/android-release-handoff.md`
 
 ## 자동 검증
 
@@ -15,31 +14,12 @@
 - TypeScript project build: `tsc -b`
 - Vite production build: `vite build`
 - Git whitespace/error check: `git diff --check`
-- Android manifest/widget XML syntax: `xmllint --noout`
-- GitHub Actions workflow YAML parsing
 - Supabase Edge Function TypeScript syntax transpilation
 - Capacitor remote URL:
   - source config
   - iOS generated config
-  - Android generated config
   - 모두 `https://infant-time.vercel.app`
-- Google Play 등록정보 글자 수:
-  - 앱 이름 18/30자
-  - 짧은 설명 38/80자
-  - 전체 설명 529/4,000자
-- 공개 개인정보처리방침과 iOS/Android 스토어 초안의 AdMob 처리 문구 정합성
-
-### 미완료
-
-- Android `./gradlew assembleDebug`
-  - 임시 JDK 환경 준비까지 완료
-  - Capacitor 생성 설정이 Java 21이므로 CI도 JDK 21로 정렬
-  - Gradle 8.14.3 distribution 다운로드가 현재 실행 환경의 네트워크 제한으로 실패
-  - `.github/workflows/android-build.yml`에서 동일 검증을 수행하도록 추가
-- Android `bundleRelease`
-  - 업로드 키스토어와 Play App Signing 설정 후 수행 필요
-- Supabase migration/Edge Function 원격 배포
-  - Firebase secrets와 운영 프로젝트 권한 필요
+- 공개 개인정보처리방침과 iOS 스토어 초안의 AdMob 처리 문구 정합성
 
 ## 실행한 모바일 브라우저 검증
 
@@ -87,14 +67,9 @@
 - 자정을 넘는 수면 생성·수정·취소
 - 네트워크 실패 중 저장값 보존
 - iOS 실기기 위젯과 APNs
-- Android 실기기 위젯과 FCM
-- Android 13 이상 알림 권한 허용·거절
-- Samsung One UI/Pixel Launcher 위젯 크기 조절
 - 글꼴 배율 130~150%
 - AdMob 테스트 광고와 하단 탭/스낵바 겹침
-- Play 내부 테스트 AAB 설치와 강제 업데이트 이동
-- Play Data safety와 공개 개인정보처리방침의 AdMob/FCM 처리 내용 최종 대조
 
 ## 현재 판정
 
-웹/React 개선은 로컬 검증 기준 배포 후보 상태다. Android는 코드와 CI 기반은 준비됐지만 APK/AAB 컴파일, Firebase 운영 설정, 실기기, Play 내부 테스트가 완료되기 전에는 출시 완료로 판정하지 않는다.
+웹/React 개선은 로컬 검증 기준 배포 후보 상태다.
