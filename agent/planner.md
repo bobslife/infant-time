@@ -9,8 +9,8 @@
 
 ## 권장 모델
 
-- `planner`: `gpt-5.4-mini` / reasoning effort `medium`
-- `planner_strict`: `gpt-5.4` / reasoning effort `high`
+- `planner`: `gpt-5.6-luna` / reasoning effort `medium`
+- `planner_strict`: `gpt-5.6-terra` / reasoning effort `high`
 
 일반 기획, 요구사항 정리, PRD 초안, 개발 인계는 비용 효율을 위해 `planner`를 사용한다. 출시 정책, 개인정보, 데이터 모델, 복수 사용자 플로우처럼 판단 실패 비용이 큰 기획만 `planner_strict`로 올린다.
 

@@ -16,17 +16,17 @@
 
 | 역할/모드 | 모델 | reasoning effort | 사용 기준 |
 | --- | --- | --- | --- |
-| `planner` | `gpt-5.4-mini` | `medium` | 일반 기획, 요구사항 정리, PRD 초안/개발 인계 |
-| `planner_strict` | `gpt-5.4` | `high` | 정책, 출시, 개인정보, 복잡한 제품 판단 |
-| `developer` | `gpt-5.3-codex` | `medium` | 일반 구현, 코드 수정, 로컬 검증 |
-| `developer_deep` | `gpt-5.4` | `high` | 복잡한 설계, 데이터 모델, 인증/탈퇴, 대규모 리팩터링 |
-| `tester` | `gpt-5.4-mini` | `medium` | 일반 테스트 설계, 체크리스트, 회귀 위험 정리 |
-| `tester_strict` | `gpt-5.4` | `high` | 인증, 개인정보, 계정 삭제, 출시 전 고위험 검증 |
-| `operator` | `gpt-5.4-mini` | `low` | 커밋 메시지, 변경 요약, 단순 Git 운영 |
-| `operator_judge` | `gpt-5.4-mini` | `medium` | 충돌 없는 커밋 분리 판단, 릴리스 노트, 배포 체크리스트 |
-| `researcher` | `gpt-5.4-mini` | `low` | 공식 문서, 정책, 기술 선택지의 1차 조사 |
+| `planner` | `gpt-5.6-luna` | `medium` | 일반 기획, 요구사항 정리, PRD 초안/개발 인계 |
+| `planner_strict` | `gpt-5.6-terra` | `high` | 정책, 출시, 개인정보, 복잡한 제품 판단 |
+| `developer` | `gpt-5.6-sol` | `medium` | 일반 구현, 코드 수정, 로컬 검증 |
+| `developer_deep` | `gpt-5.6-sol` | `high` | 복잡한 설계, 데이터 모델, 인증/탈퇴, 대규모 리팩터링 |
+| `tester` | `gpt-5.6-luna` | `medium` | 일반 테스트 설계, 체크리스트, 회귀 위험 정리 |
+| `tester_strict` | `gpt-5.6-terra` | `high` | 인증, 개인정보, 계정 삭제, 출시 전 고위험 검증 |
+| `operator` | `gpt-5.6-luna` | `low` | 커밋 메시지, 변경 요약, 단순 Git 운영 |
+| `operator_judge` | `gpt-5.6-terra` | `medium` | 충돌 없는 커밋 분리 판단, 릴리스 노트, 배포 체크리스트 |
+| `researcher` | `gpt-5.6-luna` | `low` | 공식 문서, 정책, 기술 선택지의 1차 조사 |
 
-간단한 문구 수정, 커밋 메시지 후보 작성, 정형 체크리스트 작성, 1차 리서치는 `gpt-5.4-mini`로 처리한다. 코드 구현은 기본적으로 코딩 특화 `gpt-5.3-codex`를 사용하고, 인증/데이터/배포처럼 실패 비용이 큰 판단만 `gpt-5.4` 이상으로 올린다. `gpt-5.5`는 장시간 복합 설계나 고위험 의사결정이 여러 영역에 걸칠 때만 예외적으로 사용한다.
+간단한 문구 수정, 커밋 메시지 후보 작성, 정형 체크리스트 작성, 1차 리서치는 `gpt-5.6-luna`로 처리한다. 코드 구현은 기본적으로 `gpt-5.6-sol`을 사용하고, 인증/데이터/배포처럼 실패 비용이 큰 판단은 `gpt-5.6-terra` 또는 `gpt-5.6-sol`의 높은 reasoning effort로 올린다.
 
 ## 기본 흐름
 

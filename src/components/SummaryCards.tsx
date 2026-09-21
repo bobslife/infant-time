@@ -269,7 +269,9 @@ export function SummaryCards({
   const orderedQuickActions = sortQuickActionsByUsage(events);
   const hasMeals = events.some((event) => event.eventType === "meal");
   const hasFeeds = events.some((event) => event.eventType === "feed");
-  const intakeTypes = previewEmptyIntake ? ["meal", "feed"] : [hasMeals ? "meal" : null, hasFeeds || !hasMeals ? "feed" : null].filter(Boolean);
+  const intakeTypes = previewEmptyIntake
+    ? ["meal", "feed"]
+    : [summary.todayMealCount > 0 ? "meal" : null, summary.todayFeedCount > 0 ? "feed" : null].filter(Boolean);
   const feedProgress = getFeedProgress(summary.lastFeedAt, feedIntervalMinutes, now);
   const feedStatus = getFeedStatus(summary.lastFeedAt, feedIntervalMinutes, now);
   const warning = !previewEmptyIntake && summary.todayFeedCount > 0 && hasFeeds && feedStatus === "overdue";
@@ -452,7 +454,7 @@ export function SummaryCards({
             </div>
           );
         })}
-        <div className="status-card home-sleep-card">
+        {summary.todaySleepCount > 0 || summary.activeSleepStartedAt ? <div className="status-card home-sleep-card">
           <div className="intake-status-overview">
             <div className="status-card-section">
               <div className="status-card-heading"><span>현재 수면 상태</span></div>
@@ -476,7 +478,7 @@ export function SummaryCards({
               <span>깨우기</span>
             </button>
           ) : null}
-        </div>
+        </div> : null}
         <section className="home-extra-records" aria-label="오늘 추가 기록">
           <button
             aria-expanded={isExpandedSummaryOpen}

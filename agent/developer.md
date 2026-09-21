@@ -11,8 +11,8 @@
 
 ## 권장 모델
 
-- `developer`: `gpt-5.3-codex` / reasoning effort `medium`
-- `developer_deep`: `gpt-5.4` / reasoning effort `high`
+- `developer`: `gpt-5.6-sol` / reasoning effort `medium`
+- `developer_deep`: `gpt-5.6-sol` / reasoning effort `high`
 
 일반 구현, 코드 수정, 로컬 검증은 코딩 특화와 비용 효율을 기준으로 `developer`를 사용한다. 복잡한 설계, 데이터 모델 변경, 인증/탈퇴, 개인정보, 앱 출시 설정, 다중 파일 리팩터링은 `developer_deep`로 올린다. 여러 영역이 얽힌 장시간 설계 검토가 필요할 때만 더 상위 모델 사용을 검토한다.
 

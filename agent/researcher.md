@@ -9,7 +9,7 @@
 
 ## 권장 모델
 
-- `researcher`: `gpt-5.4-mini` / reasoning effort `low`
+- `researcher`: `gpt-5.6-luna` / reasoning effort `low`
 
 1차 조사, 공식 문서 링크 수집, 정책 요약, 기술 선택지 비교는 비용 효율을 위해 `researcher`를 사용한다. 조사 결과가 제품 정책, 개인정보, 출시 심사, 데이터 삭제 같은 고위험 판단으로 이어지면 기획자 또는 테스터의 strict 모드로 넘긴다.
 

@@ -10,8 +10,8 @@
 
 ## 권장 모델
 
-- `operator`: `gpt-5.4-mini` / reasoning effort `low`
-- `operator_judge`: `gpt-5.4-mini` / reasoning effort `medium`
+- `operator`: `gpt-5.6-luna` / reasoning effort `low`
+- `operator_judge`: `gpt-5.6-terra` / reasoning effort `medium`
 
 커밋 분리, 변경 요약, 단순 push 지원은 `operator`를 사용한다. 충돌 없는 커밋 단위 판단, 릴리스 노트, 마이그레이션 적용 안내, 배포 체크리스트는 `operator_judge`로 올린다. 실제 충돌 해결, 데이터 마이그레이션 위험 판단, 배포 장애 분석은 개발자 또는 테스터 strict 역할로 넘긴다.
 

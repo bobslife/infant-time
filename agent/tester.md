@@ -9,8 +9,8 @@
 
 ## 권장 모델
 
-- `tester`: `gpt-5.4-mini` / reasoning effort `medium`
-- `tester_strict`: `gpt-5.4` / reasoning effort `high`
+- `tester`: `gpt-5.6-luna` / reasoning effort `medium`
+- `tester_strict`: `gpt-5.6-terra` / reasoning effort `high`
 
 일반 테스트 설계, 체크리스트, 회귀 위험 정리는 비용 효율을 위해 `tester`를 사용한다. 인증, 개인정보, 회원 탈퇴, 결제/광고, 배포 전 최종 검증, 스토어 심사 리스크처럼 누락 비용이 큰 영역은 `tester_strict`로 올린다.
 
