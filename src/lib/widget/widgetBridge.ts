@@ -40,13 +40,6 @@ interface WidgetBridgePlugin {
 const WidgetBridge = registerPlugin<WidgetBridgePlugin>("WidgetBridge");
 
 let lastPayloadSignature: string | null = null;
-let pendingWidgetOperation: Promise<void> = Promise.resolve();
-
-function enqueueWidgetOperation(operation: () => Promise<void>): Promise<void> {
-  const nextOperation = pendingWidgetOperation.then(operation, operation);
-  pendingWidgetOperation = nextOperation.catch(() => undefined);
-  return nextOperation;
-}
 
 function getEventLabel(event: BabyEvent | null): string {
   if (!event) {
@@ -161,14 +154,12 @@ export async function syncWidgetSummary(
     lastEventTime: payload.lastEventTime,
   });
 
-  await enqueueWidgetOperation(async () => {
-    if (signature === lastPayloadSignature) {
-      return;
-    }
+  if (signature === lastPayloadSignature) {
+    return;
+  }
 
-    await WidgetBridge.saveSummary({ summary: payload });
-    lastPayloadSignature = signature;
-  });
+  await WidgetBridge.saveSummary({ summary: payload });
+  lastPayloadSignature = signature;
 }
 
 export async function clearWidgetSummary() {
@@ -176,8 +167,6 @@ export async function clearWidgetSummary() {
     return;
   }
 
-  await enqueueWidgetOperation(async () => {
-    lastPayloadSignature = null;
-    await WidgetBridge.clearSummary();
-  });
+  lastPayloadSignature = null;
+  await WidgetBridge.clearSummary();
 }

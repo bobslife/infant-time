@@ -298,21 +298,7 @@ export function useEvents() {
   const loadForUserPromiseRef = useRef<Promise<void> | null>(null);
   const loadForUserKeyRef = useRef<string | null>(null);
   const loadedVisibleUserIdRef = useRef<string | null>(null);
-  const activeUserIdRef = useRef<string | null>(null);
-  const authGenerationRef = useRef(0);
-  const babyLoadGenerationRef = useRef(0);
   const lastForegroundRefreshAtRef = useRef(0);
-
-  const selectActiveUser = useCallback((userId: string | null) => {
-    if (activeUserIdRef.current !== userId) {
-      activeUserIdRef.current = userId;
-      authGenerationRef.current += 1;
-      loadedVisibleUserIdRef.current = null;
-      setBabies([]);
-      setBaby(null);
-      setEvents([]);
-    }
-  }, []);
 
   const selectedBabyStorageKey = useCallback(
     (userId: string) => `infant-time-selected-baby-${userId}`,
@@ -401,9 +387,7 @@ export function useEvents() {
   );
 
   const loadEventsForBaby = useCallback(
-    async (nextUser: AppUser, nextBaby: BabyProfile, isCurrent = () => activeUserIdRef.current === nextUser.id) => {
-      const babyLoadGeneration = ++babyLoadGenerationRef.current;
-      const isLatestLoad = () => isCurrent() && babyLoadGenerationRef.current === babyLoadGeneration;
+    async (nextUser: AppUser, nextBaby: BabyProfile) => {
       const nextEvents =
         client && !nextUser.isLocal
           ? await listSupabaseEvents(client, nextBaby.id)
@@ -413,17 +397,11 @@ export function useEvents() {
       try {
         normalizedEvents = await normalizeOvernightSleep(nextUser, nextBaby, nextEvents);
       } catch (error) {
-        if (isLatestLoad()) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "자정 경계의 수면 기록을 자동으로 보정하지 못했습니다.",
-          );
-        }
-      }
-
-      if (!isLatestLoad()) {
-        return;
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "자정 경계의 수면 기록을 자동으로 보정하지 못했습니다.",
+        );
       }
 
       setBaby(nextBaby);
@@ -434,14 +412,7 @@ export function useEvents() {
 
   const loadForUser = useCallback(
     async (nextUser: AppUser, options?: { silent?: boolean }) => {
-      const generation = authGenerationRef.current;
-      const isCurrent = () =>
-        authGenerationRef.current === generation && activeUserIdRef.current === nextUser.id;
-      if (!isCurrent()) {
-        return;
-      }
-
-      const loadKey = `${generation}:${nextUser.id}:${options?.silent ? "silent" : "visible"}`;
+      const loadKey = `${nextUser.id}:${options?.silent ? "silent" : "visible"}`;
       if (loadForUserKeyRef.current === loadKey && loadForUserPromiseRef.current) {
         return loadForUserPromiseRef.current;
       }
@@ -465,24 +436,15 @@ export function useEvents() {
             }
 
             const nextBabies = await listSupabaseBabies(client, nextUser.id);
-            if (!isCurrent()) {
-              return;
-            }
-
             const savedBabyId = window.localStorage.getItem(selectedBabyStorageKey(nextUser.id));
             const nextBaby =
               nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
 
             setBabies(nextBabies);
             if (nextBaby) {
-              if (!options?.silent) {
-                setBaby(nextBaby);
-                setEvents([]);
-              }
-              await loadEventsForBaby(nextUser, nextBaby, isCurrent);
-              if (!isCurrent()) {
-                return;
-              }
+              setBaby(nextBaby);
+              setEvents([]);
+              await loadEventsForBaby(nextUser, nextBaby);
             } else {
               setBaby(null);
               setEvents([]);
@@ -495,22 +457,13 @@ export function useEvents() {
 
           const nextBabies = await listLocalBabies();
           const savedBabyId = await getSelectedLocalBabyId();
-          if (!isCurrent()) {
-            return;
-          }
-
           const nextBaby = nextBabies.find((item) => item.id === savedBabyId) ?? nextBabies[0] ?? null;
 
           setBabies(nextBabies);
           if (nextBaby) {
-            if (!options?.silent) {
-              setBaby(nextBaby);
-              setEvents([]);
-            }
-            await loadEventsForBaby(nextUser, nextBaby, isCurrent);
-            if (!isCurrent()) {
-              return;
-            }
+            setBaby(nextBaby);
+            setEvents([]);
+            await loadEventsForBaby(nextUser, nextBaby);
           } else {
             setBaby(null);
             setEvents([]);
@@ -519,11 +472,9 @@ export function useEvents() {
             loadedVisibleUserIdRef.current = nextUser.id;
           }
         } catch (error) {
-          if (isCurrent()) {
-            setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
-          }
+          setErrorMessage(error instanceof Error ? error.message : "데이터를 불러오지 못했습니다.");
         } finally {
-          if (!options?.silent && isCurrent()) {
+          if (!options?.silent) {
             setIsLoading(false);
           }
         }
@@ -550,11 +501,29 @@ export function useEvents() {
       return;
     }
 
+    let mounted = true;
+
+    client.auth.getSession().then(({ data }) => {
+      if (!mounted) {
+        return;
+      }
+
+      const sessionUser = data.session?.user;
+      if (!sessionUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      const nextUser = mapSupabaseUser(sessionUser);
+      setUser(nextUser);
+      void loadForUser(nextUser);
+    });
+
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user;
 
       if (!sessionUser) {
-        selectActiveUser(null);
+        loadedVisibleUserIdRef.current = null;
         setUser(null);
         setBabies([]);
         setBaby(null);
@@ -564,15 +533,15 @@ export function useEvents() {
       }
 
       const nextUser = mapSupabaseUser(sessionUser);
-      selectActiveUser(nextUser.id);
       setUser(nextUser);
       void loadForUser(nextUser);
     });
 
     return () => {
+      mounted = false;
       listener.subscription.unsubscribe();
     };
-  }, [client, loadForUser, selectActiveUser]);
+  }, [client, loadForUser]);
 
   const [summaryNow, setSummaryNow] = useState(() => new Date());
   useEffect(() => {
@@ -592,7 +561,7 @@ export function useEvents() {
       refresh();
 
       const now = Date.now();
-      if (user && activeUserIdRef.current === user.id && now - lastForegroundRefreshAtRef.current > 1000) {
+      if (user && now - lastForegroundRefreshAtRef.current > 1000) {
         lastForegroundRefreshAtRef.current = now;
         void loadForUser(user, { silent: true });
       }
@@ -645,7 +614,6 @@ export function useEvents() {
       }
 
       const nextUser = mapSupabaseUser(signInData.user);
-      selectActiveUser(nextUser.id);
       setUser(nextUser);
       await loadForUser(nextUser);
       return;
@@ -655,7 +623,6 @@ export function useEvents() {
 
     if (sessionUser) {
       const nextUser = mapSupabaseUser(sessionUser);
-      selectActiveUser(nextUser.id);
       setUser(nextUser);
       await loadForUser(nextUser);
     }
@@ -681,14 +648,12 @@ export function useEvents() {
 
     if (data.user) {
       const nextUser = mapSupabaseUser(data.user);
-      selectActiveUser(nextUser.id);
       setUser(nextUser);
       await loadForUser(nextUser);
     }
   }
 
   async function useLocalPreview() {
-    selectActiveUser(localUser.id);
     setUser(localUser);
     await loadForUser(localUser);
   }
@@ -698,12 +663,10 @@ export function useEvents() {
       await client.auth.signOut();
     }
 
-    selectActiveUser(null);
     setUser(null);
     setBabies([]);
     setBaby(null);
     setEvents([]);
-    setIsLoading(false);
     loadedVisibleUserIdRef.current = null;
   }
 
@@ -719,12 +682,10 @@ export function useEvents() {
         await deleteSupabaseAccount(client);
         await client.auth.signOut().catch(() => undefined);
         window.localStorage.removeItem(selectedBabyStorageKey(user.id));
-        selectActiveUser(null);
         setUser(null);
         loadedVisibleUserIdRef.current = null;
       } else {
         await deleteLocalAccount();
-        selectActiveUser(null);
         setUser(null);
         loadedVisibleUserIdRef.current = null;
       }
@@ -732,7 +693,6 @@ export function useEvents() {
       setBabies([]);
       setBaby(null);
       setEvents([]);
-      setIsLoading(false);
 
     } catch (error) {
       setErrorMessage(

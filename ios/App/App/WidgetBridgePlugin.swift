@@ -16,98 +16,80 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     private let widgetKind = "InfantTimeWidgetHome"
 
     @objc func saveSummary(_ call: CAPPluginCall) {
-        guard let summary = call.getObject("summary"),
-              let babyName = summary["babyName"] as? String,
-              !babyName.isEmpty else {
+        guard let summary = call.getObject("summary") else {
             call.reject("요약 데이터를 받지 못했어요.")
             return
         }
 
-        guard let defaults = sharedDefaults() else {
-            call.reject("위젯 공유 저장소에 접근할 수 없어요. App Groups 서명을 확인해 주세요.")
-            return
-        }
-
-        defaults.set(sanitizedSummary(summary), forKey: summaryKey)
-        defaults.set(babyName, forKey: "babyName")
-        defaults.set(summary["babyBirthDate"] as? String, forKey: "babyBirthDate")
-        defaults.set(summary["babyGender"] as? String ?? "boy", forKey: "babyGender")
-        defaults.set(summary["feedIntervalMinutes"] as? Int ?? 180, forKey: "feedIntervalMinutes")
-        defaults.set(summary["feedingMl"] as? Int ?? 0, forKey: "todayFeedingMl")
-        defaults.set(summary["breastfeedingMinutes"] as? Int ?? 0, forKey: "todayBreastfeedingMinutes")
-        defaults.set(summary["sleepMinutes"] as? Int ?? 0, forKey: "todaySleepMinutes")
-        defaults.set(summary["lastFeedAt"] as? String, forKey: "lastFeedAt")
-        defaults.set(summary["lastFeedAmountMl"] as? Int ?? 0, forKey: "lastFeedAmountMl")
-        defaults.set(summary["lastFeedingMethod"] as? String ?? "bottle", forKey: "lastFeedingMethod")
-        defaults.set(summary["lastBreastLeftMinutes"] as? Int ?? 0, forKey: "lastBreastLeftMinutes")
-        defaults.set(summary["lastBreastRightMinutes"] as? Int ?? 0, forKey: "lastBreastRightMinutes")
-        defaults.set(summary["lastMealAt"] as? String, forKey: "lastMealAt")
-        defaults.set(summary["lastMealName"] as? String, forKey: "lastMealName")
-        defaults.set(summary["mealTotalG"] as? Int ?? 0, forKey: "todayMealTotalG")
-        defaults.set(summary["activeSleepStartedAt"] as? String, forKey: "activeSleepStartedAt")
-        defaults.set(summary["awakeStartedAt"] as? String, forKey: "awakeStartedAt")
-        defaults.set(summary["diaperCount"] as? Int ?? 0, forKey: "todayDiaperCount")
-        defaults.set(summary["mealCount"] as? Int ?? 0, forKey: "todayMealCount")
-        defaults.set(summary["playMinutes"] as? Int ?? 0, forKey: "todayPlayMinutes")
-        defaults.set(summary["medicineCount"] as? Int ?? 0, forKey: "todayMedicineCount")
-        defaults.set(summary["temperatureCount"] as? Int ?? 0, forKey: "todayTemperatureCount")
-        defaults.set(summary["lastEventLabel"] as? String ?? "기록 없음", forKey: "lastEventLabel")
-        defaults.set(summary["lastEventTime"] as? String ?? "-", forKey: "lastEventTime")
-        defaults.set(summary["updatedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()), forKey: "todayWidgetUpdatedAt")
-        defaults.synchronize()
-
-        guard defaults.dictionary(forKey: summaryKey)?["babyName"] as? String == babyName else {
-            call.reject("위젯 공유 저장소에 아기 정보를 기록하지 못했어요.")
-            return
-        }
+        let defaults = UserDefaults(suiteName: suiteName)
+        defaults?.set(sanitizedSummary(summary), forKey: summaryKey)
+        defaults?.set(summary["babyName"] as? String ?? "앙팡타임", forKey: "babyName")
+        defaults?.set(summary["babyBirthDate"] as? String, forKey: "babyBirthDate")
+        defaults?.set(summary["babyGender"] as? String ?? "boy", forKey: "babyGender")
+        defaults?.set(summary["feedIntervalMinutes"] as? Int ?? 180, forKey: "feedIntervalMinutes")
+        defaults?.set(summary["feedingMl"] as? Int ?? 0, forKey: "todayFeedingMl")
+        defaults?.set(summary["breastfeedingMinutes"] as? Int ?? 0, forKey: "todayBreastfeedingMinutes")
+        defaults?.set(summary["sleepMinutes"] as? Int ?? 0, forKey: "todaySleepMinutes")
+        defaults?.set(summary["lastFeedAt"] as? String, forKey: "lastFeedAt")
+        defaults?.set(summary["lastFeedAmountMl"] as? Int ?? 0, forKey: "lastFeedAmountMl")
+        defaults?.set(summary["lastFeedingMethod"] as? String ?? "bottle", forKey: "lastFeedingMethod")
+        defaults?.set(summary["lastBreastLeftMinutes"] as? Int ?? 0, forKey: "lastBreastLeftMinutes")
+        defaults?.set(summary["lastBreastRightMinutes"] as? Int ?? 0, forKey: "lastBreastRightMinutes")
+        defaults?.set(summary["lastMealAt"] as? String, forKey: "lastMealAt")
+        defaults?.set(summary["lastMealName"] as? String, forKey: "lastMealName")
+        defaults?.set(summary["mealTotalG"] as? Int ?? 0, forKey: "todayMealTotalG")
+        defaults?.set(summary["activeSleepStartedAt"] as? String, forKey: "activeSleepStartedAt")
+        defaults?.set(summary["awakeStartedAt"] as? String, forKey: "awakeStartedAt")
+        defaults?.set(summary["diaperCount"] as? Int ?? 0, forKey: "todayDiaperCount")
+        defaults?.set(summary["mealCount"] as? Int ?? 0, forKey: "todayMealCount")
+        defaults?.set(summary["playMinutes"] as? Int ?? 0, forKey: "todayPlayMinutes")
+        defaults?.set(summary["medicineCount"] as? Int ?? 0, forKey: "todayMedicineCount")
+        defaults?.set(summary["temperatureCount"] as? Int ?? 0, forKey: "todayTemperatureCount")
+        defaults?.set(summary["lastEventLabel"] as? String ?? "기록 없음", forKey: "lastEventLabel")
+        defaults?.set(summary["lastEventTime"] as? String ?? "-", forKey: "lastEventTime")
+        defaults?.set(summary["updatedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()), forKey: "todayWidgetUpdatedAt")
+        defaults?.set(Date(), forKey: "widgetLastReloadAt")
+        defaults?.synchronize()
 
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+        WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
     }
 
     @objc func clearSummary(_ call: CAPPluginCall) {
-        guard let defaults = sharedDefaults() else {
-            call.reject("위젯 공유 저장소에 접근할 수 없어요. App Groups 서명을 확인해 주세요.")
-            return
-        }
-        defaults.removeObject(forKey: summaryKey)
-        defaults.removeObject(forKey: "babyName")
-        defaults.removeObject(forKey: "babyBirthDate")
-        defaults.removeObject(forKey: "babyGender")
-        defaults.removeObject(forKey: "feedIntervalMinutes")
-        defaults.removeObject(forKey: "todayFeedingMl")
-        defaults.removeObject(forKey: "todayBreastfeedingMinutes")
-        defaults.removeObject(forKey: "todaySleepMinutes")
-        defaults.removeObject(forKey: "lastFeedAt")
-        defaults.removeObject(forKey: "lastFeedAmountMl")
-        defaults.removeObject(forKey: "lastFeedingMethod")
-        defaults.removeObject(forKey: "lastBreastLeftMinutes")
-        defaults.removeObject(forKey: "lastBreastRightMinutes")
-        defaults.removeObject(forKey: "lastMealAt")
-        defaults.removeObject(forKey: "lastMealName")
-        defaults.removeObject(forKey: "todayMealTotalG")
-        defaults.removeObject(forKey: "activeSleepStartedAt")
-        defaults.removeObject(forKey: "awakeStartedAt")
-        defaults.removeObject(forKey: "todayDiaperCount")
-        defaults.removeObject(forKey: "todayMealCount")
-        defaults.removeObject(forKey: "todayPlayMinutes")
-        defaults.removeObject(forKey: "todayMedicineCount")
-        defaults.removeObject(forKey: "todayTemperatureCount")
-        defaults.removeObject(forKey: "lastEventLabel")
-        defaults.removeObject(forKey: "lastEventTime")
-        defaults.removeObject(forKey: "todayWidgetUpdatedAt")
-        defaults.synchronize()
+        let defaults = UserDefaults(suiteName: suiteName)
+        defaults?.removeObject(forKey: summaryKey)
+        defaults?.removeObject(forKey: "babyName")
+        defaults?.removeObject(forKey: "babyBirthDate")
+        defaults?.removeObject(forKey: "babyGender")
+        defaults?.removeObject(forKey: "feedIntervalMinutes")
+        defaults?.removeObject(forKey: "todayFeedingMl")
+        defaults?.removeObject(forKey: "todayBreastfeedingMinutes")
+        defaults?.removeObject(forKey: "todaySleepMinutes")
+        defaults?.removeObject(forKey: "lastFeedAt")
+        defaults?.removeObject(forKey: "lastFeedAmountMl")
+        defaults?.removeObject(forKey: "lastFeedingMethod")
+        defaults?.removeObject(forKey: "lastBreastLeftMinutes")
+        defaults?.removeObject(forKey: "lastBreastRightMinutes")
+        defaults?.removeObject(forKey: "lastMealAt")
+        defaults?.removeObject(forKey: "lastMealName")
+        defaults?.removeObject(forKey: "todayMealTotalG")
+        defaults?.removeObject(forKey: "activeSleepStartedAt")
+        defaults?.removeObject(forKey: "awakeStartedAt")
+        defaults?.removeObject(forKey: "todayDiaperCount")
+        defaults?.removeObject(forKey: "todayMealCount")
+        defaults?.removeObject(forKey: "todayPlayMinutes")
+        defaults?.removeObject(forKey: "todayMedicineCount")
+        defaults?.removeObject(forKey: "todayTemperatureCount")
+        defaults?.removeObject(forKey: "lastEventLabel")
+        defaults?.removeObject(forKey: "lastEventTime")
+        defaults?.removeObject(forKey: "todayWidgetUpdatedAt")
+        defaults?.set(Date(), forKey: "widgetLastReloadAt")
+        defaults?.synchronize()
 
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+        WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
-    }
-
-    private func sharedDefaults() -> UserDefaults? {
-        guard FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: suiteName) != nil else {
-            return nil
-        }
-
-        return UserDefaults(suiteName: suiteName)
     }
 
     private func sanitizedSummary(_ summary: JSObject) -> [String: Any] {
