@@ -48,11 +48,9 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.set(summary["lastEventLabel"] as? String ?? "기록 없음", forKey: "lastEventLabel")
         defaults?.set(summary["lastEventTime"] as? String ?? "-", forKey: "lastEventTime")
         defaults?.set(summary["updatedAt"] as? String ?? ISO8601DateFormatter().string(from: Date()), forKey: "todayWidgetUpdatedAt")
-        defaults?.set(Date(), forKey: "widgetLastReloadAt")
         defaults?.synchronize()
 
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
-        WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
     }
 
@@ -84,11 +82,9 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         defaults?.removeObject(forKey: "lastEventLabel")
         defaults?.removeObject(forKey: "lastEventTime")
         defaults?.removeObject(forKey: "todayWidgetUpdatedAt")
-        defaults?.set(Date(), forKey: "widgetLastReloadAt")
         defaults?.synchronize()
 
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
-        WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
     }
 

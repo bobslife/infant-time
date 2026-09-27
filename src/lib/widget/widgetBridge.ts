@@ -126,7 +126,6 @@ export async function syncWidgetSummary(
 
   const payload = buildWidgetSummary(summary, events, baby, feedIntervalMinutes);
   const signature = JSON.stringify({
-    babyId: baby.id,
     babyName: payload.babyName,
     babyBirthDate: payload.babyBirthDate,
     babyGender: payload.babyGender,
@@ -158,8 +157,8 @@ export async function syncWidgetSummary(
     return;
   }
 
-  await WidgetBridge.saveSummary({ summary: payload });
   lastPayloadSignature = signature;
+  await WidgetBridge.saveSummary({ summary: payload });
 }
 
 export async function clearWidgetSummary() {

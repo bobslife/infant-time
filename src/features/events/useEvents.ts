@@ -298,7 +298,6 @@ export function useEvents() {
   const loadForUserPromiseRef = useRef<Promise<void> | null>(null);
   const loadForUserKeyRef = useRef<string | null>(null);
   const loadedVisibleUserIdRef = useRef<string | null>(null);
-  const lastForegroundRefreshAtRef = useRef(0);
 
   const selectedBabyStorageKey = useCallback(
     (userId: string) => `infant-time-selected-baby-${userId}`,
@@ -554,27 +553,17 @@ export function useEvents() {
       timer = setTimeout(refresh, Math.min(60000, midnight.getTime() - current.getTime()));
     };
     const onVisible = () => {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-
-      refresh();
-
-      const now = Date.now();
-      if (user && now - lastForegroundRefreshAtRef.current > 1000) {
-        lastForegroundRefreshAtRef.current = now;
-        void loadForUser(user, { silent: true });
-      }
+      if (document.visibilityState === "visible") refresh();
     };
     refresh();
     document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
+    window.addEventListener("focus", refresh);
     return () => {
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("focus", refresh);
     };
-  }, [loadForUser, user]);
+  }, []);
   const summary = useMemo(() => buildSummary(events, summaryNow), [events, summaryNow]);
 
   async function signUp(input: SignUpInput) {
