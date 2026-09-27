@@ -7,7 +7,7 @@ const checks = [
     path: "capacitor.config.ts",
     readUrl() {
       const source = readFileSync(this.path, "utf8");
-      return source.includes(`?? "${expectedUrl}"`) || source.includes(`?? '${expectedUrl}'`)
+      return source.includes(`url: "${expectedUrl}"`) || source.includes(`url: '${expectedUrl}'`)
         ? expectedUrl
         : null;
     },

@@ -368,7 +368,9 @@ export function App() {
     }
 
     if (!user || !baby) {
-      void clearWidgetSummary().catch(() => undefined);
+      void clearWidgetSummary().catch((error) => {
+        console.warn("Failed to clear widget summary", error);
+      });
       return;
     }
 
@@ -376,7 +378,9 @@ export function App() {
       return;
     }
 
-    void syncWidgetSummary(summary, events, baby, feedIntervalMinutes).catch(() => undefined);
+    void syncWidgetSummary(summary, events, baby, feedIntervalMinutes).catch((error) => {
+      console.warn("Failed to sync widget summary", error);
+    });
   }, [baby, events, feedIntervalMinutes, isFeedIntervalReady, isLoading, summary, user]);
 
   function handleFeedIntervalChange(nextMinutes: number) {
