@@ -21,6 +21,8 @@ struct InfantTimeWidgetEntry: TimelineEntry {
     let lastMealName: String?
     let lastMealAmountG: Int?
     let lastDiaperAt: Date?
+    let peeCount: Int
+    let poopCount: Int
     let mealTotalG: Int
     let activeSleepStartedAt: Date?
     let awakeStartedAt: Date?
@@ -46,6 +48,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastMealName: nil,
             lastMealAmountG: 110,
             lastDiaperAt: Calendar.current.date(byAdding: .minute, value: -55, to: Date()),
+            peeCount: 3,
+            poopCount: 1,
             mealTotalG: 0,
             activeSleepStartedAt: nil,
             awakeStartedAt: Calendar.current.date(byAdding: .minute, value: -50, to: Date())
@@ -85,6 +89,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let lastMealName = summary?["lastMealName"] as? String ?? defaults?.string(forKey: "lastMealName")
         let lastMealAmountG = summary?["lastMealAmountG"] as? Int ?? defaults?.integer(forKey: "lastMealAmountG")
         let lastDiaperAtString = summary?["lastDiaperAt"] as? String ?? defaults?.string(forKey: "lastDiaperAt")
+        let peeCount = summary?["peeCount"] as? Int ?? defaults?.integer(forKey: "todayPeeCount") ?? 0
+        let poopCount = summary?["poopCount"] as? Int ?? defaults?.integer(forKey: "todayPoopCount") ?? 0
         let mealTotalG = summary?["mealTotalG"] as? Int ?? defaults?.integer(forKey: "todayMealTotalG") ?? 0
         let activeSleepStartedAtString = summary?["activeSleepStartedAt"] as? String ?? defaults?.string(forKey: "activeSleepStartedAt")
         let awakeStartedAtString = summary?["awakeStartedAt"] as? String ?? defaults?.string(forKey: "awakeStartedAt")
@@ -107,6 +113,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastMealName: lastMealName,
             lastMealAmountG: lastMealAmountG,
             lastDiaperAt: parseDate(lastDiaperAtString),
+            peeCount: peeCount,
+            poopCount: poopCount,
             mealTotalG: mealTotalG,
             activeSleepStartedAt: parseDate(activeSleepStartedAtString),
             awakeStartedAt: parseDate(awakeStartedAtString)
@@ -456,9 +464,9 @@ private struct FeedingWidgetViewModel {
 
     var latestCareSymbol: String {
         guard latestCareAt != nil else {
-            return "clock"
+            return "🍼"
         }
-        return latestCareIsMeal ? "leaf.fill" : "drop.fill"
+        return latestCareIsMeal ? "🥄" : "🍼"
     }
 
     var latestCareElapsedText: String {
@@ -544,6 +552,14 @@ private struct FeedingWidgetViewModel {
     var diaperSummaryText: String {
         guard let lastDiaperAt = entry.lastDiaperAt else {
             return "기록 전"
+        }
+        let elapsed = max(0, Int(entry.date.timeIntervalSince(lastDiaperAt) / 60))
+        return "마지막 교체 · \(Self.formatDuration(elapsed)) 전"
+    }
+
+    var lastDiaperElapsedText: String {
+        guard let lastDiaperAt = entry.lastDiaperAt else {
+            return "교체 기록 없음"
         }
         let elapsed = max(0, Int(entry.date.timeIntervalSince(lastDiaperAt) / 60))
         return "마지막 교체 · \(Self.formatDuration(elapsed)) 전"
@@ -695,8 +711,8 @@ private struct LatestCareSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
-                Image(systemName: model.latestCareSymbol)
-                    .font(.system(size: 10, weight: .bold))
+                Text(model.latestCareSymbol)
+                    .font(.system(size: 12))
                     .foregroundStyle(model.palette.accent)
                 Text(model.latestCareTitle)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
@@ -760,18 +776,24 @@ private struct DiaperSummary: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 11, weight: .bold))
+            Text("🩲")
+                .font(.system(size: 12))
                 .foregroundStyle(model.palette.accent)
             Text("기저귀")
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(WidgetTheme.secondaryText)
-            Text(model.diaperSummaryText)
+            Text("💧 \(model.entry.peeCount)")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(WidgetTheme.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            Text("💩 \(model.entry.poopCount)")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(WidgetTheme.primaryText)
             Spacer(minLength: 0)
+            Text(model.lastDiaperElapsedText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(WidgetTheme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 7)

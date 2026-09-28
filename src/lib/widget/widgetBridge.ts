@@ -25,6 +25,8 @@ type WidgetSummaryPayload = {
   activeSleepStartedAt: string | null;
   awakeStartedAt: string | null;
   diaperCount: number;
+  peeCount: number;
+  poopCount: number;
   mealCount: number;
   playMinutes: number;
   medicineCount: number;
@@ -91,6 +93,14 @@ function getLastDiaperAt(events: BabyEvent[]): string | null {
   return lastDiaper?.occurredAt ?? null;
 }
 
+function isToday(value: string): boolean {
+  const date = new Date(value);
+  const today = new Date();
+  return date.getFullYear() === today.getFullYear()
+    && date.getMonth() === today.getMonth()
+    && date.getDate() === today.getDate();
+}
+
 export function buildWidgetSummary(
   summary: EventSummary,
   events: BabyEvent[],
@@ -98,6 +108,7 @@ export function buildWidgetSummary(
   feedIntervalMinutes: number,
 ) {
   const latestEvent = events[0] ?? null;
+  const legacyDiaperEvents = events.filter((event) => event.eventType === "diaper" && isToday(event.occurredAt));
 
   return {
     babyName: baby.name,
@@ -121,6 +132,8 @@ export function buildWidgetSummary(
     activeSleepStartedAt: summary.activeSleepStartedAt,
     awakeStartedAt: summary.activeSleepStartedAt ? null : getAwakeStartedAt(events),
     diaperCount: summary.todayDiaperCount,
+    peeCount: summary.todayPeeCount + legacyDiaperEvents.filter((event) => event.diaperType === "wet" || event.diaperType === "both").length,
+    poopCount: summary.todayPoopCount + legacyDiaperEvents.filter((event) => event.diaperType === "dirty" || event.diaperType === "both").length,
     mealCount: summary.todayMealCount,
     playMinutes: summary.todayPlayMinutes,
     medicineCount: summary.todayMedicineCount,
@@ -164,6 +177,8 @@ export async function syncWidgetSummary(
     activeSleepStartedAt: payload.activeSleepStartedAt,
     awakeStartedAt: payload.awakeStartedAt,
     diaperCount: payload.diaperCount,
+    peeCount: payload.peeCount,
+    poopCount: payload.poopCount,
     mealCount: payload.mealCount,
     playMinutes: payload.playMinutes,
     medicineCount: payload.medicineCount,
