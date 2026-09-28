@@ -378,15 +378,15 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     <div className="event-copy">
                       <strong>{eventLabel(event)}</strong>
                       {event.eventType !== "meal" ? <span>{eventDetail(event)}</span> : null}
-                      {event.eventType === "meal" ? (
-                        <>
-                          <MealToppingChips ids={event.mealToppings ?? []} maxVisible={3} />
-                          {event.note?.trim() ? <small>{event.note}</small> : null}
-                        </>
-                      ) : null}
                       {event.eventType !== "meal" && event.note?.trim() ? <small>{event.note.trim()}</small> : null}
                     </div>
                     {event.eventType === "meal" ? <strong className="event-meal-amount">{eventDetail(event)}</strong> : null}
+                    {event.eventType === "meal" ? (
+                      <>
+                        <MealToppingChips ids={event.mealToppings ?? []} maxVisible={3} singleLine />
+                        {event.note?.trim() ? <small className="event-meal-note">{event.note.trim()}</small> : null}
+                      </>
+                    ) : null}
                   </article>
                 </div>
               ))}

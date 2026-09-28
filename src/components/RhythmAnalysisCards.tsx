@@ -251,21 +251,21 @@ export function RhythmAnalysisCards({ events }: RhythmAnalysisCardsProps) {
       </section>
 
       <section className="panel rhythm-signal-panel">
-        <span className="rhythm-signal-mark" aria-hidden="true">✦</span>
-        <div>
+        <div className="rhythm-signal-heading">
+          <span className="rhythm-signal-mark" aria-hidden="true">✦</span>
           <p className="eyebrow">리듬 신호</p>
-          <h3>평소와 다른 날만 먼저 알려드려요</h3>
-          {missingLabels.length ? (
-            <strong>{missingLabels.join("·")} 기록이 비어 있어요.</strong>
-          ) : sleepDifference != null && Math.abs(sleepDifference) >= 10 ? (
-            <strong>수면 총량이 최근 평균보다 {Math.abs(sleepDifference)}% {sleepDifference < 0 ? "적어요" : "많아요"}.</strong>
-          ) : (
-            <strong>선택한 날의 총량은 최근 평균 범위 안이에요.</strong>
-          )}
-          <span>{selectedMealInterval != null && averageMealInterval != null
-            ? `이유식 평균 간격은 최근 평균과 ${Math.abs(selectedMealInterval - averageMealInterval)}분 차이예요.`
-            : "기록이 더 쌓이면 평균 간격의 변화도 함께 알려드려요."}</span>
         </div>
+        <h3>평소와 다른 날만 먼저 알려드려요</h3>
+        {missingLabels.length ? (
+          <strong>{missingLabels.join("·")} 기록이 비어 있어요.</strong>
+        ) : sleepDifference != null && Math.abs(sleepDifference) >= 10 ? (
+          <strong>수면 총량이 최근 평균보다 {Math.abs(sleepDifference)}% {sleepDifference < 0 ? "적어요" : "많아요"}.</strong>
+        ) : (
+          <strong>선택한 날의 총량은 최근 평균 범위 안이에요.</strong>
+        )}
+        <span>{selectedMealInterval != null && averageMealInterval != null
+          ? `이유식 평균 간격은 최근 평균과 ${Math.abs(selectedMealInterval - averageMealInterval)}분 차이예요.`
+          : "기록이 더 쌓이면 평균 간격의 변화도 함께 알려드려요."}</span>
       </section>
         </>
       )}

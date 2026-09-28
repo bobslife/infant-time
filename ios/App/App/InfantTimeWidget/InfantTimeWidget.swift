@@ -745,8 +745,8 @@ private struct SleepSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 5) {
-                Image(systemName: "bed.double.fill")
-                    .font(.system(size: 10, weight: .bold))
+                Text("🛏️")
+                    .font(.system(size: 12))
                     .foregroundStyle(model.isSleeping ? WidgetTheme.sleep : model.palette.accent)
                 Text("수면")
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
@@ -776,18 +776,28 @@ private struct DiaperSummary: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Text("🩲")
-                .font(.system(size: 12))
-                .foregroundStyle(model.palette.accent)
-            Text("기저귀")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(WidgetTheme.secondaryText)
-            Text("💧 \(model.entry.peeCount)")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(WidgetTheme.primaryText)
-            Text("💩 \(model.entry.poopCount)")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(WidgetTheme.primaryText)
+            HStack(spacing: 3) {
+                DiaperIcon()
+                    .frame(width: 16, height: 13)
+                Text("오늘 기저귀")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+            }
+            HStack(spacing: 3) {
+                Image(systemName: "drop.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(red: 0.94, green: 0.72, blue: 0.12))
+                Text("\(model.entry.peeCount)")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.primaryText)
+            }
+            HStack(spacing: 3) {
+                Text("💩")
+                    .font(.system(size: 10))
+                Text("\(model.entry.poopCount)")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.primaryText)
+            }
             Spacer(minLength: 0)
             Text(model.lastDiaperElapsedText)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -798,6 +808,36 @@ private struct DiaperSummary: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .background(model.palette.accentSoft.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct DiaperIcon: View {
+    private struct DiaperShape: Shape {
+        func path(in rect: CGRect) -> Path {
+            var path = Path()
+            path.move(to: CGPoint(x: rect.minX + rect.width * 0.08, y: rect.minY + rect.height * 0.12))
+            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.92, y: rect.minY + rect.height * 0.12))
+            path.addLine(to: CGPoint(x: rect.minX + rect.width * 0.82, y: rect.minY + rect.height * 0.52))
+            path.addQuadCurve(
+                to: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.minY + rect.height * 0.52),
+                control: CGPoint(x: rect.midX, y: rect.maxY + rect.height * 0.10)
+            )
+            path.closeSubpath()
+            return path
+        }
+    }
+
+    var body: some View {
+        DiaperShape()
+            .fill(Color.white)
+            .overlay(DiaperShape().stroke(WidgetTheme.secondaryText.opacity(0.7), lineWidth: 0.8))
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(WidgetTheme.secondaryText.opacity(0.55))
+                    .frame(height: 0.8)
+                    .padding(.horizontal, 2)
+                    .padding(.top, 3)
+            }
     }
 }
 
