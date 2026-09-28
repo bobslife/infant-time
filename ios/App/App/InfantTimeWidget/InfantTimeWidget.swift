@@ -19,6 +19,8 @@ struct InfantTimeWidgetEntry: TimelineEntry {
     let lastBreastRightMinutes: Int
     let lastMealAt: Date?
     let lastMealName: String?
+    let lastMealAmountG: Int?
+    let lastDiaperAt: Date?
     let mealTotalG: Int
     let activeSleepStartedAt: Date?
     let awakeStartedAt: Date?
@@ -42,6 +44,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastBreastRightMinutes: 0,
             lastMealAt: nil,
             lastMealName: nil,
+            lastMealAmountG: 110,
+            lastDiaperAt: Calendar.current.date(byAdding: .minute, value: -55, to: Date()),
             mealTotalG: 0,
             activeSleepStartedAt: nil,
             awakeStartedAt: Calendar.current.date(byAdding: .minute, value: -50, to: Date())
@@ -79,6 +83,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
         let lastBreastRightMinutes = summary?["lastBreastRightMinutes"] as? Int ?? defaults?.integer(forKey: "lastBreastRightMinutes") ?? 0
         let lastMealAtString = summary?["lastMealAt"] as? String ?? defaults?.string(forKey: "lastMealAt")
         let lastMealName = summary?["lastMealName"] as? String ?? defaults?.string(forKey: "lastMealName")
+        let lastMealAmountG = summary?["lastMealAmountG"] as? Int ?? defaults?.integer(forKey: "lastMealAmountG")
+        let lastDiaperAtString = summary?["lastDiaperAt"] as? String ?? defaults?.string(forKey: "lastDiaperAt")
         let mealTotalG = summary?["mealTotalG"] as? Int ?? defaults?.integer(forKey: "todayMealTotalG") ?? 0
         let activeSleepStartedAtString = summary?["activeSleepStartedAt"] as? String ?? defaults?.string(forKey: "activeSleepStartedAt")
         let awakeStartedAtString = summary?["awakeStartedAt"] as? String ?? defaults?.string(forKey: "awakeStartedAt")
@@ -99,6 +105,8 @@ struct InfantTimeWidgetProvider: TimelineProvider {
             lastBreastRightMinutes: lastBreastRightMinutes,
             lastMealAt: parseDate(lastMealAtString),
             lastMealName: lastMealName,
+            lastMealAmountG: lastMealAmountG,
+            lastDiaperAt: parseDate(lastDiaperAtString),
             mealTotalG: mealTotalG,
             activeSleepStartedAt: parseDate(activeSleepStartedAtString),
             awakeStartedAt: parseDate(awakeStartedAtString)
@@ -141,24 +149,18 @@ struct InfantTimeWidgetView: View {
     }
 
     private var mediumBody: some View {
-        VStack(alignment: .leading, spacing: WidgetTheme.Spacing.section) {
+        VStack(alignment: .leading, spacing: 6) {
             Header(model: model)
-            HStack(alignment: .top, spacing: 12) {
-                if model.hasFeeds || !model.hasMeals {
-                    MainCountdown(model: model)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                if model.hasMeals {
-                    MealMainStatus(model: model)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+            HStack(alignment: .top, spacing: 8) {
+                LatestCareSummary(model: model)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                SleepSummary(model: model)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            if model.hasFeeds {
-                ProgressBar(model: model)
-            }
-            MetricGrid(model: model)
+            DiaperSummary(model: model)
         }
-        .padding(WidgetTheme.Spacing.mediumPadding)
+        .padding(.horizontal, WidgetTheme.Spacing.mediumPadding)
+        .padding(.vertical, 10)
     }
 }
 
@@ -230,19 +232,6 @@ private enum FeedUrgency {
     case overdue
     case empty
 
-    var label: String {
-        switch self {
-        case .calm:
-            return "수유 여유"
-        case .soon:
-            return "곧 수유"
-        case .overdue:
-            return "수유 필요"
-        case .empty:
-            return "기록 필요"
-        }
-    }
-
     var color: Color {
         switch self {
         case .calm:
@@ -263,7 +252,6 @@ private struct FeedingWidgetViewModel {
     let birthDate: Date?
     let elapsedFeedMinutes: Int?
     let remainingFeedMinutes: Int?
-    let feedProgress: Double
     let urgency: FeedUrgency
     let sleepAnchorDate: Date?
     let sleepDurationMinutes: Int?
@@ -281,7 +269,6 @@ private struct FeedingWidgetViewModel {
             let remaining = entry.feedIntervalMinutes - elapsed
             self.elapsedFeedMinutes = elapsed
             self.remainingFeedMinutes = remaining
-            self.feedProgress = min(1, max(0, Double(elapsed) / Double(max(entry.feedIntervalMinutes, 1))))
 
             if remaining <= 0 {
                 self.urgency = .overdue
@@ -293,7 +280,6 @@ private struct FeedingWidgetViewModel {
         } else {
             self.elapsedFeedMinutes = nil
             self.remainingFeedMinutes = nil
-            self.feedProgress = 0
             self.urgency = .empty
         }
 
@@ -399,12 +385,17 @@ private struct FeedingWidgetViewModel {
         return "\(Self.formatDuration(remainingFeedMinutes)) 남았어요"
     }
 
-    var isFeedOverdue: Bool {
+    var nextFeedCountdownText: String {
         guard let nextFeedDueAt else {
-            return false
+            return countdownText
         }
 
-        return nextFeedDueAt <= entry.date
+        let difference = nextFeedDueAt.timeIntervalSince(entry.date)
+        let totalMinutes = Int(abs(difference) / 60)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        let direction = difference > 0 ? "후" : "전"
+        return "\(hours)시간 \(String(format: "%02d", minutes))분 \(direction)"
     }
 
     var elapsedFeedText: String {
@@ -424,7 +415,7 @@ private struct FeedingWidgetViewModel {
     }
 
     var todayFeedingValueText: String {
-        "\(entry.feedingMl)ml · \(entry.breastfeedingMinutes)분"
+        "\(entry.feedingMl)ml / \(entry.breastfeedingMinutes)분"
     }
 
     var lastFeedMetricTitle: String {
@@ -439,6 +430,69 @@ private struct FeedingWidgetViewModel {
         entry.lastMealAt != nil
     }
 
+    var latestCareIsMeal: Bool {
+        guard let lastMealAt = entry.lastMealAt else {
+            return false
+        }
+        guard let lastFeedAt = entry.lastFeedAt else {
+            return true
+        }
+        return lastMealAt > lastFeedAt
+    }
+
+    var latestCareAt: Date? {
+        if latestCareIsMeal {
+            return entry.lastMealAt
+        }
+        return entry.lastFeedAt
+    }
+
+    var latestCareTitle: String {
+        guard latestCareAt != nil else {
+            return "수유 / 이유식"
+        }
+        return latestCareIsMeal ? "마지막 이유식" : "마지막 수유"
+    }
+
+    var latestCareSymbol: String {
+        guard latestCareAt != nil else {
+            return "clock"
+        }
+        return latestCareIsMeal ? "leaf.fill" : "drop.fill"
+    }
+
+    var latestCareElapsedText: String {
+        guard let latestCareAt else {
+            return "기록 전"
+        }
+        let elapsed = max(0, Int(entry.date.timeIntervalSince(latestCareAt) / 60))
+        return "\(Self.formatDuration(elapsed)) 전"
+    }
+
+    var latestCareDetailText: String {
+        guard latestCareAt != nil else {
+            return "기록이 없어요"
+        }
+
+        if latestCareIsMeal {
+            let name = entry.lastMealName?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let mealName = (name?.isEmpty == false ? name : nil) ?? "이유식"
+            if let amount = entry.lastMealAmountG, amount > 0 {
+                return "\(mealName) · \(amount)g"
+            }
+            return mealName
+        }
+
+        if entry.lastFeedingMethod == "breast" {
+            let minutes = entry.lastBreastLeftMinutes + entry.lastBreastRightMinutes
+            return minutes > 0 ? "모유 수유 · \(minutes)분" : "모유 수유"
+        }
+        if let amount = entry.lastFeedAmountMl, amount > 0 {
+            return "분유 · \(amount)ml"
+        }
+        return "수유 기록"
+    }
+
     var lastMealElapsedText: String {
         guard let lastMealAt = entry.lastMealAt else {
             return "이유식 기록 없음"
@@ -446,11 +500,6 @@ private struct FeedingWidgetViewModel {
 
         let elapsed = max(0, Int(entry.date.timeIntervalSince(lastMealAt) / 60))
         return "\(Self.formatDuration(elapsed)) 전"
-    }
-
-    var lastMealDetailText: String {
-        let mealName = entry.lastMealName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "종류 - \((mealName?.isEmpty == false ? mealName : nil) ?? "미입력")"
     }
 
     var lastMealTimeText: String {
@@ -485,12 +534,23 @@ private struct FeedingWidgetViewModel {
         return Self.formatDuration(sleepDurationMinutes)
     }
 
-    var feedIntervalText: String {
-        Self.formatDuration(entry.feedIntervalMinutes)
+    var sleepDurationText: String {
+        guard let sleepDurationMinutes else {
+            return "시간 정보 없음"
+        }
+        return Self.formatDuration(sleepDurationMinutes)
     }
 
-    var widgetUpdateText: String {
-        "\(feedIntervalText) 간격"
+    var diaperSummaryText: String {
+        guard let lastDiaperAt = entry.lastDiaperAt else {
+            return "기록 전"
+        }
+        let elapsed = max(0, Int(entry.date.timeIntervalSince(lastDiaperAt) / 60))
+        return "마지막 교체 · \(Self.formatDuration(elapsed)) 전"
+    }
+
+    var feedIntervalText: String {
+        Self.formatDuration(entry.feedIntervalMinutes)
     }
 
     var nextFeedDueAt: Date? {
@@ -571,28 +631,20 @@ private struct Header: View {
     let model: FeedingWidgetViewModel
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            HStack(spacing: 7) {
-                ProfileImage(model: model, size: 28)
+        HStack(spacing: 7) {
+            ProfileImage(model: model, size: 28)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(model.babyName)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(WidgetTheme.primaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.babyName)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
 
-                    Text(model.ageDaysText)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(WidgetTheme.secondaryText)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 6)
-
-            if model.hasFeeds {
-                StatusBadge(urgency: model.urgency, color: model.urgencyColor)
+                Text(model.ageDaysText)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+                    .lineLimit(1)
             }
         }
     }
@@ -637,216 +689,93 @@ private struct ProfileImage: View {
     }
 }
 
-private struct StatusBadge: View {
-    let urgency: FeedUrgency
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(color)
-                .frame(width: 6, height: 6)
-            Text(urgency.label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 5)
-        .background(color.opacity(0.13), in: Capsule())
-    }
-}
-
-private struct MealMainStatus: View {
+private struct LatestCareSummary: View {
     let model: FeedingWidgetViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("마지막 이유식")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(WidgetTheme.secondaryText)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: model.latestCareSymbol)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(model.palette.accent)
+                Text(model.latestCareTitle)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(WidgetTheme.secondaryText)
+            }
 
-            Text(model.lastMealElapsedText)
-                .font(.system(size: 31, weight: .bold, design: .rounded))
+            Text(model.latestCareElapsedText)
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(model.palette.accent)
                 .lineLimit(1)
-                .minimumScaleFactor(0.62)
+                .minimumScaleFactor(0.7)
 
-            Text(model.lastMealDetailText)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+            Text(model.latestCareDetailText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(WidgetTheme.secondaryText)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.7)
         }
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(model.palette.accentSoft.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
-private struct MainCountdown: View {
+private struct SleepSummary: View {
     let model: FeedingWidgetViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .top, spacing: 8) {
-                Text("다음 수유까지")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: "bed.double.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(model.isSleeping ? WidgetTheme.sleep : model.palette.accent)
+                Text("수면")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .foregroundStyle(WidgetTheme.secondaryText)
-
-                Spacer(minLength: 6)
-
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(model.widgetUpdateText)
-                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                        .foregroundStyle(WidgetTheme.secondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
-            if let nextFeedDueAt = model.nextFeedDueAt {
-                (Text(nextFeedDueAt, style: .relative) + Text(model.isFeedOverdue ? " 지남" : ""))
-                .font(.system(size: 31, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(model.urgencyColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.62)
-
-                if let lastFeedAt = model.entry.lastFeedAt {
-                    HStack(spacing: 4) {
-                        Text("마지막 수유")
-                        Text(lastFeedAt, style: .relative) + Text(" 전")
-                    }
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(WidgetTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                } else {
-                    Text("수유 기록 없음")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(WidgetTheme.secondaryText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            } else {
-                Text(model.countdownText)
-                    .font(.system(size: 31, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(model.urgencyColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.62)
-
-                Text(model.elapsedFeedText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(WidgetTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-        }
-    }
-}
-
-private struct ProgressBar: View {
-    let model: FeedingWidgetViewModel
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(WidgetTheme.separator.opacity(0.75))
-
-                Capsule()
-                    .fill(model.urgencyColor)
-                    .frame(width: max(6, proxy.size.width * model.feedProgress))
-            }
-        }
-        .frame(height: 6)
-        .clipShape(Capsule())
-        .accessibilityLabel("수유 텀 진행률 \(Int(model.feedProgress * 100))퍼센트")
-    }
-}
-
-private struct MetricGrid: View {
-    let model: FeedingWidgetViewModel
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if model.hasFeeds || !model.hasMeals {
-                MetricCell(title: "오늘 분유 · 모유", value: model.todayFeedingValueText, alignment: .center)
-            }
-            if model.hasMeals {
-                MetricCell(title: "오늘 이유식", value: "\(model.entry.mealTotalG)g", alignment: .center)
-            }
-            SleepMetricCell(model: model)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
-    }
-}
-
-private struct SleepMetricCell: View {
-    let model: FeedingWidgetViewModel
-
-    private var accent: Color {
-        model.isSleeping ? WidgetTheme.sleep : model.palette.accent
-    }
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 2) {
-            Text(model.isSleeping ? "수면 - 수면 중" : "수면 - 깨어있음")
-                .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                .foregroundStyle(WidgetTheme.secondaryText)
+            Text(model.sleepStateText)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(model.isSleeping ? WidgetTheme.sleep : model.palette.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, alignment: .center)
 
-            Group {
-                if let sleepAnchorDate = model.sleepAnchorDate {
-                    Text(sleepAnchorDate, style: .relative)
-                } else {
-                    Text(model.sleepMetricValue)
-                }
-            }
-            .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(accent)
-            .lineLimit(1)
-            .minimumScaleFactor(0.58)
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, alignment: .center)
+            Text(model.sleepDurationText)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(WidgetTheme.secondaryText)
+                .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(model.palette.accentSoft.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
-private struct MetricCell: View {
-    let title: String
-    let value: String
-    var accent: Color = WidgetTheme.primaryText
-    var alignment: Alignment = .leading
+private struct DiaperSummary: View {
+    let model: FeedingWidgetViewModel
 
     var body: some View {
-        VStack(alignment: horizontalAlignment, spacing: 2) {
-            Text(title)
-                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+        HStack(spacing: 7) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(model.palette.accent)
+            Text("기저귀")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(WidgetTheme.secondaryText)
+            Text(model.diaperSummaryText)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(WidgetTheme.primaryText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-                .frame(maxWidth: .infinity, alignment: alignment)
-
-            Text(value)
-                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(accent)
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
-                .frame(maxWidth: .infinity, alignment: alignment)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: alignment)
-    }
-
-    private var horizontalAlignment: HorizontalAlignment {
-        alignment == .center ? .center : .leading
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background(model.palette.accentSoft.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 

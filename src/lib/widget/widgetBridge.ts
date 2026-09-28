@@ -19,6 +19,8 @@ type WidgetSummaryPayload = {
   lastBreastRightMinutes: number | null;
   lastMealAt: string | null;
   lastMealName: string | null;
+  lastMealAmountG: number | null;
+  lastDiaperAt: string | null;
   mealTotalG: number;
   activeSleepStartedAt: string | null;
   awakeStartedAt: string | null;
@@ -76,6 +78,19 @@ function getLastMealName(events: BabyEvent[], lastMealAt: string | null): string
   return mealName || null;
 }
 
+function getLastDiaperAt(events: BabyEvent[]): string | null {
+  const lastDiaper = events
+    .filter((event) => ["diaper", "pee", "poop"].includes(event.eventType))
+    .reduce<BabyEvent | null>((latest, event) => {
+      if (!latest || Date.parse(event.occurredAt) > Date.parse(latest.occurredAt)) {
+        return event;
+      }
+      return latest;
+    }, null);
+
+  return lastDiaper?.occurredAt ?? null;
+}
+
 export function buildWidgetSummary(
   summary: EventSummary,
   events: BabyEvent[],
@@ -100,6 +115,8 @@ export function buildWidgetSummary(
     lastBreastRightMinutes: summary.lastBreastRightMinutes,
     lastMealAt: summary.lastMealAt,
     lastMealName: getLastMealName(events, summary.lastMealAt),
+    lastMealAmountG: summary.lastMealAmountG,
+    lastDiaperAt: getLastDiaperAt(events),
     mealTotalG: summary.todayMealTotalG,
     activeSleepStartedAt: summary.activeSleepStartedAt,
     awakeStartedAt: summary.activeSleepStartedAt ? null : getAwakeStartedAt(events),
@@ -141,6 +158,8 @@ export async function syncWidgetSummary(
     lastBreastRightMinutes: payload.lastBreastRightMinutes,
     lastMealAt: payload.lastMealAt,
     lastMealName: payload.lastMealName,
+    lastMealAmountG: payload.lastMealAmountG,
+    lastDiaperAt: payload.lastDiaperAt,
     mealTotalG: payload.mealTotalG,
     activeSleepStartedAt: payload.activeSleepStartedAt,
     awakeStartedAt: payload.awakeStartedAt,
