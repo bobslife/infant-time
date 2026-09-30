@@ -4559,6 +4559,7 @@ button {
 .event-row-meal .meal-topping-chips-single-line .meal-topping-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .event-row-meal .meal-topping-chips-single-line .meal-topping-more { flex: 0 0 auto; }
 .event-row-meal .meal-topping-chips-single-line img { width: 18px; height: 18px; }
+.event-row-meal .meal-topping-chips .meal-topping-chip { padding: 0; border: 0; background: transparent; }
 .meal-topping-measure { position: absolute; top: 0; left: -10000px; display: flex; gap: 5px; width: max-content; visibility: hidden; pointer-events: none; }
 .event-row-meal .event-meal-note { grid-column: 3 / -1; grid-row: 3; justify-self: start; max-width: 100%; color: var(--color-text-muted); font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .intake-preview-notice { margin: 12px 0 0; padding: 9px 12px; background: #fff9e9; border-radius: 10px; color: #805f28; font-size: 0.75rem; }
