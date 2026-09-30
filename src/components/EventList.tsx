@@ -383,7 +383,7 @@ export function EventList({ events, onDelete, onEdit }: EventListProps) {
                     {event.eventType === "meal" ? <strong className="event-meal-amount">{eventDetail(event)}</strong> : null}
                     {event.eventType === "meal" ? (
                       <>
-                        <MealToppingChips ids={event.mealToppings ?? []} maxVisible={3} minVisible={3} singleLine />
+                        <MealToppingChips ids={event.mealToppings ?? []} maxVisible={4} singleLine />
                         {event.note?.trim() ? <small className="event-meal-note">{event.note.trim()}</small> : null}
                       </>
                     ) : null}

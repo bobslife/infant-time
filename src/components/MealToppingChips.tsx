@@ -4,12 +4,11 @@ import { getTopping, getToppingLabel } from "../features/meals/toppings";
 interface MealToppingChipsProps {
   ids: readonly string[];
   maxVisible?: number;
-  minVisible?: number;
   onRemove?: (id: string) => void;
   singleLine?: boolean;
 }
 
-export function MealToppingChips({ ids, maxVisible, minVisible = 0, onRemove, singleLine = false }: MealToppingChipsProps) {
+export function MealToppingChips({ ids, maxVisible, onRemove, singleLine = false }: MealToppingChipsProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chipMeasureRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const moreMeasureRefs = useRef<Array<HTMLSpanElement | null>>([]);
@@ -20,32 +19,31 @@ export function MealToppingChips({ ids, maxVisible, minVisible = 0, onRemove, si
 
     const container = containerRef.current;
     const fitItems = () => {
-      const width = container.clientWidth;
+      const width = container.getBoundingClientRect().width;
       if (!width) return;
 
       const maxCount = maxVisible ? Math.min(maxVisible, ids.length) : ids.length;
-      const minCount = Math.min(minVisible, maxCount);
-      const gap = 6;
-      for (let count = maxCount; count >= minCount; count -= 1) {
+      const gap = parseFloat(getComputedStyle(container).columnGap) || 0;
+      for (let count = maxCount; count >= 0; count -= 1) {
         const hiddenCount = ids.length - count;
         const chipWidth = chipMeasureRefs.current
           .slice(0, count)
-          .reduce((total, item) => total + (item?.offsetWidth ?? 0), 0);
-        const moreWidth = hiddenCount > 0 ? moreMeasureRefs.current[hiddenCount]?.offsetWidth ?? 0 : 0;
+          .reduce((total, item) => total + (item?.getBoundingClientRect().width ?? 0), 0);
+        const moreWidth = hiddenCount > 0 ? moreMeasureRefs.current[hiddenCount]?.getBoundingClientRect().width ?? 0 : 0;
         const gapCount = Math.max(0, count - 1) + (hiddenCount > 0 && count > 0 ? 1 : 0);
-        if (chipWidth + moreWidth + gap * gapCount <= width) {
+        if (chipWidth + moreWidth + gap * gapCount <= width - 1) {
           setVisibleCount(count);
           return;
         }
       }
-      setVisibleCount(minCount);
+      setVisibleCount(0);
     };
 
     fitItems();
     const observer = new ResizeObserver(fitItems);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [ids, maxVisible, minVisible, singleLine]);
+  }, [ids, maxVisible, singleLine]);
 
   if (!ids.length) return null;
   const visibleIds = singleLine
